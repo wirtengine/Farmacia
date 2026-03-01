@@ -1,10 +1,15 @@
 import axios from 'axios';
 import authService from './authService';
 
-axios.interceptors.request.use(
+// Crear una instancia con la URL base del backend
+const instance = axios.create({
+    baseURL: 'http://localhost:8080' // <-- AGREGADO
+});
+
+instance.interceptors.request.use(
     config => {
         const token = authService.getToken();
-        console.log('Interceptor ejecutado, token:', token); // <-- agregar
+        console.log('Interceptor ejecutado, token:', token);
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
         }
@@ -15,4 +20,4 @@ axios.interceptors.request.use(
     }
 );
 
-export default axios;
+export default instance; // Exportamos la instancia, no el axios global

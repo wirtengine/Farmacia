@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../../services/axiosConfig';
 import { useNavigate, useParams } from 'react-router-dom';
 
 const UsuarioForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+
     const [formData, setFormData] = useState({
         username: '',
         password: '',
@@ -12,30 +13,29 @@ const UsuarioForm = () => {
         apellido: '',
         rol: 'VENDEDOR'
     });
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    // Si hay id, cargar datos del usuario
     useEffect(() => {
-        if (id) {
-            fetchUsuario();
-        }
+        if (id) fetchUsuario();
     }, [id]);
 
     const fetchUsuario = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`http://localhost:8080/api/usuarios/${id}`);
+            const response = await axios.get(`/api/usuarios/${id}`);
             const usuario = response.data;
+
             setFormData({
                 username: usuario.username,
-                password: '', // no mostramos la contraseña
+                password: '',
                 nombre: usuario.nombre,
                 apellido: usuario.apellido,
                 rol: usuario.rol
             });
-        } catch (err) {
+        } catch {
             setError('Error al cargar usuario');
         } finally {
             setLoading(false);
@@ -54,14 +54,12 @@ const UsuarioForm = () => {
 
         try {
             if (id) {
-                // Actualizar
-                await axios.put(`http://localhost:8080/api/usuarios/${id}`, formData);
+                await axios.put(`/api/usuarios/${id}`, formData);
                 setSuccess('Usuario actualizado correctamente');
             } else {
-                // Crear nuevo
-                await axios.post('http://localhost:8080/api/usuarios', formData);
+                await axios.post('/api/usuarios', formData);
                 setSuccess('Usuario creado correctamente');
-                // Limpiar formulario
+
                 setFormData({
                     username: '',
                     password: '',
@@ -81,8 +79,10 @@ const UsuarioForm = () => {
         <div className="container">
             <div className="card" style={{ maxWidth: '600px', margin: '0 auto' }}>
                 <h2>{id ? 'Editar Usuario' : 'Nuevo Usuario'}</h2>
+
                 {error && <div style={{ color: 'red', marginBottom: '15px' }}>{error}</div>}
                 {success && <div style={{ color: 'green', marginBottom: '15px' }}>{success}</div>}
+
                 <form onSubmit={handleSubmit}>
                     <div style={{ marginBottom: '15px' }}>
                         <label>Username *</label>
@@ -92,14 +92,14 @@ const UsuarioForm = () => {
                             value={formData.username}
                             onChange={handleChange}
                             required
-                            disabled={!!id} // no permitir cambiar username en edición
+                            disabled={!!id}
                             className="input-search"
-                            style={{ marginBottom: 0 }}
                         />
                         {id && <small style={{ color: '#666' }}>El username no se puede cambiar</small>}
                     </div>
+
                     <div style={{ marginBottom: '15px' }}>
-                        <label>{id ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña *'}</label>
+                        <label>{id ? 'Nueva contraseña (opcional)' : 'Contraseña *'}</label>
                         <input
                             type="password"
                             name="password"
@@ -109,6 +109,7 @@ const UsuarioForm = () => {
                             className="input-search"
                         />
                     </div>
+
                     <div style={{ marginBottom: '15px' }}>
                         <label>Nombre *</label>
                         <input
@@ -120,6 +121,7 @@ const UsuarioForm = () => {
                             className="input-search"
                         />
                     </div>
+
                     <div style={{ marginBottom: '15px' }}>
                         <label>Apellido *</label>
                         <input
@@ -131,6 +133,7 @@ const UsuarioForm = () => {
                             className="input-search"
                         />
                     </div>
+
                     <div style={{ marginBottom: '15px' }}>
                         <label>Rol *</label>
                         <select
@@ -144,10 +147,12 @@ const UsuarioForm = () => {
                             <option value="ADMIN">Administrador</option>
                         </select>
                     </div>
+
                     <div className="flex" style={{ justifyContent: 'flex-end', gap: '10px' }}>
                         <button type="button" className="btn" onClick={() => navigate('/admin/usuarios')}>
                             Cancelar
                         </button>
+
                         <button type="submit" className="btn btn-primary">
                             {id ? 'Actualizar' : 'Crear Usuario'}
                         </button>

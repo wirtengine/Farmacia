@@ -1,8 +1,7 @@
 import React, { useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
-import { FiLogOut, FiPackage, FiUsers, FiShoppingCart, FiBarChart2, FiTruck } from 'react-icons/fi';
-
+import { FiLogOut, FiPackage, FiUsers, FiShoppingCart, FiBarChart2, FiTruck, FiUser, FiBox, FiRefreshCcw } from 'react-icons/fi';
 
 const AdminLayout = () => {
     const { user, logout } = useContext(AuthContext);
@@ -31,8 +30,12 @@ const AdminLayout = () => {
                             </Link>
                         </li>
                         <li style={{ marginBottom: '10px' }}>
+                            <Link to="/admin/lotes" style={{ color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '4px' }}>
+                                <FiBox /> Lotes
+                            </Link>
+                        </li>
+                        <li style={{ marginBottom: '10px' }}>
                             <Link to="/admin/proveedores" style={{ color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '4px' }}>
-                                {/* eslint-disable-next-line react/jsx-no-undef */}
                                 <FiTruck /> Proveedores
                             </Link>
                         </li>
@@ -42,8 +45,18 @@ const AdminLayout = () => {
                             </Link>
                         </li>
                         <li style={{ marginBottom: '10px' }}>
+                            <Link to="/admin/clientes" style={{ color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '4px' }}>
+                                <FiUser /> Clientes
+                            </Link>
+                        </li>
+                        <li style={{ marginBottom: '10px' }}>
                             <Link to="/admin/ventas" style={{ color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '4px' }}>
                                 <FiShoppingCart /> Ventas
+                            </Link>
+                        </li>
+                        <li style={{ marginBottom: '10px' }}>
+                            <Link to="/admin/devoluciones" style={{ color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '4px' }}>
+                                <FiRefreshCcw /> Devoluciones
                             </Link>
                         </li>
                     </ul>
@@ -53,7 +66,6 @@ const AdminLayout = () => {
                         <FiLogOut /> Cerrar sesión
                     </button>
                 </div>
-
             </div>
 
             {/* Contenido principal */}

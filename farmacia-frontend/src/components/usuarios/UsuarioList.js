@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../../services/axiosConfig';
 import { useNavigate } from 'react-router-dom';
 import { FiEdit, FiTrash2, FiPlus } from 'react-icons/fi';
 
@@ -16,11 +16,10 @@ const UsuarioList = () => {
     const fetchUsuarios = async () => {
         try {
             setLoading(true);
-            const response = await axios.get('http://localhost:8080/api/usuarios');
+            const response = await axios.get('/api/usuarios');
             setUsuarios(response.data);
-        } catch (err) {
+        } catch {
             setError('Error al cargar usuarios');
-            console.error(err);
         } finally {
             setLoading(false);
         }
@@ -28,10 +27,11 @@ const UsuarioList = () => {
 
     const handleDelete = async (id) => {
         if (!window.confirm('¿Estás seguro de desactivar este usuario?')) return;
+
         try {
-            await axios.delete(`http://localhost:8080/api/usuarios/${id}`);
-            fetchUsuarios(); // recargar lista
-        } catch (err) {
+            await axios.delete(`/api/usuarios/${id}`);
+            fetchUsuarios();
+        } catch {
             alert('Error al desactivar usuario');
         }
     };
@@ -44,6 +44,7 @@ const UsuarioList = () => {
             <div className="card">
                 <div className="flex-between">
                     <h2>Gestión de Usuarios</h2>
+
                     <button
                         className="btn btn-primary flex"
                         onClick={() => navigate('/admin/usuarios/nuevo')}
@@ -65,6 +66,7 @@ const UsuarioList = () => {
                             <th>Acciones</th>
                         </tr>
                         </thead>
+
                         <tbody>
                         {usuarios.map(usuario => (
                             <tr key={usuario.id}>
@@ -72,16 +74,27 @@ const UsuarioList = () => {
                                 <td>{usuario.username}</td>
                                 <td>{usuario.nombre}</td>
                                 <td>{usuario.apellido}</td>
+
                                 <td>
-                                        <span className={`badge ${usuario.rol === 'ADMIN' ? 'badge-success' : 'badge-warning'}`}>
+                                        <span
+                                            className={`badge ${
+                                                usuario.rol === 'ADMIN' ? 'badge-success' : 'badge-warning'
+                                            }`}
+                                        >
                                             {usuario.rol}
                                         </span>
                                 </td>
+
                                 <td>
-                                        <span className={`badge ${usuario.activo ? 'badge-success' : 'badge-danger'}`}>
+                                        <span
+                                            className={`badge ${
+                                                usuario.activo ? 'badge-success' : 'badge-danger'
+                                            }`}
+                                        >
                                             {usuario.activo ? 'Activo' : 'Inactivo'}
                                         </span>
                                 </td>
+
                                 <td>
                                     <div className="flex">
                                         <button
@@ -91,11 +104,12 @@ const UsuarioList = () => {
                                         >
                                             <FiEdit />
                                         </button>
+
                                         <button
                                             className="btn btn-danger"
                                             style={{ padding: '4px 8px' }}
                                             onClick={() => handleDelete(usuario.id)}
-                                            disabled={!usuario.activo} // no permitir desactivar si ya está inactivo
+                                            disabled={!usuario.activo}
                                         >
                                             <FiTrash2 />
                                         </button>
@@ -103,11 +117,10 @@ const UsuarioList = () => {
                                 </td>
                             </tr>
                         ))}
+
                         {usuarios.length === 0 && (
                             <tr>
-                                <td colSpan="7" style={{ textAlign: 'center' }}>
-                                    No hay usuarios registrados
-                                </td>
+                                <td colSpan="7" style={{ textAlign: 'center' }}>No hay usuarios registrados</td>
                             </tr>
                         )}
                         </tbody>

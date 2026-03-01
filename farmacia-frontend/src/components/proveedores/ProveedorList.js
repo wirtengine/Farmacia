@@ -9,9 +9,10 @@ const ProveedorList = () => {
     const [proveedores, setProveedores] = useState([]);
     const [filteredProveedores, setFilteredProveedores] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterActivo, setFilterActivo] = useState('todos'); // 'todos', 'activos', 'inactivos'
+    const [filterActivo, setFilterActivo] = useState('todos');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -21,24 +22,22 @@ const ProveedorList = () => {
     const fetchProveedores = async () => {
         try {
             setLoading(true);
-            const response = await axios.get('http://localhost:8080/api/proveedores');
+            const response = await axios.get('/api/proveedores');
             setProveedores(response.data);
             setFilteredProveedores(response.data);
         } catch (err) {
-            setError('Error al cargar proveedores');
             console.error(err);
+            setError('Error al cargar proveedores');
         } finally {
             setLoading(false);
         }
     };
 
-    // Filtrado por búsqueda y estado
     useEffect(() => {
         let filtered = proveedores;
 
-        // Filtro por búsqueda (nombre, ruc, teléfono, email)
         if (searchTerm) {
-            filtered = filtered.filter(prov =>
+            filtered = filtered.filter((prov) =>
                 prov.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 prov.ruc?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 prov.telefono?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -46,11 +45,10 @@ const ProveedorList = () => {
             );
         }
 
-        // Filtro por estado activo/inactivo
         if (filterActivo === 'activos') {
-            filtered = filtered.filter(prov => prov.activo);
+            filtered = filtered.filter((prov) => prov.activo);
         } else if (filterActivo === 'inactivos') {
-            filtered = filtered.filter(prov => !prov.activo);
+            filtered = filtered.filter((prov) => !prov.activo);
         }
 
         setFilteredProveedores(filtered);
@@ -58,9 +56,10 @@ const ProveedorList = () => {
 
     const handleDelete = async (id) => {
         if (!window.confirm('¿Estás seguro de desactivar este proveedor?')) return;
+
         try {
-            await axios.delete(`http://localhost:8080/api/proveedores/${id}`);
-            fetchProveedores(); // recargar lista
+            await axios.delete(`/api/proveedores/${id}`);
+            fetchProveedores();
         } catch (err) {
             alert('Error al desactivar proveedor');
         }
@@ -72,6 +71,8 @@ const ProveedorList = () => {
     return (
         <div className="container">
             <div className="card">
+
+                {/* Título + botón */}
                 <div className="flex-between">
                     <h2>Gestión de Proveedores</h2>
                     {user?.rol === 'ADMIN' && (
@@ -84,7 +85,7 @@ const ProveedorList = () => {
                     )}
                 </div>
 
-                {/* Barra de búsqueda y filtros */}
+                {/* Buscador + Filtro */}
                 <div className="flex" style={{ marginTop: 20, flexWrap: 'wrap' }}>
                     <input
                         type="text"
@@ -94,11 +95,12 @@ const ProveedorList = () => {
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={{ flex: 2 }}
                     />
+
                     <select
                         value={filterActivo}
                         onChange={(e) => setFilterActivo(e.target.value)}
                         className="input-search"
-                        style={{ flex: 1, marginLeft: 0 }}
+                        style={{ flex: 1 }}
                     >
                         <option value="todos">Todos</option>
                         <option value="activos">Activos</option>
@@ -106,11 +108,12 @@ const ProveedorList = () => {
                     </select>
                 </div>
 
-                {/* Tabla de proveedores */}
+                {/* Tabla */}
                 <div style={{ overflowX: 'auto' }}>
                     <table className="table">
                         <thead>
                         <tr>
+                            <th>ID</th>
                             <th>RUC</th>
                             <th>Nombre</th>
                             <th>Teléfono</th>
@@ -121,20 +124,28 @@ const ProveedorList = () => {
                             {user?.rol === 'ADMIN' && <th>Acciones</th>}
                         </tr>
                         </thead>
+
                         <tbody>
-                        {filteredProveedores.map(prov => (
+                        {filteredProveedores.map((prov) => (
                             <tr key={prov.id}>
+                                <td>{prov.id}</td>
                                 <td>{prov.ruc}</td>
                                 <td>{prov.nombre}</td>
                                 <td>{prov.telefono}</td>
                                 <td>{prov.email}</td>
                                 <td>{prov.direccion}</td>
                                 <td>{prov.contacto}</td>
+
                                 <td>
-                                        <span className={`badge ${prov.activo ? 'badge-success' : 'badge-danger'}`}>
-                                            {prov.activo ? 'Activo' : 'Inactivo'}
-                                        </span>
+                                    <span
+                                        className={`badge ${
+                                            prov.activo ? 'badge-success' : 'badge-danger'
+                                        }`}
+                                    >
+                                        {prov.activo ? 'Activo' : 'Inactivo'}
+                                    </span>
                                 </td>
+
                                 {user?.rol === 'ADMIN' && (
                                     <td>
                                         <div className="flex">
@@ -142,15 +153,16 @@ const ProveedorList = () => {
                                                 className="btn btn-warning"
                                                 style={{ padding: '4px 8px', marginRight: 5 }}
                                                 onClick={() => navigate(`/admin/proveedores/editar/${prov.id}`)}
-                                                disabled={!prov.activo} // no editar si está inactivo
+                                                disabled={!prov.activo}
                                             >
                                                 <FiEdit />
                                             </button>
+
                                             <button
                                                 className="btn btn-danger"
                                                 style={{ padding: '4px 8px' }}
                                                 onClick={() => handleDelete(prov.id)}
-                                                disabled={!prov.activo} // no desactivar si ya está inactivo
+                                                disabled={!prov.activo}
                                             >
                                                 <FiTrash2 />
                                             </button>
@@ -159,9 +171,13 @@ const ProveedorList = () => {
                                 )}
                             </tr>
                         ))}
+
                         {filteredProveedores.length === 0 && (
                             <tr>
-                                <td colSpan={user?.rol === 'ADMIN' ? 8 : 7} style={{ textAlign: 'center' }}>
+                                <td
+                                    colSpan={user?.rol === 'ADMIN' ? 9 : 8}
+                                    style={{ textAlign: 'center' }}
+                                >
                                     No se encontraron proveedores
                                 </td>
                             </tr>
@@ -169,6 +185,7 @@ const ProveedorList = () => {
                         </tbody>
                     </table>
                 </div>
+
             </div>
         </div>
     );

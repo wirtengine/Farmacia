@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../../services/axiosConfig';
 import { useNavigate, useParams } from 'react-router-dom';
 
 const MedicamentoForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+
     const [formData, setFormData] = useState({
         nombre: '',
         principioActivo: '',
@@ -13,24 +14,23 @@ const MedicamentoForm = () => {
         fabricante: '',
         registroSanitario: '',
         requiereReceta: false,
-        tipoVenta: 'Libre', // valor por defecto
+        tipoVenta: 'Libre',
         precioVenta: '',
         stockMinimo: '',
         stockMaximo: ''
     });
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
-        if (id) {
-            fetchMedicamento();
-        }
+        if (id) fetchMedicamento();
     }, [id]);
 
     const fetchMedicamento = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`http://localhost:8080/api/medicamentos/${id}`);
+            const response = await axios.get(`/api/medicamentos/${id}`);
             setFormData(response.data);
         } catch (err) {
             setError('Error al cargar medicamento');
@@ -50,18 +50,19 @@ const MedicamentoForm = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        // Convertir precios a número
+
         const dataToSend = {
             ...formData,
             precioVenta: parseFloat(formData.precioVenta),
             stockMinimo: parseInt(formData.stockMinimo),
             stockMaximo: parseInt(formData.stockMaximo)
         };
+
         try {
             if (id) {
-                await axios.put(`http://localhost:8080/api/medicamentos/${id}`, dataToSend);
+                await axios.put(`/api/medicamentos/${id}`, dataToSend);
             } else {
-                await axios.post('http://localhost:8080/api/medicamentos', dataToSend);
+                await axios.post('/api/medicamentos', dataToSend);
             }
             navigate('/admin/medicamentos');
         } catch (err) {
@@ -74,52 +75,63 @@ const MedicamentoForm = () => {
     return (
         <div className="container">
             <div className="card" style={{ maxWidth: '800px', margin: '0 auto' }}>
+
                 <h2>{id ? 'Editar Medicamento' : 'Nuevo Medicamento'}</h2>
+
                 {error && <div style={{ color: 'red', marginBottom: 15 }}>{error}</div>}
+
                 <form onSubmit={handleSubmit}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: '15px'
+                    }}>
+
                         <div>
                             <label>Nombre *</label>
                             <input
                                 type="text"
                                 name="nombre"
+                                className="input-search"
+                                required
                                 value={formData.nombre}
                                 onChange={handleChange}
-                                required
-                                className="input-search"
                             />
                         </div>
+
                         <div>
                             <label>Principio Activo *</label>
                             <input
                                 type="text"
                                 name="principioActivo"
+                                className="input-search"
+                                required
                                 value={formData.principioActivo}
                                 onChange={handleChange}
-                                required
-                                className="input-search"
                             />
                         </div>
+
                         <div>
                             <label>Presentación *</label>
                             <input
                                 type="text"
                                 name="presentacion"
+                                className="input-search"
+                                required
+                                placeholder="Ej: Tabletas 500 mg"
                                 value={formData.presentacion}
                                 onChange={handleChange}
-                                required
-                                className="input-search"
-                                placeholder="Ej: Tabletas 500 mg"
                             />
                         </div>
+
                         <div>
                             <label>Vía de Administración *</label>
                             <select
                                 name="viaAdministracion"
+                                className="input-search"
+                                required
                                 value={formData.viaAdministracion}
                                 onChange={handleChange}
-                                required
-                                className="input-search"
                             >
                                 <option value="">Seleccione...</option>
                                 <option value="Oral">Oral</option>
@@ -130,79 +142,86 @@ const MedicamentoForm = () => {
                                 <option value="Inhalada">Inhalada</option>
                             </select>
                         </div>
+
                         <div>
                             <label>Fabricante *</label>
                             <input
                                 type="text"
                                 name="fabricante"
+                                className="input-search"
+                                required
                                 value={formData.fabricante}
                                 onChange={handleChange}
-                                required
-                                className="input-search"
                             />
                         </div>
+
                         <div>
                             <label>Registro Sanitario *</label>
                             <input
                                 type="text"
                                 name="registroSanitario"
+                                className="input-search"
+                                required
                                 value={formData.registroSanitario}
                                 onChange={handleChange}
-                                required
-                                className="input-search"
                             />
                         </div>
+
                         <div>
                             <label>Tipo de Venta *</label>
                             <select
                                 name="tipoVenta"
+                                className="input-search"
+                                required
                                 value={formData.tipoVenta}
                                 onChange={handleChange}
-                                required
-                                className="input-search"
                             >
                                 <option value="Libre">Libre</option>
                                 <option value="Controlado">Controlado</option>
                                 <option value="Psicotrópico">Psicotrópico</option>
                             </select>
                         </div>
+
                         <div>
                             <label>Precio de Venta (C$) *</label>
                             <input
                                 type="number"
                                 name="precioVenta"
-                                value={formData.precioVenta}
-                                onChange={handleChange}
-                                required
                                 min="0"
                                 step="0.01"
                                 className="input-search"
+                                required
+                                value={formData.precioVenta}
+                                onChange={handleChange}
                             />
                         </div>
+
                         <div>
                             <label>Stock Mínimo *</label>
                             <input
                                 type="number"
                                 name="stockMinimo"
-                                value={formData.stockMinimo}
-                                onChange={handleChange}
-                                required
                                 min="0"
                                 className="input-search"
+                                required
+                                value={formData.stockMinimo}
+                                onChange={handleChange}
                             />
                         </div>
+
                         <div>
                             <label>Stock Máximo *</label>
                             <input
                                 type="number"
                                 name="stockMaximo"
-                                value={formData.stockMaximo}
-                                onChange={handleChange}
-                                required
                                 min="0"
                                 className="input-search"
+                                required
+                                value={formData.stockMaximo}
+                                onChange={handleChange}
                             />
                         </div>
+
                         <div style={{ gridColumn: 'span 2' }}>
                             <label style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <input
@@ -214,21 +233,25 @@ const MedicamentoForm = () => {
                                 Requiere receta médica
                             </label>
                         </div>
+
                     </div>
+
                     <div className="flex" style={{ marginTop: 20, justifyContent: 'flex-end' }}>
                         <button
                             type="button"
                             className="btn"
-                            onClick={() => navigate('/admin/medicamentos')}
                             style={{ marginRight: 10 }}
+                            onClick={() => navigate('/admin/medicamentos')}
                         >
                             Cancelar
                         </button>
+
                         <button type="submit" className="btn btn-primary">
                             {id ? 'Actualizar' : 'Guardar'}
                         </button>
                     </div>
                 </form>
+
             </div>
         </div>
     );

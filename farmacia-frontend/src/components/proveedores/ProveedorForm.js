@@ -5,30 +5,30 @@ import axios from '../../services/axiosConfig';
 const ProveedorForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+
     const [formData, setFormData] = useState({
         ruc: '',
         nombre: '',
         telefono: '',
         email: '',
         direccion: '',
-        contacto: '' // persona de contacto
+        contacto: '',
     });
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
     useEffect(() => {
-        if (id) {
-            fetchProveedor();
-        }
+        if (id) fetchProveedor();
     }, [id]);
 
     const fetchProveedor = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`http://localhost:8080/api/proveedores/${id}`);
+            const response = await axios.get(`/api/proveedores/${id}`);
             setFormData(response.data);
-        } catch (err) {
+        } catch {
             setError('Error al cargar proveedor');
         } finally {
             setLoading(false);
@@ -37,7 +37,7 @@ const ProveedorForm = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = async (e) => {
@@ -47,18 +47,19 @@ const ProveedorForm = () => {
 
         try {
             if (id) {
-                await axios.put(`http://localhost:8080/api/proveedores/${id}`, formData);
+                await axios.put(`/api/proveedores/${id}`, formData);
                 setSuccess('Proveedor actualizado correctamente');
             } else {
-                await axios.post('http://localhost:8080/api/proveedores', formData);
+                await axios.post('/api/proveedores', formData);
                 setSuccess('Proveedor creado correctamente');
+
                 setFormData({
                     ruc: '',
                     nombre: '',
                     telefono: '',
                     email: '',
                     direccion: '',
-                    contacto: ''
+                    contacto: '',
                 });
             }
         } catch (err) {
@@ -72,10 +73,12 @@ const ProveedorForm = () => {
         <div className="container">
             <div className="card" style={{ maxWidth: '700px', margin: '0 auto' }}>
                 <h2>{id ? 'Editar Proveedor' : 'Nuevo Proveedor'}</h2>
-                {error && <div style={{ color: 'red', marginBottom: '15px' }}>{error}</div>}
-                {success && <div style={{ color: 'green', marginBottom: '15px' }}>{success}</div>}
+
+                {error && <div style={{ color: 'red', marginBottom: 15 }}>{error}</div>}
+                {success && <div style={{ color: 'green', marginBottom: 15 }}>{success}</div>}
+
                 <form onSubmit={handleSubmit}>
-                    <div style={{ marginBottom: '15px' }}>
+                    <div style={{ marginBottom: 15 }}>
                         <label>RUC *</label>
                         <input
                             type="text"
@@ -84,11 +87,11 @@ const ProveedorForm = () => {
                             onChange={handleChange}
                             required
                             className="input-search"
-                            disabled={!!id} // normalmente no se cambia el RUC
+                            disabled={!!id}
                         />
-                        {id && <small style={{ color: '#666' }}>El RUC no se puede modificar</small>}
                     </div>
-                    <div style={{ marginBottom: '15px' }}>
+
+                    <div style={{ marginBottom: 15 }}>
                         <label>Nombre *</label>
                         <input
                             type="text"
@@ -99,7 +102,8 @@ const ProveedorForm = () => {
                             className="input-search"
                         />
                     </div>
-                    <div style={{ marginBottom: '15px' }}>
+
+                    <div style={{ marginBottom: 15 }}>
                         <label>Teléfono</label>
                         <input
                             type="text"
@@ -109,7 +113,8 @@ const ProveedorForm = () => {
                             className="input-search"
                         />
                     </div>
-                    <div style={{ marginBottom: '15px' }}>
+
+                    <div style={{ marginBottom: 15 }}>
                         <label>Email</label>
                         <input
                             type="email"
@@ -119,7 +124,8 @@ const ProveedorForm = () => {
                             className="input-search"
                         />
                     </div>
-                    <div style={{ marginBottom: '15px' }}>
+
+                    <div style={{ marginBottom: 15 }}>
                         <label>Dirección</label>
                         <input
                             type="text"
@@ -129,8 +135,9 @@ const ProveedorForm = () => {
                             className="input-search"
                         />
                     </div>
-                    <div style={{ marginBottom: '15px' }}>
-                        <label>Contacto (persona de referencia)</label>
+
+                    <div style={{ marginBottom: 15 }}>
+                        <label>Contacto</label>
                         <input
                             type="text"
                             name="contacto"
@@ -139,10 +146,16 @@ const ProveedorForm = () => {
                             className="input-search"
                         />
                     </div>
-                    <div className="flex" style={{ justifyContent: 'flex-end', gap: '10px' }}>
-                        <button type="button" className="btn" onClick={() => navigate('/admin/proveedores')}>
+
+                    <div className="flex" style={{ justifyContent: 'flex-end', gap: 10 }}>
+                        <button
+                            type="button"
+                            className="btn"
+                            onClick={() => navigate('/admin/proveedores')}
+                        >
                             Cancelar
                         </button>
+
                         <button type="submit" className="btn btn-primary">
                             {id ? 'Actualizar' : 'Crear Proveedor'}
                         </button>
