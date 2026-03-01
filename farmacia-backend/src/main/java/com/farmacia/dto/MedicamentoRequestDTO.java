@@ -1,0 +1,20 @@
+package com.farmacia.dto;
+
+import lombok.Data;
+
+import java.math.BigDecimal;
+
+@Data
+public class MedicamentoRequestDTO {
+    private String nombre;
+    private String principioActivo;
+    private String presentacion;
+    private String viaAdministracion;
+    private String fabricante;
+    private String registroSanitario;
+    private Boolean requiereReceta;
+    private String tipoVenta;
+    private BigDecimal precioVenta;
+    private Integer stockMinimo;
+    private Integer stockMaximo;
+}

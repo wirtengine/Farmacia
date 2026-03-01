@@ -27,5 +27,8 @@ public class Usuario {
     private String apellido;
 
     @Column(nullable = false)
-    private String rol; // Puede ser "ADMIN" o "VENDEDOR"
+    private String rol; // Puede ser "ADMIN" o "VENDEDOR"}
+
+    @Column(nullable = false)
+    private Boolean activo = true;
 }
