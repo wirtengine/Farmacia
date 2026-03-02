@@ -5,18 +5,24 @@ import com.farmacia.enums.EstadoDevolucion;
 import com.farmacia.enums.EstadoVenta;
 import com.farmacia.model.*;
 import com.farmacia.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class DevolucionService {
+
+    private static final Logger log = LoggerFactory.getLogger(DevolucionService.class);
 
     @Autowired
     private DevolucionRepository devolucionRepository;
@@ -63,6 +69,8 @@ public class DevolucionService {
         devolucion.setEstado(EstadoDevolucion.PENDIENTE);
 
         devolucion = devolucionRepository.save(devolucion);
+        log.info("Solicitud de devolución creada: ID={}, ventaId={}, detalleId={}, cantidad={}",
+                devolucion.getId(), venta.getId(), request.getDetalleId(), request.getCantidad());
         return mapToResponseDTO(devolucion);
     }
 
@@ -70,69 +78,144 @@ public class DevolucionService {
     public DevolucionResponseDTO procesarDevolucion(DevolucionAprobacionDTO request) {
         Usuario admin = getCurrentUser();
 
-        Devolucion devolucion = devolucionRepository.findById(request.getDevolucionId())
+        Devolucion devolucion = devolucionRepository.findByIdWithVentaAndDetalles(request.getDevolucionId())
                 .orElseThrow(() -> new RuntimeException("Devolución no encontrada"));
 
         if (devolucion.getEstado() != EstadoDevolucion.PENDIENTE) {
             throw new RuntimeException("La devolución ya fue procesada");
         }
 
-        if ("APROBAR".equalsIgnoreCase(request.getAccion())) {
-            Venta venta = devolucion.getVenta();
-            VentaDetalle detalle = devolucion.getDetalle();
+        log.info("Procesando devolución ID: {}, estado actual: {}, detalle null? {}",
+                devolucion.getId(), devolucion.getEstado(), devolucion.getDetalle() == null);
 
-            if (detalle != null) {
-                // Devolución parcial de un ítem específico
-                loteService.agregarStock(
-                        detalle.getLote().getId(),
-                        devolucion.getCantidad(),
-                        "Devolución parcial aprobada - Venta " + venta.getNumeroFactura()
-                );
-                System.out.println("Devolución parcial - venta " + venta.getNumeroFactura() + " no se anula.");
-            } else {
-                // Devolución total de la venta
-                venta.getDetalles().forEach(d -> {
+        try {
+            if ("APROBAR".equalsIgnoreCase(request.getAccion())) {
+                Venta venta = devolucion.getVenta();
+                log.info("Venta ID: {}, detalles size: {}", venta.getId(), venta.getDetalles().size());
+
+                if (devolucion.getDetalle() != null) {
+                    // Devolución parcial
+                    VentaDetalle detalle = devolucion.getDetalle();
+                    int cantidadDevuelta = devolucion.getCantidad();
+
+                    log.info("Devolución PARCIAL: detalleId={}, loteId={}, cantidadADevolver={}",
+                            detalle.getId(), detalle.getLote().getId(), cantidadDevuelta);
+
+                    // 1. Devolver stock al lote
                     loteService.agregarStock(
-                            d.getLote().getId(),
-                            d.getCantidad(),
-                            "Devolución total aprobada - Venta " + venta.getNumeroFactura()
+                            detalle.getLote().getId(),
+                            cantidadDevuelta,
+                            "Devolución parcial aprobada - Venta " + venta.getNumeroFactura()
                     );
-                });
-                // ANULAR LA VENTA
-                venta.setEstado(EstadoVenta.ANULADA);
-                ventaRepository.save(venta);
-                System.out.println("Devolución total - venta " + venta.getNumeroFactura() + " ANULADA.");
+
+                    // 2. Actualizar el detalle de la venta
+                    int nuevaCantidad = detalle.getCantidad() - cantidadDevuelta;
+
+                    if (nuevaCantidad == 0) {
+                        // Eliminar el detalle completamente
+                        venta.getDetalles().remove(detalle);
+                        ventaDetalleRepository.delete(detalle);
+                        log.info("Detalle eliminado porque la cantidad llegó a cero");
+                    } else {
+                        detalle.setCantidad(nuevaCantidad);
+                        // Recalcular subtotal y ganancia del detalle
+                        BigDecimal precioUnitario = detalle.getPrecioUnitario();
+                        BigDecimal descuentoItem = detalle.getDescuento() != null ? detalle.getDescuento() : BigDecimal.ZERO;
+                        BigDecimal nuevoSubtotal = precioUnitario.multiply(new BigDecimal(nuevaCantidad)).subtract(descuentoItem);
+                        detalle.setSubtotal(nuevoSubtotal);
+
+                        BigDecimal costoUnitario = detalle.getCostoUnitario() != null ? detalle.getCostoUnitario() : BigDecimal.ZERO;
+                        BigDecimal nuevaGanancia = precioUnitario.subtract(costoUnitario)
+                                .multiply(new BigDecimal(nuevaCantidad))
+                                .subtract(descuentoItem);
+                        detalle.setGanancia(nuevaGanancia);
+
+                        ventaDetalleRepository.save(detalle);
+                        log.info("Detalle actualizado: nueva cantidad={}, nuevo subtotal={}", nuevaCantidad, nuevoSubtotal);
+                    }
+
+                    // 3. Recalcular totales de la venta
+                    recalcularTotalesVenta(venta);
+
+                    // 4. Si la venta se quedó sin detalles, anularla
+                    if (venta.getDetalles().isEmpty()) {
+                        venta.setEstado(EstadoVenta.ANULADA);
+                        ventaRepository.save(venta);
+                        log.info("Venta anulada porque no quedan detalles");
+                    }
+
+                } else {
+                    // Devolución total
+                    log.info("Devolución TOTAL. Se anulará la venta ID: {}", venta.getId());
+                    for (VentaDetalle d : venta.getDetalles()) {
+                        log.info("Devolviendo stock al lote {} (cantidad {})", d.getLote().getId(), d.getCantidad());
+                        loteService.agregarStock(
+                                d.getLote().getId(),
+                                d.getCantidad(),
+                                "Devolución total aprobada - Venta " + venta.getNumeroFactura()
+                        );
+                    }
+                    venta.setEstado(EstadoVenta.ANULADA);
+                    ventaRepository.save(venta);
+                    log.info("Venta marcada como ANULADA. Nuevo estado: {}", venta.getEstado());
+                }
+                devolucion.setEstado(EstadoDevolucion.APROBADA);
+            } else if ("RECHAZAR".equalsIgnoreCase(request.getAccion())) {
+                log.info("Devolución RECHAZADA");
+                devolucion.setEstado(EstadoDevolucion.RECHAZADA);
+            } else {
+                throw new RuntimeException("Acción no válida: " + request.getAccion());
             }
 
-            devolucion.setEstado(EstadoDevolucion.APROBADA);
-        } else if ("RECHAZAR".equalsIgnoreCase(request.getAccion())) {
-            devolucion.setEstado(EstadoDevolucion.RECHAZADA);
-        } else {
-            throw new RuntimeException("Acción no válida");
+            devolucion.setAdmin(admin);
+            devolucion.setObservacionAdmin(request.getObservacion());
+            devolucion.setFechaAprobacion(LocalDateTime.now());
+            devolucion = devolucionRepository.save(devolucion);
+            log.info("Devolución guardada, estado final: {}", devolucion.getEstado());
+
+            return mapToResponseDTO(devolucion);
+        } catch (Exception e) {
+            log.error("Error al procesar devolución: {}", e.getMessage(), e);
+            throw e;
         }
+    }
 
-        devolucion.setAdmin(admin);
-        devolucion.setObservacionAdmin(request.getObservacion());
-        devolucion.setFechaAprobacion(LocalDateTime.now());
+    private void recalcularTotalesVenta(Venta venta) {
+        BigDecimal subtotal = venta.getDetalles().stream()
+                .map(VentaDetalle::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        venta.setSubtotal(subtotal);
 
-        devolucion = devolucionRepository.save(devolucion);
-        return mapToResponseDTO(devolucion);
+        BigDecimal descuentoGlobal = venta.getDescuento() != null ? venta.getDescuento() : BigDecimal.ZERO;
+        BigDecimal baseImponible = subtotal.subtract(descuentoGlobal);
+        BigDecimal impuesto = baseImponible.multiply(new BigDecimal("0.15")).setScale(2, RoundingMode.HALF_UP);
+        venta.setImpuesto(impuesto);
+
+        BigDecimal total = baseImponible.add(impuesto);
+        venta.setTotal(total);
+
+        BigDecimal ganancia = venta.getDetalles().stream()
+                .map(VentaDetalle::getGanancia)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        venta.setGanancia(ganancia);
+
+        ventaRepository.save(venta);
     }
 
     public DevolucionResponseDTO obtenerPorId(Long id) {
-        Devolucion dev = devolucionRepository.findById(id)
+        Devolucion dev = devolucionRepository.findByIdWithAll(id)
                 .orElseThrow(() -> new RuntimeException("Devolución no encontrada"));
         return mapToResponseDTO(dev);
     }
 
     public List<DevolucionResponseDTO> listarTodas() {
-        return devolucionRepository.findAllByOrderByFechaSolicitudDesc().stream()
+        return devolucionRepository.findAllWithAll().stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
     }
 
     public List<DevolucionResponseDTO> listarPendientes() {
-        return devolucionRepository.findByEstadoOrderByFechaSolicitudAsc(EstadoDevolucion.PENDIENTE)
+        return devolucionRepository.findByEstadoWithAll(EstadoDevolucion.PENDIENTE)
                 .stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
@@ -141,9 +224,19 @@ public class DevolucionService {
     public List<DevolucionResponseDTO> listarPorVendedor(Long vendedorId) {
         Usuario vendedor = usuarioRepository.findById(vendedorId)
                 .orElseThrow(() -> new RuntimeException("Vendedor no encontrado"));
-        return devolucionRepository.findByVendedorOrderByFechaSolicitudDesc(vendedor).stream()
+        return devolucionRepository.findByVendedorWithAll(vendedor).stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
+    }
+
+    public Devolucion obtenerDevolucionEntity(Long id) {
+        return devolucionRepository.findByIdWithAll(id)
+                .orElseThrow(() -> new RuntimeException("Devolución no encontrada"));
+    }
+
+    public Devolucion obtenerDevolucionConVentaYDetalles(Long id) {
+        return devolucionRepository.findByIdWithVentaAndDetalles(id)
+                .orElseThrow(() -> new RuntimeException("Devolución no encontrada"));
     }
 
     private Usuario getCurrentUser() {
@@ -176,5 +269,9 @@ public class DevolucionService {
         dto.setFechaAprobacion(dev.getFechaAprobacion());
         dto.setObservacionAdmin(dev.getObservacionAdmin());
         return dto;
+    }
+    public Devolucion obtenerDevolucionParaPdf(Long id) {
+        return devolucionRepository.findByIdParaPdf(id)
+                .orElseThrow(() -> new RuntimeException("Devolución no encontrada"));
     }
 }

@@ -26,6 +26,7 @@
     <!-- ========================== -->
     <properties>
         <java.version>17</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <!-- ========================== -->
@@ -71,7 +72,9 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- ========================== -->
         <!-- JWT -->
+        <!-- ========================== -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
@@ -91,26 +94,26 @@
         </dependency>
 
         <!-- ========================== -->
-        <!--            TEST             -->
-        <!-- ========================== -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- ========================== -->
-        <!--           PDF / iText       -->
+        <!-- PDF - iText 8 (COMPATIBLE JAKARTA) -->
         <!-- ========================== -->
         <dependency>
             <groupId>com.itextpdf</groupId>
-            <artifactId>itext7-core</artifactId>
-            <version>7.2.5</version>
-            <type>pom</type>
+            <artifactId>kernel</artifactId>
+            <version>8.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.itextpdf</groupId>
+            <artifactId>layout</artifactId>
+            <version>8.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.itextpdf</groupId>
+            <artifactId>io</artifactId>
+            <version>8.0.2</version>
         </dependency>
 
         <!-- ========================== -->
-        <!--        CÓDIGO DE BARRAS / QR -->
+        <!-- CÓDIGO DE BARRAS / QR -->
         <!-- ========================== -->
         <dependency>
             <groupId>com.google.zxing</groupId>
@@ -121,6 +124,15 @@
             <groupId>com.google.zxing</groupId>
             <artifactId>javase</artifactId>
             <version>3.5.1</version>
+        </dependency>
+
+        <!-- ========================== -->
+        <!-- TEST -->
+        <!-- ========================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>
@@ -140,6 +152,8 @@
                     <source>${java.version}</source>
                     <target>${java.version}</target>
                     <encoding>UTF-8</encoding>
+                    <!-- 👇 Esta línea agrega el flag -parameters -->
+                    <parameters>true</parameters>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>
@@ -150,18 +164,10 @@
                 </configuration>
             </plugin>
 
-            <!-- EJECUTABLE SPRING BOOT -->
+            <!-- SPRING BOOT -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
             </plugin>
 
         </plugins>

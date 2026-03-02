@@ -4,6 +4,8 @@ import com.farmacia.dto.*;
 import com.farmacia.enums.EstadoVenta;
 import com.farmacia.model.*;
 import com.farmacia.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,6 +22,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class VentaService {
+
+    private static final Logger log = LoggerFactory.getLogger(VentaService.class);
 
     @Autowired
     private VentaRepository ventaRepository;
@@ -39,7 +43,7 @@ public class VentaService {
     @Autowired
     private LoteService loteService;
 
-    private static final BigDecimal IMPUESTO = new BigDecimal("0.15"); // 15% IVA
+    private static final BigDecimal IMPUESTO = new BigDecimal("0.15");
 
     @Transactional
     public VentaResponseDTO crearVenta(VentaRequestDTO request) {
@@ -81,6 +85,7 @@ public class VentaService {
         venta.setNumeroFactura(generarNumeroFactura());
 
         venta = ventaRepository.save(venta);
+        log.info("Venta creada: ID={}, factura={}", venta.getId(), venta.getNumeroFactura());
         return mapToResponseDTO(venta);
     }
 
@@ -161,31 +166,34 @@ public class VentaService {
         throw new RuntimeException("Usuario no autenticado");
     }
 
+    // Obtener venta con todos los datos cargados
     public VentaResponseDTO obtenerVenta(Long id) {
-        Venta venta = ventaRepository.findById(id)
+        Venta venta = ventaRepository.findByIdWithAll(id)
                 .orElseThrow(() -> new RuntimeException("Venta no encontrada"));
         return mapToResponseDTO(venta);
     }
 
+    // Listar ventas no anuladas con fetch
     public List<VentaResponseDTO> listarVentas() {
-        return ventaRepository.findAll().stream()
-                .filter(v -> v.getEstado() != EstadoVenta.ANULADA)   // 🔥 Excluir anuladas
+        return ventaRepository.findAllNoAnuladasWithFetch().stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
     }
 
+    // Listar ventas por vendedor con fetch
     public List<VentaResponseDTO> listarVentasPorVendedor(Long vendedorId) {
         Usuario vendedor = usuarioRepository.findById(vendedorId)
                 .orElseThrow(() -> new RuntimeException("Vendedor no encontrado"));
-        return ventaRepository.findByVendedorOrderByFechaDesc(vendedor).stream()
-                .filter(v -> v.getEstado() != EstadoVenta.ANULADA)   // 🔥 Excluir anuladas
+        return ventaRepository.findByVendedorWithFetch(vendedor).stream()
+                .filter(v -> v.getEstado() != EstadoVenta.ANULADA)
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
     }
 
+    // Listar ventas por cliente con fetch
     public List<VentaResponseDTO> listarVentasPorCliente(Long clienteId) {
-        return ventaRepository.findByClienteId(clienteId).stream()
-                .filter(v -> v.getEstado() != EstadoVenta.ANULADA)   // 🔥 Excluir anuladas
+        return ventaRepository.findByClienteIdWithFetch(clienteId).stream()
+                .filter(v -> v.getEstado() != EstadoVenta.ANULADA)
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
     }

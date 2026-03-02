@@ -10,6 +10,8 @@ import com.farmacia.repository.LoteRepository;
 import com.farmacia.repository.MedicamentoRepository;
 import com.farmacia.repository.MovimientoInventarioRepository;
 import com.farmacia.repository.UsuarioRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -24,6 +26,8 @@ import java.util.stream.Collectors;
 @Service
 public class LoteService {
 
+    private static final Logger log = LoggerFactory.getLogger(LoteService.class);
+
     @Autowired
     private LoteRepository loteRepository;
 
@@ -36,9 +40,6 @@ public class LoteService {
     @Autowired
     private UsuarioRepository usuarioRepository;
 
-    // ================================
-    // CREAR LOTE (ENTRADA INVENTARIO)
-    // ================================
     @Transactional
     public LoteResponseDTO crearLote(LoteRequestDTO request) {
         Medicamento medicamento = medicamentoRepository.findById(request.getMedicamentoId())
@@ -65,44 +66,42 @@ public class LoteService {
         lote.setActivo(true);
 
         loteRepository.save(lote);
+        log.info("Lote creado: ID={}, número={}, medicamento={}, cantidadInicial={}",
+                lote.getId(), lote.getNumeroLote(), medicamento.getNombre(), request.getCantidadInicial());
 
         registrarMovimiento(lote, "ENTRADA", request.getCantidadInicial(), "Ingreso de lote por compra");
 
         return convertToResponseDTO(lote);
     }
 
-    // ================================
-    // AGREGAR STOCK
-    // ================================
     @Transactional
     public void agregarStock(Long loteId, int cantidad, String motivo) {
+        log.info("agregarStock: loteId={}, cantidad={}, motivo={}", loteId, cantidad, motivo);
         if (cantidad <= 0) {
             throw new RuntimeException("La cantidad debe ser mayor a cero");
         }
 
         Lote lote = loteRepository.findById(loteId)
-                .orElseThrow(() -> new RuntimeException("Lote no encontrado"));
+                .orElseThrow(() -> new RuntimeException("Lote no encontrado: " + loteId));
 
         lote.setCantidadActual(lote.getCantidadActual() + cantidad);
-
         if (lote.getCantidadActual() > 0) {
             lote.setActivo(true);
         }
 
         loteRepository.save(lote);
+        log.info("Stock agregado. Lote ID: {}, nueva cantidad: {}", loteId, lote.getCantidadActual());
 
         registrarMovimiento(lote, "ENTRADA", cantidad, motivo);
     }
 
-    // ================================
-    // OTROS MÉTODOS DEL SERVICIO
-    // ================================
     @Transactional
     public void descontarStock(Long loteId, int cantidad, String motivo) {
+        log.info("descontarStock: loteId={}, cantidad={}, motivo={}", loteId, cantidad, motivo);
         if (cantidad <= 0) throw new RuntimeException("La cantidad debe ser mayor a cero");
 
         Lote lote = loteRepository.findById(loteId)
-                .orElseThrow(() -> new RuntimeException("Lote no encontrado"));
+                .orElseThrow(() -> new RuntimeException("Lote no encontrado: " + loteId));
 
         if (!lote.getActivo()) throw new RuntimeException("El lote está inactivo");
 
@@ -110,10 +109,10 @@ public class LoteService {
             throw new RuntimeException("Stock insuficiente en el lote " + lote.getNumeroLote());
 
         lote.setCantidadActual(lote.getCantidadActual() - cantidad);
-
         if (lote.getCantidadActual() == 0) lote.setActivo(false);
 
         loteRepository.save(lote);
+        log.info("Stock descontado. Lote ID: {}, nueva cantidad: {}", loteId, lote.getCantidadActual());
 
         registrarMovimiento(lote, "SALIDA", cantidad, motivo);
     }
@@ -124,6 +123,7 @@ public class LoteService {
                 .orElseThrow(() -> new RuntimeException("Lote no encontrado"));
         lote.setActivo(false);
         loteRepository.save(lote);
+        log.info("Lote desactivado: ID={}", id);
     }
 
     public LoteResponseDTO obtenerPorId(Long id) {
@@ -172,10 +172,11 @@ public class LoteService {
                 movimiento.setUsuario(usuario);
             }
         } catch (Exception e) {
-            // Usuario null si no está autenticado
+            log.warn("No se pudo obtener el usuario para el movimiento: {}", e.getMessage());
         }
 
         movimientoRepository.save(movimiento);
+        log.debug("Movimiento registrado: tipo={}, cantidad={}, motivo={}", tipo, cantidad, motivo);
     }
 
     private LoteResponseDTO convertToResponseDTO(Lote lote) {
