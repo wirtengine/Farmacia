@@ -97,7 +97,8 @@ public class VentaService {
                     .orElseThrow(() -> new RuntimeException("Medicamento no encontrado: " + detReq.getMedicamentoId()));
 
             int cantidadSolicitada = detReq.getCantidad();
-            List<Lote> lotes = loteRepository.findByMedicamentoAndActivoTrueAndCantidadActualGreaterThanOrderByFechaVencimientoAsc(medicamento, 0);
+            // 🔽 LÍNEA CORREGIDA 🔽
+            List<Lote> lotes = loteRepository.findByMedicamentoAndActivoTrueAndCantidadActualGreaterThanWithMedicamento(medicamento, 0);
 
             if (lotes.isEmpty()) {
                 throw new RuntimeException("No hay lotes disponibles para " + medicamento.getNombre());
@@ -166,21 +167,18 @@ public class VentaService {
         throw new RuntimeException("Usuario no autenticado");
     }
 
-    // Obtener venta con todos los datos cargados
     public VentaResponseDTO obtenerVenta(Long id) {
         Venta venta = ventaRepository.findByIdWithAll(id)
                 .orElseThrow(() -> new RuntimeException("Venta no encontrada"));
         return mapToResponseDTO(venta);
     }
 
-    // Listar ventas no anuladas con fetch
     public List<VentaResponseDTO> listarVentas() {
         return ventaRepository.findAllNoAnuladasWithFetch().stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
     }
 
-    // Listar ventas por vendedor con fetch
     public List<VentaResponseDTO> listarVentasPorVendedor(Long vendedorId) {
         Usuario vendedor = usuarioRepository.findById(vendedorId)
                 .orElseThrow(() -> new RuntimeException("Vendedor no encontrado"));
@@ -190,7 +188,6 @@ public class VentaService {
                 .collect(Collectors.toList());
     }
 
-    // Listar ventas por cliente con fetch
     public List<VentaResponseDTO> listarVentasPorCliente(Long clienteId) {
         return ventaRepository.findByClienteIdWithFetch(clienteId).stream()
                 .filter(v -> v.getEstado() != EstadoVenta.ANULADA)

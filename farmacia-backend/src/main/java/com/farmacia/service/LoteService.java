@@ -127,14 +127,15 @@ public class LoteService {
     }
 
     public LoteResponseDTO obtenerPorId(Long id) {
+        // Usamos findById y luego convertimos; si queremos evitar Lazy, podemos hacer una consulta específica con JOIN FETCH
         Lote lote = loteRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Lote no encontrado"));
         return convertToResponseDTO(lote);
     }
 
+    // 🔹 Método listarTodos AHORA USA JOIN FETCH para evitar LazyInitializationException
     public List<LoteResponseDTO> listarTodos() {
-        return loteRepository.findAll().stream()
-                .filter(Lote::getActivo)
+        return loteRepository.findAllActivosWithMedicamento().stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
     }
@@ -143,16 +144,14 @@ public class LoteService {
         Medicamento medicamento = medicamentoRepository.findById(medicamentoId)
                 .orElseThrow(() -> new RuntimeException("Medicamento no encontrado"));
 
-        return loteRepository
-                .findByMedicamentoAndActivoTrueOrderByFechaVencimientoAsc(medicamento)
+        return loteRepository.findByMedicamentoAndActivoTrueWithMedicamento(medicamento)
                 .stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
     }
 
     public List<Lote> obtenerLotesFEFO(Medicamento medicamento) {
-        return loteRepository
-                .findByMedicamentoAndActivoTrueAndCantidadActualGreaterThanOrderByFechaVencimientoAsc(medicamento, 0);
+        return loteRepository.findByMedicamentoAndActivoTrueAndCantidadActualGreaterThanWithMedicamento(medicamento, 0);
     }
 
     private void registrarMovimiento(Lote lote, String tipo, Integer cantidad, String motivo) {

@@ -31,17 +31,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt;
         final String username;
 
+        System.out.println("=== JwtAuthenticationFilter ===");
+        System.out.println("Request URI: " + request.getRequestURI());
+        System.out.println("Method: " + request.getMethod());
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            System.out.println("No Bearer token found, continuing filter chain");
             filterChain.doFilter(request, response);
             return;
         }
 
         jwt = authHeader.substring(7);
         username = jwtService.extractUsername(jwt);
+        System.out.println("Extracted username: " + username);
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            System.out.println("Loading user details for: " + username);
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+            System.out.println("User details loaded, authorities: " + userDetails.getAuthorities());
+
             if (jwtService.validateToken(jwt, userDetails)) {
+                System.out.println("Token validated successfully");
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,
@@ -49,8 +59,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 );
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
+                System.out.println("Authentication set in SecurityContext");
+            } else {
+                System.out.println("Token validation failed");
             }
+        } else {
+            System.out.println("Username is null or authentication already exists");
         }
+
         filterChain.doFilter(request, response);
     }
 }

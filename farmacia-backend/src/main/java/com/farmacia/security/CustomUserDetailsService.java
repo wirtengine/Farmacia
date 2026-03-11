@@ -17,13 +17,22 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        System.out.println("=== CustomUserDetailsService ===");
+        System.out.println("Looking for user: " + username);
         Usuario usuario = usuarioRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
 
-        return User.builder()
+        System.out.println("User found in DB: " + usuario.getUsername());
+        System.out.println("Role from DB: " + usuario.getRol());
+        System.out.println("Active status: " + usuario.getActivo());
+
+        UserDetails user = User.builder()
                 .username(usuario.getUsername())
                 .password(usuario.getPassword())
                 .roles(usuario.getRol())
                 .build();
+
+        System.out.println("Authorities generated: " + user.getAuthorities());
+        return user;
     }
 }

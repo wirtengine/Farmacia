@@ -12,7 +12,7 @@ public class ProveedorRequestDTO {
     private String nombre;
 
     @NotBlank(message = "El RUC es obligatorio")
-    @Pattern(regexp = "^[0-9]{14}$", message = "El RUC debe tener 14 dígitos numéricos")
+    @Pattern(regexp = "^[A-Z0-9]{14}$", message = "El RUC debe tener 14 caracteres alfanuméricos (solo mayúsculas y números)")
     private String ruc;
 
     @NotBlank(message = "El teléfono es obligatorio")
