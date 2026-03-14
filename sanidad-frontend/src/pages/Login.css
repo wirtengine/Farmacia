@@ -1,0 +1,152 @@
+:root {
+    --health-green: #10b981;
+    --health-dark: #065f46;
+    --health-light: #ecfdf5;
+    --clinical-blue: #3b82f6;
+    --soft-gray: #f3f4f6;
+}
+
+.pharmacy-login-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at top left, #f0fdf4, #e0f2f1); /* Fondo muy suave */
+    font-family: 'Inter', -apple-system, sans-serif;
+}
+
+.login-card {
+    background: #ffffff;
+    padding: 3rem 2rem;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(16, 185, 129, 0.1);
+    width: 100%;
+    max-width: 420px;
+    position: relative;
+    border: 1px solid rgba(16, 185, 129, 0.1);
+}
+
+/* Icono de Cruz Médica */
+.brand-icon {
+    width: 70px;
+    height: 70px;
+    background: var(--health-green);
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    transform: rotate(0deg);
+    box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+}
+
+.cross-icon {
+    color: white;
+    font-size: 40px;
+    font-weight: bold;
+    line-height: 0;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.login-header h2 {
+    color: var(--health-dark);
+    margin: 0;
+    font-size: 1.5rem;
+    letter-spacing: -0.5px;
+}
+
+.login-header p {
+    color: #6b7280;
+    font-size: 0.9rem;
+    margin-top: 5px;
+}
+
+/* Inputs con estilo "Clean" */
+.input-field {
+    margin-bottom: 1.2rem;
+}
+
+.input-field label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--health-dark);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+}
+
+.input-field input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid var(--soft-gray);
+    border-radius: 10px;
+    outline: none;
+    transition: all 0.2s;
+    box-sizing: border-box;
+}
+
+.input-field input:focus {
+    border-color: var(--health-green);
+    background-color: var(--health-light);
+}
+
+/* Botón Profesional */
+.pharmacy-btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--health-green);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 1rem;
+}
+
+.pharmacy-btn:hover {
+    background: var(--health-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(6, 95, 70, 0.2);
+}
+
+/* Errores */
+.error-badge {
+    background: #fef2f2;
+    color: #991b1b;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #ef4444;
+    text-align: center;
+}
+
+.login-support {
+    margin-top: 2rem;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+
+.login-support span {
+    color: var(--clinical-blue);
+    cursor: pointer;
+    font-weight: 500;
+}
+
+/* Animación de entrada suave */
+.login-card {
+    animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}

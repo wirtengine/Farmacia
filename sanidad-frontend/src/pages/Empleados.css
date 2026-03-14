@@ -1,0 +1,262 @@
+/* --- Estructura y Contenedor --- */
+.module-container {
+    padding: 30px;
+    margin-left: 260px; /* Se ajusta con JS si el sidebar se colapsa */
+    min-height: 100vh;
+    background: #f8fafc;
+    transition: margin-left 0.3s ease;
+}
+
+.module-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.module-header h1 {
+    font-size: 1.5rem;
+    color: #1e293b;
+    margin: 0;
+}
+
+.module-header p {
+    color: #64748b;
+    margin: 4px 0 0 0;
+    font-size: 0.9rem;
+}
+
+/* --- Botones --- */
+.btn-primary {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-weight: 600;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.btn-primary:hover {
+    background: #059669;
+    transform: translateY(-1px);
+}
+
+.btn-text-edit {
+    background: none;
+    border: none;
+    color: #0369a1;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 6px;
+}
+
+.btn-text-edit:hover {
+    background: #e0f2fe;
+}
+
+/* --- Tabla --- */
+.table-card {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.custom-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.custom-table th {
+    background: #f8fafc;
+    padding: 16px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #64748b;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.custom-table td {
+    padding: 16px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.user-td {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.avatar-small {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: #10b981;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+/* --- Tags de Rol --- */
+.role-tag {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.role-tag.admin { background: #e0f2fe; color: #0369a1; }
+.role-tag.vendedor { background: #fef3c7; color: #92400e; }
+
+/* --- Status Badge --- */
+.status-badge {
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #059669;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    background: #10b981;
+    border-radius: 50%;
+}
+
+/* --- DRAWER (PANEL LATERAL) --- */
+.drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: flex-end;
+    z-index: 1000;
+}
+
+.drawer-content {
+    width: 420px;
+    background: white;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    animation: slideRight 0.3s ease-out;
+    padding: 40px;
+    box-shadow: -10px 0 25px rgba(0,0,0,0.1);
+}
+
+@keyframes slideRight {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+.drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.close-drawer {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: #94a3b8;
+    cursor: pointer;
+}
+
+.form-group {
+    margin-bottom: 24px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 0.9rem;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    outline: none;
+    transition: border 0.2s;
+}
+
+.form-group input:focus {
+    border-color: #10b981;
+    ring: 2px solid #10b981;
+}
+
+.input-disabled { background: #f1f5f9; cursor: not-allowed; }
+
+/* Selector de Rol */
+.role-selector {
+    display: flex;
+    gap: 10px;
+}
+
+.role-selector button {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.role-selector button.active {
+    background: #10b981;
+    color: white;
+    border-color: #10b981;
+}
+
+.drawer-footer {
+    margin-top: auto;
+    display: flex;
+    gap: 12px;
+}
+
+.btn-sec {
+    flex: 1;
+    background: #f1f5f9;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* Alertas */
+.alert-banner {
+    background: #dcfce7;
+    color: #166534;
+    padding: 14px 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.close-alert { background: none; border: none; cursor: pointer; font-weight: bold; }

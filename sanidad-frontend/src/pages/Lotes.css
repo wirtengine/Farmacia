@@ -1,0 +1,364 @@
+/* =========================================
+   LAYOUT GENERAL Y CABECERA (LOTES)
+   ========================================= */
+.module-container {
+    padding: 20px;
+    background: #f8fafc;
+    min-height: 100vh;
+}
+
+.module-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    padding: 15px 20px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.module-header h1 { font-size: 1.25rem; margin: 0; color: #0f172a; }
+.module-header p { margin: 0; font-size: 0.85rem; color: #64748b; }
+
+.header-actions {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+/* =========================================
+   TOOLBAR Y BÚSQUEDA
+   ========================================= */
+.search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: #f1f5f9;
+    padding: 8px 15px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    width: 350px;
+    transition: all 0.2s;
+}
+
+.search-box:focus-within {
+    border-color: #2563eb;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.search-box input {
+    background: transparent;
+    border: none;
+    outline: none;
+    margin-left: 10px;
+    font-size: 0.85rem;
+    width: 100%;
+}
+
+.btn-primary-compact {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s;
+}
+
+.btn-primary-compact:hover {
+    background: #1d4ed8;
+}
+
+/* =========================================
+   TABLA ERP Y CHIPS DE MEDICAMENTOS
+   ========================================= */
+.table-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+}
+
+.custom-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+
+.custom-table th {
+    background: #f8fafc;
+    padding: 14px 15px;
+    text-align: left;
+    color: #475569;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.custom-table td {
+    padding: 14px 15px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: middle;
+}
+
+.custom-table tr:hover { background-color: #fbfcfe; }
+
+/* Estilo para filas desactivadas (Soft Delete) */
+.row-inactive {
+    opacity: 0.6;
+    background-color: #f8fafc;
+}
+
+/* Sistema de Chips para Medicamentos en Tabla */
+.items-chip-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-width: 280px;
+}
+
+.med-chip {
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.med-chip small {
+    color: #3b82f6;
+    font-weight: 800;
+    background: white;
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 0.65rem;
+}
+
+.med-chip-more {
+    background: #f1f5f9;
+    color: #64748b;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    border: 1px dashed #cbd5e1;
+}
+
+/* Utilidades de Lotes */
+.text-danger { color: #ef4444; font-weight: 600; }
+.font-bold { font-weight: 700; color: #1e293b; }
+.text-muted { color: #64748b; font-size: 0.8rem; }
+.text-center { text-align: center; }
+
+.status-pill {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+/* Estados Dinámicos */
+.status-pill.active { background: #dcfce7; color: #15803d; border: 1px solid #bcf0da; }
+.status-pill.agotado { background: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; }
+.status-pill.inactive { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+
+/* =========================================
+   DRAWER (PANEL LATERAL)
+   ========================================= */
+.drawer-overlay {
+    position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(4px); display: flex; justify-content: flex-end; z-index: 9999;
+}
+
+.drawer-panel {
+    width: 520px;
+    background: white;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.1);
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+.drawer-header-compact {
+    padding: 20px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.drawer-header-compact h2 { font-size: 1.1rem; color: #0f172a; margin: 0; }
+
+.close-btn-round {
+    width: 32px; height: 32px; border-radius: 50%; border: none;
+    background: #f1f5f9; cursor: pointer; font-size: 1.2rem; line-height: 1;
+}
+
+.drawer-body-scrollable { flex: 1; overflow-y: auto; padding: 20px; }
+
+/* Estilos de Formulario en Lotes */
+.section-divider {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: #2563eb;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid #eff6ff;
+    padding-bottom: 5px;
+    margin: 20px 0 15px 0;
+}
+
+.field-group { margin-bottom: 15px; }
+.field-group label {
+    display: block; font-size: 0.75rem; font-weight: 700; color: #475569; margin-bottom: 6px;
+}
+
+.field-group input, .field-group select {
+    width: 100%; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem;
+}
+
+.input-readonly { background: #f8fafc; color: #64748b; border-style: dashed !important; font-weight: 600; }
+
+.field-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+/* Gestión de Items (Medicamentos en el Lote) */
+.item-entry-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: flex-end;
+}
+
+.flex-2 { flex: 2; }
+.flex-1 { flex: 1; }
+
+.btn-delete-small {
+    background: #fff1f2; border: 1px solid #fecaca; color: #be123c;
+    padding: 10px; border-radius: 8px; cursor: pointer; height: 42px;
+    display: flex; align-items: center; justify-content: center;
+}
+
+.btn-add-item {
+    width: 100%; padding: 12px; background: #f8fafc; border: 2px dashed #e2e8f0;
+    border-radius: 10px; color: #64748b; font-weight: 600; cursor: pointer; margin-top: 10px;
+    transition: all 0.2s;
+}
+.btn-add-item:hover { background: #f1f5f9; color: #2563eb; border-color: #3b82f6; }
+
+/* Footer del Drawer */
+.drawer-footer-fixed {
+    padding: 20px; border-top: 1px solid #e2e8f0; display: flex; gap: 12px; background: white;
+}
+
+.btn-save-final {
+    flex: 2; background: #059669; color: white; border: none; padding: 12px;
+    border-radius: 8px; font-weight: 700; cursor: pointer; transition: background 0.2s;
+}
+.btn-save-final:hover { background: #047857; }
+
+.btn-cancel {
+    flex: 1; background: #f1f5f9; color: #475569; border: none; padding: 12px;
+    border-radius: 8px; font-weight: 600; cursor: pointer;
+}
+
+/* Acciones en Fila */
+.action-buttons-group { display: flex; gap: 6px; justify-content: center; }
+
+.btn-edit-icon, .btn-delete-icon {
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 8px; cursor: pointer; transition: all 0.2s;
+    border: 1px solid #e2e8f0;
+    text-decoration: none;
+    font-size: 1rem;
+}
+
+.btn-edit-icon { background: #f1f5f9; color: #475569; }
+.btn-edit-icon:hover { background: #e2e8f0; transform: translateY(-1px); }
+
+.btn-delete-icon {
+    background: #fff1f2;
+    color: #be123c;
+    border-color: #fecdd3;
+}
+.btn-delete-icon:hover {
+    background: #be123c;
+    color: white;
+    border-color: #be123c;
+    transform: translateY(-1px);
+}
+
+/* Alertas */
+.alert-banner {
+    padding: 12px 20px; border-radius: 8px; margin-bottom: 20px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-weight: 500; font-size: 0.9rem;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+.alert-banner.success { background: #10b981; color: white; }
+.alert-banner.error { background: #ef4444; color: white; }
+.alert-banner button { background: transparent; border: none; color: white; cursor: pointer; font-size: 1.2rem; }
+
+/* Estados Vacíos */
+.empty-state { padding: 60px 20px; text-align: center; color: #94a3b8; font-weight: 500; }
+
+/* Impresión */
+@media print {
+    .no-print, .header-actions, .search-box, .drawer-overlay, .action-buttons-group, .btn-primary-compact { display: none !important; }
+    .module-container { padding: 0; background: white; }
+    .table-card { box-shadow: none; border: 1px solid #eee; }
+    .module-header { box-shadow: none; border-bottom: 2px solid #333; }
+}
+.stock-filter-group {
+    display: flex;
+    background: #e2e8f0;
+    padding: 4px;
+    border-radius: 10px;
+    gap: 2px;
+}
+
+.btn-filter {
+    border: none;
+    background: transparent;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-filter:hover {
+    color: #1e293b;
+}
+
+.btn-filter.active {
+    background: white;
+    color: #2563eb;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* Ajuste para que la barra de búsqueda no empuje todo */
+.header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
