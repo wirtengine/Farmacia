@@ -1,0 +1,46 @@
+/* Botón especial de WhatsApp en el footer */
+.btn-save-final.whatsapp-style {
+    background: #25d366; /* Verde WhatsApp */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.2);
+}
+
+.btn-save-final.whatsapp-style:hover {
+    background: #1eb954;
+    transform: translateY(-1px);
+}
+
+/* Input de búsqueda en el drawer */
+.search-input-drawer {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.search-input-drawer:focus {
+    border-color: #2563eb;
+    outline: none;
+    background: white;
+}
+
+/* Resultados en el drawer */
+.results-list {
+    margin-top: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Scrollbar personalizada para el drawer */
+.drawer-body-scrollable::-webkit-scrollbar {
+    width: 6px;
+}
+.drawer-body-scrollable::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}

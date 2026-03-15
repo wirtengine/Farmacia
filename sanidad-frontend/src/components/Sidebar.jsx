@@ -7,7 +7,9 @@ const MENU_SECTIONS = [
     {
         title: 'Principal',
         roles: ['ALL'],
-        items: [{ path: '/dashboard', icon: '🏠', label: 'Dashboard' }],
+        items: [
+            { path: '/dashboard', icon: '🏠', label: 'Dashboard' }
+        ],
     },
     {
         title: 'Inventario',
@@ -20,16 +22,17 @@ const MENU_SECTIONS = [
     },
     {
         title: 'Operaciones',
-        roles: ['ALL'], // Ahora accesible para ADMIN y VENDEDOR
+        roles: ['ALL'],
         items: [
             { path: '/ventas', icon: '💰', label: 'Ventas' },
             { path: '/devoluciones', icon: '🔄', label: 'Devoluciones' },
-            { path: '/clientes', icon: '👤', label: 'Clientes' }, // Movido aquí para fácil acceso
+            { path: '/devoluciones-proveedor', icon: '📦', label: 'Devoluciones a Proveedores', roles: ['ADMIN'] },
+            { path: '/clientes', icon: '👤', label: 'Clientes' },
         ],
     },
     {
         title: 'Administración',
-        roles: ['ADMIN'], // Sigue siendo exclusivo para ADMIN
+        roles: ['ADMIN'],
         items: [
             { path: '/empleados', icon: '👥', label: 'Empleados' },
         ],
@@ -61,9 +64,9 @@ export default function Sidebar() {
                 <div className="sidebar-header">
                     <div className="admin-badge">
                         <div className="admin-avatar">
-                            {/* Mostramos la inicial del rol o usuario */}
                             {userRole.charAt(0)}
                         </div>
+
                         {!collapsed && (
                             <div className="admin-info">
                                 <span className="brand-name">FarmaSystem</span>
@@ -83,28 +86,48 @@ export default function Sidebar() {
 
                 <nav className="sidebar-links">
                     {MENU_SECTIONS.map((section) => {
-                        // Lógica de filtrado de roles
-                        const hasAccess = section.roles.includes('ALL') || section.roles.includes(userRole);
+
+                        const hasAccess =
+                            section.roles.includes('ALL') ||
+                            section.roles.includes(userRole);
 
                         if (!hasAccess) return null;
 
                         return (
                             <div key={section.title} className="menu-section">
-                                {!collapsed && <p className="section-title">{section.title}</p>}
 
-                                {section.items.map((item) => (
-                                    <NavLink
-                                        key={item.path}
-                                        to={item.path}
-                                        className={({ isActive }) => `link ${isActive ? 'active' : ''}`}
-                                        title={collapsed ? item.label : ""}
-                                    >
-                                        <span role="img" aria-label={item.label} className="menu-icon">
-                                            {item.icon}
-                                        </span>
-                                        {!collapsed && <span className="menu-label">{item.label}</span>}
-                                    </NavLink>
-                                ))}
+                                {!collapsed && (
+                                    <p className="section-title">
+                                        {section.title}
+                                    </p>
+                                )}
+
+                                {section.items
+                                    .filter(item => !item.roles || item.roles.includes(userRole))
+                                    .map((item) => (
+                                        <NavLink
+                                            key={item.path}
+                                            to={item.path}
+                                            className={({ isActive }) =>
+                                                `link ${isActive ? 'active' : ''}`
+                                            }
+                                            title={collapsed ? item.label : ""}
+                                        >
+                                            <span
+                                                role="img"
+                                                aria-label={item.label}
+                                                className="menu-icon"
+                                            >
+                                                {item.icon}
+                                            </span>
+
+                                            {!collapsed && (
+                                                <span className="menu-label">
+                                                    {item.label}
+                                                </span>
+                                            )}
+                                        </NavLink>
+                                    ))}
                             </div>
                         );
                     })}
@@ -122,19 +145,33 @@ export default function Sidebar() {
                 </div>
             </aside>
 
-            {/* Modal de confirmación de Logout */}
+            {/* Modal Confirmación */}
             {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+                <div
+                    className="modal-overlay"
+                    onClick={() => setShowModal(false)}
+                >
+                    <div
+                        className="confirm-modal"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="modal-icon-warning">!</div>
+
                         <h3>¿Desea cerrar sesión?</h3>
                         <p>Se cerrará el acceso al sistema actual.</p>
 
                         <div className="modal-actions">
-                            <button className="btn-cancel-modal" onClick={() => setShowModal(false)}>
+                            <button
+                                className="btn-cancel-modal"
+                                onClick={() => setShowModal(false)}
+                            >
                                 Volver
                             </button>
-                            <button className="btn-confirm-modal" onClick={confirmLogout}>
+
+                            <button
+                                className="btn-confirm-modal"
+                                onClick={confirmLogout}
+                            >
                                 Cerrar Sesión
                             </button>
                         </div>

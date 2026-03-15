@@ -10,7 +10,8 @@ import Lotes from './pages/Lotes';
 import Proveedores from './pages/Proveedores';
 import Clientes from './pages/Clientes';
 import Ventas from './pages/Ventas';
-import Devoluciones from './pages/Devoluciones'; // <-- IMPORT AGREGADO
+import Devoluciones from './pages/Devoluciones';
+import DevolucionesProveedor from './pages/DevolucionesProveedor'; // <-- NUEVO IMPORT
 
 const DashboardPlaceholder = () => (
     <div className="module-container">
@@ -115,6 +116,16 @@ function AppContent() {
                         element={
                             <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR']}>
                                 <Devoluciones />
+                            </PrivateRoute>
+                        }
+                    />
+
+                    {/* NUEVA RUTA: Devoluciones a proveedor */}
+                    <Route
+                        path="/devoluciones-proveedor"
+                        element={
+                            <PrivateRoute allowedRoles={['ADMIN']}>
+                                <DevolucionesProveedor />
                             </PrivateRoute>
                         }
                     />
