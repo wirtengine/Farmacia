@@ -61,7 +61,9 @@ export default function Sidebar() {
     return (
         <>
             <aside className={`pharmacy-sidebar ${collapsed ? 'collapsed' : ''}`}>
+
                 <div className="sidebar-header">
+
                     <div className="admin-badge">
                         <div className="admin-avatar">
                             {userRole.charAt(0)}
@@ -82,9 +84,11 @@ export default function Sidebar() {
                     >
                         {collapsed ? "▶" : "◀"}
                     </button>
+
                 </div>
 
                 <nav className="sidebar-links">
+
                     {MENU_SECTIONS.map((section) => {
 
                         const hasAccess =
@@ -94,6 +98,7 @@ export default function Sidebar() {
                         if (!hasAccess) return null;
 
                         return (
+
                             <div key={section.title} className="menu-section">
 
                                 {!collapsed && (
@@ -105,14 +110,16 @@ export default function Sidebar() {
                                 {section.items
                                     .filter(item => !item.roles || item.roles.includes(userRole))
                                     .map((item) => (
+
                                         <NavLink
                                             key={item.path}
                                             to={item.path}
                                             className={({ isActive }) =>
-                                                `link ${isActive ? 'active' : ''}`
+                                                isActive ? 'link active' : 'link'
                                             }
                                             title={collapsed ? item.label : ""}
                                         >
+
                                             <span
                                                 role="img"
                                                 aria-label={item.label}
@@ -126,14 +133,19 @@ export default function Sidebar() {
                                                     {item.label}
                                                 </span>
                                             )}
+
                                         </NavLink>
+
                                     ))}
                             </div>
+
                         );
                     })}
+
                 </nav>
 
                 <div className="sidebar-footer">
+
                     <button
                         className="logout-trigger"
                         onClick={() => setShowModal(true)}
@@ -142,25 +154,31 @@ export default function Sidebar() {
                         <span role="img" aria-label="Cerrar sesión">🚪</span>
                         {!collapsed && "Cerrar sesión"}
                     </button>
+
                 </div>
+
             </aside>
 
-            {/* Modal Confirmación */}
             {showModal && (
+
                 <div
                     className="modal-overlay"
                     onClick={() => setShowModal(false)}
                 >
+
                     <div
                         className="confirm-modal"
                         onClick={(e) => e.stopPropagation()}
                     >
+
                         <div className="modal-icon-warning">!</div>
 
                         <h3>¿Desea cerrar sesión?</h3>
+
                         <p>Se cerrará el acceso al sistema actual.</p>
 
                         <div className="modal-actions">
+
                             <button
                                 className="btn-cancel-modal"
                                 onClick={() => setShowModal(false)}
@@ -174,10 +192,15 @@ export default function Sidebar() {
                             >
                                 Cerrar Sesión
                             </button>
+
                         </div>
+
                     </div>
+
                 </div>
+
             )}
+
         </>
     );
 }

@@ -4,6 +4,7 @@ import PrivateRoute from './components/PrivateRoute';
 import Sidebar from './components/Sidebar';
 
 import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
 import Empleados from './pages/Empleados';
 import Medicamentos from './pages/Medicamentos';
 import Lotes from './pages/Lotes';
@@ -11,13 +12,7 @@ import Proveedores from './pages/Proveedores';
 import Clientes from './pages/Clientes';
 import Ventas from './pages/Ventas';
 import Devoluciones from './pages/Devoluciones';
-import DevolucionesProveedor from './pages/DevolucionesProveedor'; // <-- NUEVO IMPORT
-
-const DashboardPlaceholder = () => (
-    <div className="module-container">
-        <h1>Bienvenido al Sistema</h1>
-    </div>
-);
+import DevolucionesProveedor from './pages/DevolucionesProveedor';
 
 function AppContent() {
     const { user, loading } = useAuth();
@@ -45,7 +40,7 @@ function AppContent() {
                         path="/dashboard"
                         element={
                             <PrivateRoute>
-                                <DashboardPlaceholder />
+                                <Dashboard />
                             </PrivateRoute>
                         }
                     />
@@ -120,7 +115,7 @@ function AppContent() {
                         }
                     />
 
-                    {/* NUEVA RUTA: Devoluciones a proveedor */}
+                    {/* Devoluciones a proveedor */}
                     <Route
                         path="/devoluciones-proveedor"
                         element={
@@ -130,7 +125,7 @@ function AppContent() {
                         }
                     />
 
-                    {/* Cualquier ruta que no exista */}
+                    {/* Ruta no encontrada */}
                     <Route path="*" element={<Navigate to="/login" replace />} />
 
                 </Routes>
