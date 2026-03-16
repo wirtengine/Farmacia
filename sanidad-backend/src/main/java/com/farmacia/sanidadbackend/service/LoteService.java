@@ -8,6 +8,7 @@ import com.farmacia.sanidadbackend.model.Proveedor;
 import com.farmacia.sanidadbackend.repository.LoteRepository;
 import com.farmacia.sanidadbackend.repository.MedicamentoRepository;
 import com.farmacia.sanidadbackend.repository.ProveedorRepository;
+import com.farmacia.sanidadbackend.repository.VentaDetalleRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class LoteService {
     private final LoteRepository loteRepository;
     private final MedicamentoRepository medicamentoRepository;
     private final ProveedorRepository proveedorRepository;
+    private final VentaDetalleRepository ventaDetalleRepository;
 
     private String generarNumeroLote() {
 
@@ -65,6 +67,10 @@ public class LoteService {
 
     @Transactional
     public LoteResponse actualizarLote(Long id, LoteRequest request) {
+
+        if (ventaDetalleRepository.existsByLoteId(id)) {
+            throw new IllegalStateException("No se puede modificar un lote que ya tiene ventas asociadas. Solo puede desactivarlo.");
+        }
 
         validarFechas(request.getFechaFabricacion(), request.getFechaVencimiento());
 
@@ -151,8 +157,6 @@ public class LoteService {
         }
 
         response.setFactura(lote.getFactura());
-
-        // CORRECCIÓN AQUÍ
         response.setActivo(lote.isActivo());
 
         List<LoteDetalleResponse> detalles = lote.getDetalles()

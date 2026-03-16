@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { listarLotes, crearLote, actualizarLote, desactivarLote } from '../services/lotes';
+import { listarLotes, crearLote, desactivarLote } from '../services/lotes'; // Eliminamos actualizarLote si no se usa
 import { listarMedicamentos } from '../services/medicamentos';
 import { listarProveedores } from '../services/proveedores';
 import { useAuth } from '../context/AuthContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import QRCode from 'qrcode';
 import './Lotes.css';
 
 export default function Lotes() {
@@ -19,14 +18,12 @@ export default function Lotes() {
 
     // Estados de Filtros
     const [searchTerm, setSearchTerm] = useState('');
-    const [filtroStock, setFiltroStock] = useState('todos'); // 'todos', 'stock', 'agotado'
+    const [filtroStock, setFiltroStock] = useState('todos');
 
     // Estados de UI
     const [message, setMessage] = useState({ text: '', type: '' });
     const [loading, setLoading] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const [editMode, setEditMode] = useState(false);
-    const [currentId, setCurrentId] = useState(null);
 
     const [formData, setFormData] = useState({
         fechaFabricacion: '',
@@ -58,24 +55,20 @@ export default function Lotes() {
         }
     };
 
-    // Lógica de búsqueda y filtrado avanzado
+    // 1. LÓGICA DE FILTRADO (MODIFICADA)
     const lotesFiltrados = useMemo(() => {
         const term = searchTerm.toLowerCase();
 
         return lotes.filter(l => {
-            // 1. Búsqueda por Factura o Proveedor
             const nombreProveedor = proveedores.find(p => p.id === l.proveedorId)?.nombre.toLowerCase() || '';
             const coincideFacturaProv = l.factura?.toLowerCase().includes(term) || nombreProveedor.includes(term);
 
-            // 2. Búsqueda por Nombre de Medicamento dentro del lote
             const tieneMedicamento = l.detalles?.some(d => {
                 const nombreMed = medicamentos.find(m => m.id === d.medicamentoId)?.nombre.toLowerCase() || '';
                 return nombreMed.includes(term);
             });
 
             const coincideBusqueda = coincideFacturaProv || tieneMedicamento;
-
-            // 3. Filtro por Estado de Stock (Botones)
             const totalStock = l.detalles?.reduce((acc, d) => acc + d.cantidad, 0) || 0;
 
             if (filtroStock === 'stock') {
@@ -85,7 +78,8 @@ export default function Lotes() {
                 return coincideBusqueda && totalStock === 0 && l.activo;
             }
 
-            return coincideBusqueda;
+            // Caso 'todos': Ahora excluye agotados (totalStock > 0)
+            return coincideBusqueda && totalStock > 0 && l.activo;
         });
     }, [lotes, searchTerm, proveedores, medicamentos, filtroStock]);
 
@@ -114,7 +108,6 @@ export default function Lotes() {
     };
 
     const handleNuevo = () => {
-        setEditMode(false);
         setFormData({
             fechaFabricacion: new Date().toISOString().split('T')[0],
             fechaVencimiento: '',
@@ -125,25 +118,11 @@ export default function Lotes() {
         setDrawerOpen(true);
     };
 
-    const handleEditar = (lote) => {
-        setEditMode(true);
-        setCurrentId(lote.id);
-        setFormData({
-            fechaFabricacion: lote.fechaFabricacion?.split('T')[0] || '',
-            fechaVencimiento: lote.fechaVencimiento?.split('T')[0] || '',
-            proveedorId: lote.proveedorId || '',
-            factura: lote.factura || '',
-            detalles: lote.detalles.map(d => ({ medicamentoId: d.medicamentoId, cantidad: d.cantidad }))
-        });
-        setDrawerOpen(true);
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
-            if (editMode) await actualizarLote(currentId, formData);
-            else await crearLote(formData);
+            await crearLote(formData);
             setDrawerOpen(false);
             cargarDatos();
         } catch (error) {
@@ -155,7 +134,6 @@ export default function Lotes() {
 
     const imprimirLote = async (lote) => {
         const doc = new jsPDF();
-        const prov = proveedores.find(p => p.id === lote.proveedorId)?.nombre || 'N/A';
         doc.text(`Comprobante Lote: ${lote.factura}`, 14, 20);
         const filas = lote.detalles.map(d => [
             medicamentos.find(m => m.id === d.medicamentoId)?.nombre || 'S/N',
@@ -174,7 +152,6 @@ export default function Lotes() {
                 </div>
 
                 <div className="header-actions">
-                    {/* Filtros de Stock */}
                     <div className="stock-filter-group">
                         <button className={`btn-filter ${filtroStock === 'todos' ? 'active' : ''}`} onClick={() => setFiltroStock('todos')}>Todos</button>
                         <button className={`btn-filter ${filtroStock === 'stock' ? 'active' : ''}`} onClick={() => setFiltroStock('stock')}>En Stock</button>
@@ -235,14 +212,12 @@ export default function Lotes() {
                                             {l.activo ? (tieneStock ? 'En Stock' : 'Agotado') : 'Inactivo'}
                                         </span>
                                 </td>
+                                {/* 2. ACCIONES (BOTÓN EDITAR ELIMINADO) */}
                                 <td className="text-center">
                                     <div className="action-buttons-group">
-                                        <button className="btn-edit-icon" onClick={() => imprimirLote(l)}>📄</button>
+                                        <button className="btn-edit-icon" title="Imprimir" onClick={() => imprimirLote(l)}>📄</button>
                                         {isAdmin && l.activo && (
-                                            <>
-                                                <button className="btn-edit-icon" onClick={() => handleEditar(l)}>✏️</button>
-                                                <button className="btn-delete-icon" onClick={() => handleEliminar(l.id)}>🗑️</button>
-                                            </>
+                                            <button className="btn-delete-icon" title="Desactivar" onClick={() => handleEliminar(l.id)}>🗑️</button>
                                         )}
                                     </div>
                                 </td>
@@ -253,12 +228,11 @@ export default function Lotes() {
                 </table>
             </div>
 
-            {/* Formulario Lateral (Drawer) */}
             {drawerOpen && (
                 <div className="drawer-overlay" onClick={() => setDrawerOpen(false)}>
                     <div className="drawer-panel" onClick={e => e.stopPropagation()}>
                         <div className="drawer-header-compact">
-                            <h2>{editMode ? 'Editar Lote' : 'Nuevo Lote'}</h2>
+                            <h2>Nuevo Lote</h2>
                             <button className="close-btn-round" onClick={() => setDrawerOpen(false)}>×</button>
                         </div>
                         <form onSubmit={handleSubmit} className="drawer-body-scrollable">
