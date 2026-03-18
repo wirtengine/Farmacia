@@ -3,6 +3,7 @@
     --primary-dark: #059669;
     --sidebar-width-expanded: 260px;
     --sidebar-width-collapsed: 80px;
+    --mobile-sidebar-width: 280px; /* Nuevo: ancho en móvil */
     --bg-light: #f8fafc;
     --border-color: #e5e7eb;
     --danger-color: #ef4444;
@@ -23,12 +24,38 @@
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1000;
 }
 
+/* Estado Colapsado (Desktop) */
 .pharmacy-sidebar.collapsed {
     width: var(--sidebar-width-collapsed);
+}
+
+/* =========================================
+   RESPONSIVE: Tablets y Móviles (< 768px)
+========================================= */
+@media (max-width: 768px) {
+    .pharmacy-sidebar {
+        width: var(--mobile-sidebar-width);
+        left: calc(-1 * var(--mobile-sidebar-width)); /* Escondido a la izquierda */
+        box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+    }
+
+    /* Clase para mostrar el sidebar en móvil (se activa con JS) */
+    .pharmacy-sidebar.mobile-open {
+        left: 0;
+    }
+
+    /* Forzamos que en móvil siempre se vea expandido el contenido interno */
+    .pharmacy-sidebar.collapsed {
+        width: var(--mobile-sidebar-width);
+    }
+
+    .sidebar-toggle {
+        display: none; /* Escondemos el toggle pequeño en móvil */
+    }
 }
 
 /* =========================================
@@ -43,10 +70,20 @@
     min-height: 80px;
 }
 
-.pharmacy-sidebar.collapsed .sidebar-header {
-    flex-direction: column;
-    padding: 15px 0;
-    gap: 10px;
+/* Ajuste info cuando está colapsado */
+.pharmacy-sidebar.collapsed .admin-info,
+.pharmacy-sidebar.collapsed .brand-name,
+.pharmacy-sidebar.collapsed .user-role {
+    display: none;
+}
+
+/* En móvil SIEMPRE debe verse la info si el menú está abierto */
+@media (max-width: 768px) {
+    .pharmacy-sidebar.collapsed .admin-info,
+    .pharmacy-sidebar.collapsed .brand-name,
+    .pharmacy-sidebar.collapsed .user-role {
+        display: flex;
+    }
 }
 
 .admin-badge {
@@ -55,7 +92,6 @@
     gap: 12px;
 }
 
-/* Círculo con inicial del Usuario */
 .admin-avatar {
     width: 40px;
     height: 40px;
@@ -77,40 +113,6 @@
     overflow: hidden;
 }
 
-.brand-name {
-    font-weight: 700;
-    color: var(--text-main);
-    font-size: 0.95rem;
-    white-space: nowrap;
-}
-
-.user-role {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.sidebar-toggle {
-    background: #f1f5f9;
-    border: none;
-    cursor: pointer;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-}
-
-.sidebar-toggle:hover {
-    background: var(--primary-color);
-    color: white;
-}
-
 /* =========================================
    Enlaces de Navegación
 ========================================= */
@@ -120,17 +122,7 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 18px;
-}
-
-/* Scrollbar personalizado para el menú */
-.sidebar-links::-webkit-scrollbar { width: 4px; }
-.sidebar-links::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-
-.menu-section {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    gap: 8px; /* Reducido para que quepan más items */
 }
 
 .section-title {
@@ -138,8 +130,12 @@
     text-transform: uppercase;
     color: #94a3b8;
     font-weight: 700;
-    margin: 0 0 8px 12px;
+    margin: 10px 0 8px 12px;
     letter-spacing: 0.1em;
+}
+
+.pharmacy-sidebar.collapsed .section-title {
+    display: none;
 }
 
 .link {
@@ -150,27 +146,21 @@
     text-decoration: none;
     color: #475569;
     border-radius: 10px;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s;
+    white-space: nowrap;
 }
 
-.link:hover {
-    background: #f1f5f9;
-    color: var(--text-main);
-}
-
-.link.active {
-    background: #ecfdf5;
-    color: var(--primary-color);
-    font-weight: 600;
-}
+.link:hover { background: #f1f5f9; color: var(--text-main); }
+.link.active { background: #ecfdf5; color: var(--primary-color); font-weight: 600; }
 
 .pharmacy-sidebar.collapsed .link {
     justify-content: center;
     padding: 12px 0;
 }
 
-.menu-icon { font-size: 1.25rem; }
-.menu-label { font-size: 0.9rem; }
+.pharmacy-sidebar.collapsed .menu-label {
+    display: none;
+}
 
 /* =========================================
    Pie de página y Logout
@@ -192,105 +182,47 @@
     border-radius: 10px;
     cursor: pointer;
     font-weight: 600;
-    font-size: 0.9rem;
-    transition: all 0.2s;
 }
 
-.logout-trigger:hover {
-    background: var(--danger-color);
-    color: white;
-}
-
-.pharmacy-sidebar.collapsed .logout-trigger {
-    justify-content: center;
+.pharmacy-sidebar.collapsed .logout-trigger .menu-label {
+    display: none;
 }
 
 /* =========================================
-   MODAL DE CONFIRMACIÓN (REDISEÑADO)
+   MODAL DE CONFIRMACIÓN RESPONSIVE
 ========================================= */
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    animation: fadeIn 0.2s ease;
-}
-
 .confirm-modal {
     background: white;
-    padding: 32px;
+    padding: clamp(20px, 5vw, 32px); /* Padding fluido */
     border-radius: 20px;
     text-align: center;
-    max-width: 380px;
+    max-width: 400px;
     width: 90%;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
-.modal-icon-warning {
-    width: 60px;
-    height: 60px;
-    background: #fff7ed;
-    color: #f97316;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-    font-weight: bold;
-    margin: 0 auto 20px;
-    border: 2px solid #ffedd5;
+@media (max-width: 480px) {
+    .modal-actions {
+        flex-direction: column; /* Botones uno encima de otro en móviles pequeños */
+    }
+    .modal-icon-warning {
+        width: 50px;
+        height: 50px;
+        font-size: 1.5rem;
+    }
 }
 
-.confirm-modal h3 {
-    margin: 0 0 10px;
-    color: var(--text-main);
-    font-size: 1.25rem;
+/* Overlay que oscurece el fondo cuando el menú móvil está abierto */
+.sidebar-overlay {
+    display: none;
 }
 
-.confirm-modal p {
-    color: var(--text-muted);
-    font-size: 0.95rem;
-    line-height: 1.5;
-    margin-bottom: 25px;
+@media (max-width: 768px) {
+    .sidebar-overlay.active {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.4);
+        z-index: 999;
+    }
 }
-
-.modal-actions {
-    display: flex;
-    gap: 12px;
-}
-
-.btn-cancel-modal, .btn-confirm-modal {
-    flex: 1;
-    padding: 12px;
-    border-radius: 12px;
-    border: none;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-cancel-modal {
-    background: #f1f5f9;
-    color: #475569;
-}
-
-.btn-confirm-modal {
-    background: var(--danger-color);
-    color: white;
-}
-
-.btn-confirm-modal:hover {
-    background: #dc2626;
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
-}
-
-/* =========================================
-   ANIMACIONES
-========================================= */
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
