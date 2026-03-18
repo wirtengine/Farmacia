@@ -3,7 +3,6 @@
     --primary-dark: #059669;
     --sidebar-width-expanded: 260px;
     --sidebar-width-collapsed: 80px;
-    --mobile-sidebar-width: 280px; /* Nuevo: ancho en móvil */
     --bg-light: #f8fafc;
     --border-color: #e5e7eb;
     --danger-color: #ef4444;
@@ -12,8 +11,18 @@
 }
 
 /* =========================================
-   Contenedor Principal del Sidebar
+BASE
 ========================================= */
+
+body {
+    margin: 0;
+    background: var(--bg-light);
+}
+
+/* =========================================
+SIDEBAR
+========================================= */
+
 .pharmacy-sidebar {
     width: var(--sidebar-width-expanded);
     height: 100vh;
@@ -24,77 +33,38 @@
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s ease;
     z-index: 1000;
 }
 
-/* Estado Colapsado (Desktop) */
 .pharmacy-sidebar.collapsed {
     width: var(--sidebar-width-collapsed);
 }
 
-/* =========================================
-   RESPONSIVE: Tablets y Móviles (< 768px)
-========================================= */
-@media (max-width: 768px) {
-    .pharmacy-sidebar {
-        width: var(--mobile-sidebar-width);
-        left: calc(-1 * var(--mobile-sidebar-width)); /* Escondido a la izquierda */
-        box-shadow: 10px 0 30px rgba(0,0,0,0.1);
-    }
+/* MOBILE (OCULTO POR DEFECTO) */
+.pharmacy-sidebar.mobile-hidden {
+    transform: translateX(-100%);
+}
 
-    /* Clase para mostrar el sidebar en móvil (se activa con JS) */
-    .pharmacy-sidebar.mobile-open {
-        left: 0;
-    }
-
-    /* Forzamos que en móvil siempre se vea expandido el contenido interno */
-    .pharmacy-sidebar.collapsed {
-        width: var(--mobile-sidebar-width);
-    }
-
-    .sidebar-toggle {
-        display: none; /* Escondemos el toggle pequeño en móvil */
-    }
+.pharmacy-sidebar.mobile-show {
+    transform: translateX(0);
 }
 
 /* =========================================
-   Cabecera (Avatar e Info)
+HEADER
 ========================================= */
+
 .sidebar-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 20px;
     border-bottom: 1px solid var(--border-color);
-    min-height: 80px;
-}
-
-/* Ajuste info cuando está colapsado */
-.pharmacy-sidebar.collapsed .admin-info,
-.pharmacy-sidebar.collapsed .brand-name,
-.pharmacy-sidebar.collapsed .user-role {
-    display: none;
-}
-
-/* En móvil SIEMPRE debe verse la info si el menú está abierto */
-@media (max-width: 768px) {
-    .pharmacy-sidebar.collapsed .admin-info,
-    .pharmacy-sidebar.collapsed .brand-name,
-    .pharmacy-sidebar.collapsed .user-role {
-        display: flex;
-    }
-}
-
-.admin-badge {
-    display: flex;
-    align-items: center;
-    gap: 12px;
 }
 
 .admin-avatar {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
     background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
     color: white;
     border-radius: 12px;
@@ -102,27 +72,48 @@
     align-items: center;
     justify-content: center;
     font-weight: 800;
-    font-size: 1.1rem;
-    flex-shrink: 0;
-    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+    box-shadow: 0 6px 10px rgba(16, 185, 129, 0.25);
 }
 
-.admin-info {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+.brand-name {
+    font-weight: 700;
+    color: var(--text-main);
+    font-size: 0.95rem;
+}
+
+.user-role {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+/* BOTÓN */
+.sidebar-toggle {
+    background: #f1f5f9;
+    border: none;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    transition: 0.2s;
+}
+
+.sidebar-toggle:hover {
+    background: var(--primary-color);
+    color: white;
 }
 
 /* =========================================
-   Enlaces de Navegación
+LINKS
 ========================================= */
+
 .sidebar-links {
     flex: 1;
-    padding: 15px 12px;
+    padding: 15px 10px;
     overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 8px; /* Reducido para que quepan más items */
+}
+
+.menu-section {
+    margin-bottom: 15px;
 }
 
 .section-title {
@@ -130,43 +121,54 @@
     text-transform: uppercase;
     color: #94a3b8;
     font-weight: 700;
-    margin: 10px 0 8px 12px;
-    letter-spacing: 0.1em;
-}
-
-.pharmacy-sidebar.collapsed .section-title {
-    display: none;
+    margin: 10px 0 6px 12px;
 }
 
 .link {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 12px;
+    padding: 11px 14px;
     text-decoration: none;
     color: #475569;
-    border-radius: 10px;
-    transition: all 0.2s;
-    white-space: nowrap;
+    border-radius: 12px;
+    transition: all 0.2s ease;
 }
 
-.link:hover { background: #f1f5f9; color: var(--text-main); }
-.link.active { background: #ecfdf5; color: var(--primary-color); font-weight: 600; }
-
-.pharmacy-sidebar.collapsed .link {
-    justify-content: center;
-    padding: 12px 0;
+.link:hover {
+    background: #f1f5f9;
+    transform: translateX(3px);
 }
 
+.link.active {
+    background: #ecfdf5;
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.menu-icon {
+    font-size: 1.3rem;
+}
+
+.menu-label {
+    font-size: 0.9rem;
+}
+
+/* MODO COLAPSADO */
 .pharmacy-sidebar.collapsed .menu-label {
     display: none;
 }
 
+.pharmacy-sidebar.collapsed .link {
+    justify-content: center;
+}
+
 /* =========================================
-   Pie de página y Logout
+FOOTER
 ========================================= */
+
 .sidebar-footer {
-    padding: 15px 12px;
+    padding: 15px;
     border-top: 1px solid var(--border-color);
 }
 
@@ -174,55 +176,88 @@
     width: 100%;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     background: #fff1f2;
     color: var(--danger-color);
     border: 1px solid #fee2e2;
     padding: 12px;
-    border-radius: 10px;
+    border-radius: 12px;
     cursor: pointer;
     font-weight: 600;
+    transition: 0.2s;
 }
 
-.pharmacy-sidebar.collapsed .logout-trigger .menu-label {
-    display: none;
+.logout-trigger:hover {
+    background: var(--danger-color);
+    color: white;
 }
 
 /* =========================================
-   MODAL DE CONFIRMACIÓN RESPONSIVE
+MODAL
 ========================================= */
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .confirm-modal {
     background: white;
-    padding: clamp(20px, 5vw, 32px); /* Padding fluido */
-    border-radius: 20px;
-    text-align: center;
-    max-width: 400px;
+    padding: 30px;
+    border-radius: 18px;
     width: 90%;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    max-width: 380px;
+    text-align: center;
+    animation: scaleUp 0.3s ease;
 }
 
-@media (max-width: 480px) {
-    .modal-actions {
-        flex-direction: column; /* Botones uno encima de otro en móviles pequeños */
+/* =========================================
+RESPONSIVE
+========================================= */
+
+/* TABLET */
+@media (max-width: 1024px) {
+    .pharmacy-sidebar {
+        width: 220px;
     }
-    .modal-icon-warning {
-        width: 50px;
-        height: 50px;
-        font-size: 1.5rem;
-    }
 }
 
-/* Overlay que oscurece el fondo cuando el menú móvil está abierto */
-.sidebar-overlay {
-    display: none;
-}
-
+/* MÓVIL */
 @media (max-width: 768px) {
-    .sidebar-overlay.active {
-        display: block;
+
+    .pharmacy-sidebar {
         position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.4);
-        z-index: 999;
+        width: 240px;
+        height: 100%;
+        box-shadow: 10px 0 25px rgba(0,0,0,0.1);
     }
+
+    /* BOTÓN FLOTANTE */
+    .mobile-menu-button {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 10px 12px;
+        border-radius: 10px;
+        z-index: 1100;
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+}
+
+/* =========================================
+ANIMACIONES
+========================================= */
+
+@keyframes scaleUp {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
 }
