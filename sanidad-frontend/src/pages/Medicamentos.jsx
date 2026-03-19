@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
     listarMedicamentos,
@@ -23,6 +23,10 @@ export default function Medicamentos() {
     const [editMode, setEditMode] = useState(false);
     const [currentId, setCurrentId] = useState(null);
 
+    // Estados para paginación
+    const [currentPage, setCurrentPage] = useState(1);
+    const rowsPerPage = 15; // Aumentado para tabla más grande
+
     const [formData, setFormData] = useState({
         registroSanitario: '', nombre: '', presentacion: '',
         via: '', fabricante: '', tipoVenta: 'LIBRE',
@@ -35,18 +39,17 @@ export default function Medicamentos() {
         setLoading(true);
         try {
             const response = await listarMedicamentos();
-            setMedicamentos(response.data);
+            // Ordenar por ID descendente (más reciente primero)
+            const sorted = response.data.sort((a, b) => b.id - a.id);
+            setMedicamentos(sorted);
         } catch (error) {
             setMessage({ text: 'Error al conectar con el servidor', type: 'error' });
         } finally { setLoading(false); }
     };
 
-    // FUNCIÓN PDF CORREGIDA
     const generarPDF = () => {
         const doc = new jsPDF();
         const fecha = new Date().toLocaleDateString();
-
-        // Intentar obtener el nombre del usuario de varias formas comunes
         const nombreUsuario = user?.nombre || user?.username || user?.sub || 'Usuario del Sistema';
 
         doc.setFontSize(18);
@@ -79,16 +82,98 @@ export default function Medicamentos() {
         doc.save(`Reporte_Medicamentos_${fecha}.pdf`);
     };
 
-    const medicamentosFiltrados = medicamentos.filter(m => {
-        const esActivo = m.activo === true || String(m.activo) === 'true';
-        // Vendedor solo ve activos, Admin ve todos
-        if (user?.rol !== 'ADMIN' && !esActivo) return false;
+    // Filtrado
+    const medicamentosFiltrados = useMemo(() => {
+        return medicamentos.filter(m => {
+            const esActivo = m.activo === true || String(m.activo) === 'true';
+            if (user?.rol !== 'ADMIN' && !esActivo) return false;
 
-        const term = searchTerm.toLowerCase();
-        return m.nombre.toLowerCase().includes(term) ||
-            m.fabricante?.toLowerCase().includes(term) ||
-            m.registroSanitario.toLowerCase().includes(term);
-    });
+            const term = searchTerm.toLowerCase();
+            return m.nombre.toLowerCase().includes(term) ||
+                m.fabricante?.toLowerCase().includes(term) ||
+                m.registroSanitario.toLowerCase().includes(term);
+        });
+    }, [medicamentos, searchTerm, user]);
+
+    // Resetear página cuando cambia el filtro
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm]);
+
+    // Paginación
+    const totalPages = Math.ceil(medicamentosFiltrados.length / rowsPerPage);
+    const paginatedMedicamentos = useMemo(() => {
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        const endIndex = startIndex + rowsPerPage;
+        return medicamentosFiltrados.slice(startIndex, endIndex);
+    }, [medicamentosFiltrados, currentPage, rowsPerPage]);
+
+    const goToPage = (page) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
+
+    // Renderizado de números de página con elipsis
+    const renderPageNumbers = () => {
+        const pages = [];
+        const maxVisible = 5; // Número máximo de páginas visibles
+        const sidePages = Math.floor(maxVisible / 2);
+
+        let startPage = Math.max(1, currentPage - sidePages);
+        let endPage = Math.min(totalPages, currentPage + sidePages);
+
+        if (currentPage - sidePages <= 1) {
+            endPage = Math.min(totalPages, maxVisible);
+        }
+        if (currentPage + sidePages >= totalPages) {
+            startPage = Math.max(1, totalPages - maxVisible + 1);
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(
+                <button
+                    key={i}
+                    className={`pagination-number ${currentPage === i ? 'active' : ''}`}
+                    onClick={() => goToPage(i)}
+                >
+                    {i}
+                </button>
+            );
+        }
+
+        if (startPage > 2) {
+            pages.unshift(<span key="ellipsis-start" className="pagination-ellipsis">...</span>);
+            pages.unshift(
+                <button key={1} className="pagination-number" onClick={() => goToPage(1)}>
+                    1
+                </button>
+            );
+        } else if (startPage === 2) {
+            pages.unshift(
+                <button key={1} className="pagination-number" onClick={() => goToPage(1)}>
+                    1
+                </button>
+            );
+        }
+
+        if (endPage < totalPages - 1) {
+            pages.push(<span key="ellipsis-end" className="pagination-ellipsis">...</span>);
+            pages.push(
+                <button key={totalPages} className="pagination-number" onClick={() => goToPage(totalPages)}>
+                    {totalPages}
+                </button>
+            );
+        } else if (endPage === totalPages - 1) {
+            pages.push(
+                <button key={totalPages} className="pagination-number" onClick={() => goToPage(totalPages)}>
+                    {totalPages}
+                </button>
+            );
+        }
+
+        return pages;
+    };
 
     const handleNuevo = () => {
         setEditMode(false);
@@ -172,13 +257,12 @@ export default function Medicamentos() {
                     </div>
 
                     <button className="btn-print" onClick={generarPDF} title="Generar Reporte PDF">
-                        🖨️ Imprimir PDF
+                        🖨️ PDF
                     </button>
 
-                    {/* Solo Admin ve botón de Nuevo */}
                     {user?.rol === 'ADMIN' && (
                         <button className="btn-primary-compact" onClick={handleNuevo}>
-                            <span>+</span> Nuevo Medicamento
+                            <span>+</span> Nuevo
                         </button>
                     )}
                 </div>
@@ -192,57 +276,98 @@ export default function Medicamentos() {
             )}
 
             <div className="table-card">
-                <table className="custom-table">
-                    <thead>
-                    <tr>
-                        <th>Medicamento</th>
-                        <th>Registro</th>
-                        <th>Fabricante</th>
-                        <th>Presentación</th>
-                        <th>Vía</th>
-                        <th>Precio</th>
-                        <th>Estado</th>
-                        {/* Solo Admin ve columna de Acciones */}
-                        {user?.rol === 'ADMIN' && <th className="text-center">Acciones</th>}
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {medicamentosFiltrados.map(m => (
-                        <tr key={m.id}>
-                            <td className="font-bold">{m.nombre}</td>
-                            <td className="text-muted">{m.registroSanitario}</td>
-                            <td>{m.fabricante || '-'}</td>
-                            <td><span className="badge-gray">{m.presentacion}</span></td>
-                            <td><span className="badge-blue">{m.via}</span></td>
-                            <td className="price-text">C$ {parseFloat(m.precioUnitario).toFixed(2)}</td>
-                            <td>
-                                <span className={`status-pill ${m.activo ? 'active' : 'inactive'}`}>
-                                    {m.activo ? 'Activo' : 'Inactivo'}
-                                </span>
-                            </td>
-                            {/* Solo Admin ve botones de acción */}
-                            {user?.rol === 'ADMIN' && (
-                                <td className="text-center">
-                                    <div className="action-buttons-group">
-                                        <button className="btn-edit-icon" title="Editar" onClick={() => handleEditar(m)}>✏️</button>
-                                        {m.activo ? (
-                                            <button className="btn-delete-icon" title="Desactivar" onClick={() => handleDesactivar(m.id)}>🗑️</button>
-                                        ) : (
-                                            <button className="btn-restore-icon" title="Reactivar" onClick={() => handleReactivar(m.id)}>↩️</button>
-                                        )}
-                                    </div>
-                                </td>
-                            )}
+                <div className="table-responsive">
+                    <table className="custom-table">
+                        <thead>
+                        <tr>
+                            <th>Medicamento</th>
+                            <th>Registro</th>
+                            <th>Fabricante</th>
+                            <th>Presentación</th>
+                            <th>Vía</th>
+                            <th>Precio</th>
+                            <th>Estado</th>
+                            {user?.rol === 'ADMIN' && <th>Acciones</th>}
                         </tr>
-                    ))}
-                    </tbody>
-                </table>
-                {medicamentosFiltrados.length === 0 && (
-                    <div className="empty-state">No hay resultados para mostrar.</div>
+                        </thead>
+                        <tbody>
+                        {loading ? (
+                            // Skeleton loading
+                            Array.from({ length: rowsPerPage }).map((_, index) => (
+                                <tr key={index} className="skeleton-row">
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    {user?.rol === 'ADMIN' && <td><div className="skeleton-cell" /></td>}
+                                </tr>
+                            ))
+                        ) : (
+                            paginatedMedicamentos.map((m, idx) => (
+                                <tr key={m.id} className="fade-in-row" style={{ animationDelay: `${idx * 0.05}s` }}>
+                                    <td className="font-bold">{m.nombre}</td>
+                                    <td className="text-muted">{m.registroSanitario}</td>
+                                    <td>{m.fabricante || '-'}</td>
+                                    <td><span className="badge-gray">{m.presentacion}</span></td>
+                                    <td><span className="badge-blue">{m.via}</span></td>
+                                    <td className="price-text">C$ {parseFloat(m.precioUnitario).toFixed(2)}</td>
+                                    <td>
+                                        <span className={`status-pill ${m.activo ? 'active' : 'inactive'}`}>
+                                            {m.activo ? 'Activo' : 'Inactivo'}
+                                        </span>
+                                    </td>
+                                    {user?.rol === 'ADMIN' && (
+                                        <td>
+                                            <div className="action-buttons-group">
+                                                <button className="btn-edit-icon" title="Editar" onClick={() => handleEditar(m)}>✏️</button>
+                                                {m.activo ? (
+                                                    <button className="btn-delete-icon" title="Desactivar" onClick={() => handleDesactivar(m.id)}>🗑️</button>
+                                                ) : (
+                                                    <button className="btn-restore-icon" title="Reactivar" onClick={() => handleReactivar(m.id)}>↩️</button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    )}
+                                </tr>
+                            ))
+                        )}
+                        </tbody>
+                    </table>
+                    {!loading && medicamentosFiltrados.length === 0 && (
+                        <div className="empty-state">No hay resultados para mostrar.</div>
+                    )}
+                </div>
+
+                {/* Paginación */}
+                {!loading && medicamentosFiltrados.length > 0 && (
+                    <div className="pagination-container">
+                        <button
+                            className="pagination-btn"
+                            onClick={() => goToPage(currentPage - 1)}
+                            disabled={currentPage === 1}
+                        >
+                            ← Anterior
+                        </button>
+
+                        <div className="pagination-pages">
+                            {renderPageNumbers()}
+                        </div>
+
+                        <button
+                            className="pagination-btn"
+                            onClick={() => goToPage(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                        >
+                            Siguiente →
+                        </button>
+                    </div>
                 )}
             </div>
 
-            {/* El Drawer solo es accesible por Admin ya que el botón handleNuevo/Editar están protegidos */}
+            {/* Drawer */}
             {drawerOpen && user?.rol === 'ADMIN' && (
                 <div className="drawer-overlay" onClick={() => setDrawerOpen(false)}>
                     <div className="drawer-panel" onClick={e => e.stopPropagation()}>
