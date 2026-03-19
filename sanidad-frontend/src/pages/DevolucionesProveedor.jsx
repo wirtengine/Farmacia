@@ -15,6 +15,11 @@ export default function DevolucionesProveedor() {
     const [devoluciones, setDevoluciones] = useState([]);
     const [loading, setLoading] = useState(false);
 
+    // Estados para filtro y paginación
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const rowsPerPage = 15;
+
     // Estados para el drawer
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [lotes, setLotes] = useState([]);
@@ -30,9 +35,89 @@ export default function DevolucionesProveedor() {
         setLoading(true);
         try {
             const res = await listarDevolucionesProveedor();
-            setDevoluciones(res.data);
+            // Ordenar por ID descendente (último primero)
+            const sorted = (res.data || []).sort((a, b) => b.id - a.id);
+            setDevoluciones(sorted);
         } catch (error) { console.error(error); }
         finally { setLoading(false); }
+    };
+
+    // Filtrado por número de solicitud o factura
+    const devolucionesFiltradas = useMemo(() => {
+        const term = searchTerm.toLowerCase().trim();
+        return devoluciones.filter(d =>
+            !term ||
+            (d.numeroDevolucion && d.numeroDevolucion.toLowerCase().includes(term)) ||
+            (d.numeroFacturaLote && d.numeroFacturaLote.toLowerCase().includes(term)) ||
+            (d.proveedorNombre && d.proveedorNombre.toLowerCase().includes(term))
+        );
+    }, [devoluciones, searchTerm]);
+
+    // Resetear página al cambiar filtro
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm]);
+
+    // Paginación
+    const totalPages = Math.ceil(devolucionesFiltradas.length / rowsPerPage);
+    const paginatedDevoluciones = useMemo(() => {
+        const start = (currentPage - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+        return devolucionesFiltradas.slice(start, end);
+    }, [devolucionesFiltradas, currentPage]);
+
+    const goToPage = (page) => {
+        if (page >= 1 && page <= totalPages) setCurrentPage(page);
+    };
+
+    const renderPageNumbers = () => {
+        if (totalPages <= 1) return null;
+        const pages = [];
+        const maxVisible = 5;
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, currentPage + 2);
+
+        if (currentPage <= 3) {
+            startPage = 1;
+            endPage = Math.min(totalPages, maxVisible);
+        }
+        if (currentPage > totalPages - 3) {
+            startPage = Math.max(1, totalPages - maxVisible + 1);
+            endPage = totalPages;
+        }
+
+        if (startPage > 1) {
+            pages.push(
+                <button key={1} className="pagination-number" onClick={() => goToPage(1)}>1</button>
+            );
+            if (startPage > 2) {
+                pages.push(<span key="ellipsis-start" className="pagination-ellipsis">...</span>);
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(
+                <button
+                    key={i}
+                    className={`pagination-number ${currentPage === i ? 'active' : ''}`}
+                    onClick={() => goToPage(i)}
+                >
+                    {i}
+                </button>
+            );
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                pages.push(<span key="ellipsis-end" className="pagination-ellipsis">...</span>);
+            }
+            pages.push(
+                <button key={totalPages} className="pagination-number" onClick={() => goToPage(totalPages)}>
+                    {totalPages}
+                </button>
+            );
+        }
+        return pages;
     };
 
     const handleNuevaDevolucion = async () => {
@@ -68,14 +153,12 @@ export default function DevolucionesProveedor() {
         ));
     };
 
-    // --- FUNCIÓN PARA GENERAR EL PDF LIMPIO Y PROFESIONAL ---
     const generarPDF = (datos) => {
         const doc = new jsPDF();
         const margin = 14;
 
-        // Encabezado
         doc.setFontSize(18);
-        doc.setTextColor(37, 99, 235); // Azul Primario
+        doc.setTextColor(37, 99, 235);
         doc.text("FarmaSystem - Gestión de Devoluciones", margin, 22);
 
         doc.setFontSize(10);
@@ -83,7 +166,6 @@ export default function DevolucionesProveedor() {
         doc.text(`Fecha de Solicitud: ${new Date().toLocaleString()}`, margin, 30);
         doc.text(`Solicitado por: ${user?.nombre || 'Personal Farmacia'}`, margin, 35);
 
-        // Información del Lote/Proveedor
         doc.setDrawColor(226, 232, 240);
         doc.line(margin, 40, 196, 40);
 
@@ -92,7 +174,6 @@ export default function DevolucionesProveedor() {
         doc.text(`Proveedor: ${datos.proveedor}`, margin, 50);
         doc.text(`Factura Referencia: ${datos.factura}`, margin, 56);
 
-        // Tabla de Productos
         autoTable(doc, {
             startY: 65,
             head: [['Medicamento', 'Cantidad a Devolver']],
@@ -101,7 +182,6 @@ export default function DevolucionesProveedor() {
             alternateRowStyles: { fillColor: [248, 250, 252] },
         });
 
-        // Motivo
         const finalY = doc.lastAutoTable.finalY + 15;
         doc.setFontSize(10);
         doc.text("Motivo de la devolución:", margin, finalY);
@@ -130,7 +210,6 @@ export default function DevolucionesProveedor() {
 
             await solicitarDevolucionProveedor(payload);
 
-            // 1. Datos para PDF y WhatsApp
             const provObj = proveedores.find(p => p.id === loteSeleccionado.proveedorId);
             const datosExport = {
                 proveedor: provObj?.nombre,
@@ -139,10 +218,8 @@ export default function DevolucionesProveedor() {
                 motivo: motivo
             };
 
-            // 2. Generar PDF
             generarPDF(datosExport);
 
-            // 3. Abrir WhatsApp
             const mensaje = `*HOLA, SOLICITUD DE DEVOLUCIÓN*\n\nSe ha generado una solicitud para el lote *${loteSeleccionado.factura}*.\n\n*Detalles:* \n${datosExport.productos.map(p => `- ${p.nombre}: ${p.cantidad}`).join('\n')}\n\n*Motivo:* ${motivo || 'Ver PDF'}\n\n_He adjuntado el comprobante en PDF a este chat._`;
 
             const url = `https://wa.me/+505${provObj?.telefono}?text=${encodeURIComponent(mensaje)}`;
@@ -153,7 +230,6 @@ export default function DevolucionesProveedor() {
         } catch (error) { alert('Error al crear la solicitud'); }
     };
 
-    // Funciones de gestión administrativa
     const handleAprobar = async (id) => {
         if (!window.confirm('¿Confirmar aprobación física de la devolución?')) return;
         try {
@@ -177,123 +253,181 @@ export default function DevolucionesProveedor() {
 
     return (
         <div className="module-container">
+            {/* HEADER DE DOS FILAS */}
             <header className="module-header">
-                <div>
+                <div className="header-title">
                     <h1>Devoluciones a Proveedores</h1>
                     <p>Envíe solicitudes y PDF vía WhatsApp al instante</p>
                 </div>
-                <button className="btn-primary-compact" onClick={handleNuevaDevolucion}>
-                    ＋ Nueva Solicitud
-                </button>
+                <div className="header-actions-row">
+                    <div className="search-bar-container">
+                        <span className="search-icon">🔍</span>
+                        <input
+                            type="text"
+                            className="search-input-main"
+                            placeholder="Buscar solicitud, factura o proveedor..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <button className="btn-add-venta" onClick={handleNuevaDevolucion}>
+                        ＋ Nueva Solicitud
+                    </button>
+                </div>
             </header>
 
-            <div className="table-card">
-                <table className="custom-table">
-                    <thead>
-                    <tr>
-                        <th>N° Solicitud</th>
-                        <th>Factura Lote</th>
-                        <th>Proveedor</th>
-                        <th>Estado</th>
-                        <th className="text-center">Acciones</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {devoluciones.map(d => (
-                        <tr key={d.id}>
-                            <td className="font-bold">{d.numeroDevolucion || 'Pendiente'}</td>
-                            <td>{d.numeroFacturaLote}</td>
-                            <td><span className="text-muted">{d.proveedorNombre}</span></td>
-                            <td>
-                                    <span className={`status-pill ${d.estado.toLowerCase()}`}>
-                                        {d.estado}
-                                    </span>
-                            </td>
-                            <td className="text-center">
-                                <div className="action-buttons-group">
-                                    {d.estado === 'PENDIENTE' && esAdmin && (
-                                        <>
-                                            <button className="btn-edit-icon" onClick={() => handleAprobar(d.id)}>✓</button>
-                                            <button className="btn-delete-icon" onClick={() => handleRechazar(d.id)}>✗</button>
-                                        </>
-                                    )}
-                                    <button className="btn-edit-icon">📄</button>
-                                </div>
-                            </td>
+            <div className="table-wrapper">
+                <div className="table-responsive">
+                    <table className="modern-table">
+                        <thead>
+                        <tr>
+                            <th>N° Solicitud</th>
+                            <th>Factura Lote</th>
+                            <th>Proveedor</th>
+                            <th>Estado</th>
+                            <th className="text-center">Acciones</th>
                         </tr>
-                    ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                        {loading ? (
+                            // Skeleton loader
+                            Array.from({ length: rowsPerPage }).map((_, idx) => (
+                                <tr key={idx} className="skeleton-row">
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                </tr>
+                            ))
+                        ) : (
+                            paginatedDevoluciones.map((d, idx) => (
+                                <tr key={d.id} className="fade-in-row" style={{ animationDelay: `${idx * 0.05}s` }}>
+                                    <td className="font-bold">{d.numeroDevolucion || 'Pendiente'}</td>
+                                    <td>{d.numeroFacturaLote}</td>
+                                    <td><span className="user-tag">{d.proveedorNombre}</span></td>
+                                    <td>
+                                            <span className={`status-pill ${d.estado.toLowerCase()}`}>
+                                                {d.estado}
+                                            </span>
+                                    </td>
+                                    <td className="text-center">
+                                        <div className="action-buttons-group">
+                                            {d.estado === 'PENDIENTE' && esAdmin && (
+                                                <>
+                                                    <button className="btn-action approve" onClick={() => handleAprobar(d.id)} title="Aprobar">✓</button>
+                                                    <button className="btn-action reject" onClick={() => handleRechazar(d.id)} title="Rechazar">✗</button>
+                                                </>
+                                            )}
+                                            <button className="btn-circle-print" title="Imprimir PDF">📄</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                        </tbody>
+                    </table>
+                    {!loading && devolucionesFiltradas.length === 0 && (
+                        <div className="empty-state">No se encontraron solicitudes de devolución.</div>
+                    )}
+                </div>
+
+                {/* Paginación */}
+                {!loading && devolucionesFiltradas.length > 0 && (
+                    <div className="pagination-container">
+                        <button
+                            className="pagination-btn"
+                            onClick={() => goToPage(currentPage - 1)}
+                            disabled={currentPage === 1}
+                        >
+                            ← Anterior
+                        </button>
+                        <div className="pagination-pages">
+                            {renderPageNumbers()}
+                        </div>
+                        <button
+                            className="pagination-btn"
+                            onClick={() => goToPage(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                        >
+                            Siguiente →
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Drawer */}
             {drawerOpen && (
-                <div className="drawer-overlay" onClick={() => setDrawerOpen(false)}>
-                    <div className="drawer-panel" onClick={e => e.stopPropagation()}>
-                        <div className="drawer-header-compact">
-                            <h2>Nueva Devolución</h2>
-                            <button className="close-btn-round" onClick={() => setDrawerOpen(false)}>×</button>
+                <div className="glass-overlay" onClick={() => setDrawerOpen(false)}>
+                    <div className="pos-drawer" onClick={e => e.stopPropagation()}>
+                        <div className="drawer-nav">
+                            <button className="close-drawer-btn" onClick={() => setDrawerOpen(false)}>×</button>
+                            <h2>Nueva Devolución a Proveedor</h2>
                         </div>
 
-                        <div className="drawer-body-scrollable">
+                        <div className="drawer-scrollable-content">
                             {!loteSeleccionado ? (
                                 <div className="selection-container">
                                     <div className="field-group">
-                                        <label>Buscar Factura de Lote</label>
+                                        <label className="section-label">Buscar Factura de Lote</label>
                                         <input
-                                            className="search-input-drawer"
+                                            className="pos-input-sm"
                                             type="text"
-                                            placeholder="Escriba factura..."
+                                            placeholder="Escriba número de factura..."
                                             value={busquedaLote}
                                             onChange={e => setBusquedaLote(e.target.value)}
                                         />
                                     </div>
-                                    <div className="results-list">
+                                    <div className="results-grid">
                                         {lotesFiltrados.map(l => (
-                                            <div key={l.id} className="item-card-select" onClick={() => handleSeleccionarLote(l)}>
+                                            <div key={l.id} className="result-card" onClick={() => handleSeleccionarLote(l)}>
                                                 <div>
                                                     <strong>{l.factura}</strong>
-                                                    <p>{proveedores.find(p => p.id === l.proveedorId)?.nombre}</p>
+                                                    <p className="text-muted">{proveedores.find(p => p.id === l.proveedorId)?.nombre}</p>
                                                 </div>
-                                                <span>➔</span>
+                                                <span className="select-arrow">→</span>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             ) : (
                                 <>
-                                    <div className="info-banner-selection">
+                                    <div className="selection-active-card">
                                         <div>
                                             <small>Lote Seleccionado</small>
                                             <strong>{loteSeleccionado.factura}</strong>
                                         </div>
-                                        <button onClick={() => setLoteSeleccionado(null)}>Cambiar</button>
+                                        <button className="btn-reset-sm" onClick={() => setLoteSeleccionado(null)}>Cambiar</button>
                                     </div>
 
                                     <h4 className="section-divider">Cantidades a Devolver</h4>
                                     {itemsDevolucion.map(item => (
-                                        <div key={item.loteDetalleId} className="dev-item-row">
-                                            <div className="dev-item-info">
+                                        <div key={item.loteDetalleId} className="cart-row-sm">
+                                            <div className="cart-info-sm">
                                                 <strong>{item.medicamentoNombre}</strong>
                                                 <small>Stock: {item.cantidadDisponible}</small>
                                             </div>
-                                            <div className="dev-item-qty">
+                                            <div className="cart-ctrls-sm">
                                                 <input
                                                     type="number"
+                                                    className="qty-input-sm"
                                                     value={item.cantidadDevuelta}
                                                     onChange={e => actualizarCantidad(item.loteDetalleId, parseInt(e.target.value) || 0)}
+                                                    min="0"
+                                                    max={item.cantidadDisponible}
                                                 />
                                             </div>
                                         </div>
                                     ))}
 
                                     <div className="field-group" style={{ marginTop: '20px' }}>
-                                        <label>Motivo</label>
+                                        <label className="section-label">Motivo de la devolución</label>
                                         <textarea
+                                            className="pos-input-sm"
                                             rows="3"
                                             value={motivo}
                                             onChange={e => setMotivo(e.target.value)}
-                                            placeholder="¿Por qué se devuelve?"
+                                            placeholder="Ej: Producto vencido, empaque dañado..."
                                         />
                                     </div>
                                 </>
@@ -302,6 +436,7 @@ export default function DevolucionesProveedor() {
 
                         {loteSeleccionado && (
                             <div className="drawer-footer-fixed">
+                                <button className="btn-cancel" onClick={() => setDrawerOpen(false)}>Cancelar</button>
                                 <button className="btn-save-final whatsapp-style" onClick={handleSolicitar}>
                                     🚀 Enviar Solicitud y PDF
                                 </button>

@@ -13,18 +13,26 @@ export default function Ventas() {
     const usuarioId = user?.id;
     const nombreVendedor = user?.username || "Vendedor";
 
+    // Función auxiliar para redondear a 2 decimales
+    const round2 = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
+
     // Datos
     const [ventas, setVentas] = useState([]);
     const [clientes, setClientes] = useState([]);
     const [lotes, setLotes] = useState([]);
+    const [loading, setLoading] = useState(false);
 
     // Filtros
     const [filtroTexto, setFiltroTexto] = useState("");
     const [empleadoFiltrado, setEmpleadoFiltrado] = useState(null);
+    const [showEmpleadoPanel, setShowEmpleadoPanel] = useState(false);
+
+    // Paginación
+    const [currentPage, setCurrentPage] = useState(1);
+    const rowsPerPage = 15;
 
     // UI
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const [showEmpleadoPanel, setShowEmpleadoPanel] = useState(false);
     const [tipoVenta, setTipoVenta] = useState("rapida");
 
     // Formulario de Nueva Venta
@@ -37,14 +45,20 @@ export default function Ventas() {
     useEffect(() => { cargarVentas(); }, []);
 
     const cargarVentas = async () => {
+        setLoading(true);
         try {
             const res = await listarVentas();
-            setVentas(res.data || []);
-        } catch (e) { console.error("Error cargando ventas", e); }
+            const sorted = (res.data || []).sort((a, b) => b.id - a.id);
+            setVentas(sorted);
+        } catch (e) {
+            console.error("Error cargando ventas", e);
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Lógica de filtrado de la tabla principal
-    const ventasVisibles = useMemo(() => {
+    const ventasFiltradas = useMemo(() => {
         let filtradas = ventas;
         if (!esAdmin) {
             filtradas = filtradas.filter(v => v.usuarioId === usuarioId);
@@ -60,6 +74,72 @@ export default function Ventas() {
         }
         return filtradas;
     }, [ventas, esAdmin, usuarioId, empleadoFiltrado, filtroTexto]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filtroTexto, empleadoFiltrado]);
+
+    // Paginación
+    const totalPages = Math.ceil(ventasFiltradas.length / rowsPerPage);
+    const paginatedVentas = useMemo(() => {
+        const start = (currentPage - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+        return ventasFiltradas.slice(start, end);
+    }, [ventasFiltradas, currentPage]);
+
+    const goToPage = (page) => {
+        if (page >= 1 && page <= totalPages) setCurrentPage(page);
+    };
+
+    const renderPageNumbers = () => {
+        if (totalPages <= 1) return null;
+        const pages = [];
+        const maxVisible = 5;
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, currentPage + 2);
+
+        if (currentPage <= 3) {
+            startPage = 1;
+            endPage = Math.min(totalPages, maxVisible);
+        }
+        if (currentPage > totalPages - 3) {
+            startPage = Math.max(1, totalPages - maxVisible + 1);
+            endPage = totalPages;
+        }
+
+        if (startPage > 1) {
+            pages.push(
+                <button key={1} className="pagination-number" onClick={() => goToPage(1)}>1</button>
+            );
+            if (startPage > 2) {
+                pages.push(<span key="ellipsis-start" className="pagination-ellipsis">...</span>);
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(
+                <button
+                    key={i}
+                    className={`pagination-number ${currentPage === i ? 'active' : ''}`}
+                    onClick={() => goToPage(i)}
+                >
+                    {i}
+                </button>
+            );
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                pages.push(<span key="ellipsis-end" className="pagination-ellipsis">...</span>);
+            }
+            pages.push(
+                <button key={totalPages} className="pagination-number" onClick={() => goToPage(totalPages)}>
+                    {totalPages}
+                </button>
+            );
+        }
+        return pages;
+    };
 
     const listaEmpleados = useMemo(() => [...new Set(ventas.map(v => v.usuarioUsername))], [ventas]);
 
@@ -77,14 +157,12 @@ export default function Ventas() {
         } catch (err) { alert("Error al cargar datos"); }
     };
 
-    // Lógica mejorada con validación de stock
     const agregarMedicamento = (med) => {
         setDetallesVenta(prev => {
             const existente = prev.find(p => p.loteDetalleId === med.id);
             if (existente) {
-                // Verificar que no se supere el stock disponible
                 if (existente.cantidad + 1 > med.cantidad) {
-                    alert('No hay suficiente stock para añadir más unidades de este producto.');
+                    alert('No hay suficiente stock.');
                     return prev;
                 }
                 return prev.map(p =>
@@ -97,7 +175,6 @@ export default function Ventas() {
                         : p
                 );
             } else {
-                // Verificar que haya stock inicial
                 if (med.cantidad < 1) {
                     alert('Producto sin stock.');
                     return prev;
@@ -114,9 +191,10 @@ export default function Ventas() {
         setBusquedaMedicamento("");
     };
 
+    // Cálculos con redondeo a 2 decimales
     const subtotal = detallesVenta.reduce((acc, d) => acc + d.subtotal, 0);
-    const total = subtotal * 1.15;
-    const cambio = Math.max((parseFloat(efectivoRecibido) + parseFloat(montoUsarSaldo)) - total, 0);
+    const total = round2(subtotal * 1.15);
+    const cambio = round2(Math.max((parseFloat(efectivoRecibido) + parseFloat(montoUsarSaldo)) - total, 0));
 
     const finalizarVenta = async () => {
         if (detallesVenta.length === 0) return alert("El carrito está vacío");
@@ -153,13 +231,13 @@ export default function Ventas() {
 
     return (
         <div className="module-container">
-            <header className="main-header">
-                <div className="title-group">
+            {/* HEADER DE DOS FILAS */}
+            <header className="module-header">
+                <div className="header-title">
                     <h1>Ventas</h1>
                     <p>Sesión activa: <span className="vendedor-name">{nombreVendedor}</span></p>
                 </div>
-
-                <div className="header-actions">
+                <div className="header-actions-row">
                     <div className="search-bar-container">
                         <span className="search-icon">🔍</span>
                         <input
@@ -195,30 +273,70 @@ export default function Ventas() {
             </header>
 
             <div className="table-wrapper">
-                <table className="modern-table">
-                    <thead>
-                    <tr>
-                        <th>Factura</th>
-                        <th>Vendedor</th>
-                        <th>Cliente</th>
-                        <th>Total</th>
-                        <th>Acción</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {ventasVisibles.map(v => (
-                        <tr key={v.id}>
-                            <td className="bold">#{v.numeroFactura}</td>
-                            <td><span className="user-tag">{v.usuarioUsername}</span></td>
-                            <td>{v.clienteNombre || "Consumidor Final"}</td>
-                            <td className="price-text">${v.total?.toFixed(2)}</td>
-                            <td><button className="btn-circle-print" onClick={() => generarPDF(v, v.detalles)}>🖨️</button></td>
+                <div className="table-responsive">
+                    <table className="modern-table">
+                        <thead>
+                        <tr>
+                            <th>Factura</th>
+                            <th>Vendedor</th>
+                            <th>Cliente</th>
+                            <th>Total</th>
+                            <th>Acción</th>
                         </tr>
-                    ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                        {loading ? (
+                            Array.from({ length: rowsPerPage }).map((_, idx) => (
+                                <tr key={idx} className="skeleton-row">
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                </tr>
+                            ))
+                        ) : (
+                            paginatedVentas.map((v, idx) => (
+                                <tr key={v.id} className="fade-in-row" style={{ animationDelay: `${idx * 0.05}s` }}>
+                                    <td className="bold">#{v.numeroFactura}</td>
+                                    <td><span className="user-tag">{v.usuarioUsername}</span></td>
+                                    <td>{v.clienteNombre || "Consumidor Final"}</td>
+                                    <td className="price-text">${v.total?.toFixed(2)}</td>
+                                    <td><button className="btn-circle-print" onClick={() => generarPDF(v, v.detalles)}>🖨️</button></td>
+                                </tr>
+                            ))
+                        )}
+                        </tbody>
+                    </table>
+                    {!loading && ventasFiltradas.length === 0 && (
+                        <div className="empty-state">No se encontraron ventas.</div>
+                    )}
+                </div>
+
+                {!loading && ventasFiltradas.length > 0 && (
+                    <div className="pagination-container">
+                        <button
+                            className="pagination-btn"
+                            onClick={() => goToPage(currentPage - 1)}
+                            disabled={currentPage === 1}
+                        >
+                            ← Anterior
+                        </button>
+                        <div className="pagination-pages">
+                            {renderPageNumbers()}
+                        </div>
+                        <button
+                            className="pagination-btn"
+                            onClick={() => goToPage(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                        >
+                            Siguiente →
+                        </button>
+                    </div>
+                )}
             </div>
 
+            {/* DRAWER */}
             {drawerOpen && (
                 <div className="glass-overlay" onClick={() => setDrawerOpen(false)}>
                     <div className="pos-drawer" onClick={e => e.stopPropagation()}>
@@ -231,7 +349,6 @@ export default function Ventas() {
                         </div>
 
                         <div className="drawer-scrollable-content">
-                            {/* Cliente */}
                             {tipoVenta === 'cliente' && (
                                 <section className="pos-section">
                                     {!clienteSeleccionado ? (
@@ -241,14 +358,16 @@ export default function Ventas() {
                                         }} />
                                     ) : (
                                         <div className="selection-active-card">
-                                            <div className="active-details"><strong>{clienteSeleccionado.nombre}</strong><span className="success">Saldo: ${clienteSeleccionado.saldo.toFixed(2)}</span></div>
+                                            <div className="active-details">
+                                                <strong>{clienteSeleccionado.nombre}</strong>
+                                                <span className="success">Saldo: ${round2(clienteSeleccionado.saldo).toFixed(2)}</span>
+                                            </div>
                                             <button className="btn-reset-sm" onClick={() => setClienteSeleccionado(null)}>Cambiar</button>
                                         </div>
                                     )}
                                 </section>
                             )}
 
-                            {/* Buscador de Medicamentos */}
                             <section className="pos-section">
                                 <input className="pos-input-sm" placeholder="Buscar medicamento..." value={busquedaMedicamento} onChange={e => setBusquedaMedicamento(e.target.value)} />
                                 <div className="results-grid">
@@ -266,7 +385,6 @@ export default function Ventas() {
                                 </div>
                             </section>
 
-                            {/* Carrito */}
                             <section className="pos-section">
                                 {detallesVenta.map((d, i) => (
                                     <div key={i} className="cart-row-sm">
@@ -274,9 +392,12 @@ export default function Ventas() {
                                         <div className="cart-ctrls-sm">
                                             <input type="number" className="qty-input-sm" min="1" value={d.cantidad} onChange={e => {
                                                 const v = parseInt(e.target.value) || 1;
-                                                // Aquí podrías validar contra el stock máximo si tuvieras med.cantidad en d,
-                                                // por ahora lo actualiza con el valor tipeado.
-                                                setDetallesVenta(prev => prev.map((p, idx) => idx === i ? {...p, cantidad: v, subtotal: v*p.precioUnitario} : p));
+                                                const medOriginal = lotes.flatMap(l => l.detalles).find(m => m.id === d.loteDetalleId);
+                                                if (medOriginal && v > medOriginal.cantidad) {
+                                                    alert(`Solo hay ${medOriginal.cantidad} unidades disponibles.`);
+                                                    return;
+                                                }
+                                                setDetallesVenta(prev => prev.map((p, idx) => idx === i ? {...p, cantidad: v, subtotal: v * p.precioUnitario} : p));
                                             }} />
                                             <span className="item-total-sm">${d.subtotal.toFixed(2)}</span>
                                             <button className="btn-remove-sm" onClick={() => setDetallesVenta(detallesVenta.filter((_, idx) => idx !== i))}>×</button>
@@ -286,7 +407,6 @@ export default function Ventas() {
                             </section>
                         </div>
 
-                        {/* Footer Fijo de Pago */}
                         <div className="pos-fixed-footer">
                             <div className="payment-summary-card">
                                 <div className="payment-row main-total"><span>Total Final</span><span>${total.toFixed(2)}</span></div>
@@ -294,10 +414,29 @@ export default function Ventas() {
                                     {tipoVenta === 'cliente' && (
                                         <div className="pay-field">
                                             <label>Usar Saldo</label>
-                                            <input type="number" className="pay-input" value={montoUsarSaldo} onChange={e => setMontoUsarSaldo(Math.min(parseFloat(e.target.value) || 0, clienteSeleccionado?.saldo || 0, total))} />
+                                            <input
+                                                type="number"
+                                                className="pay-input"
+                                                value={montoUsarSaldo}
+                                                onChange={e => {
+                                                    const raw = parseFloat(e.target.value) || 0;
+                                                    const rounded = round2(raw);
+                                                    const maxSaldo = round2(clienteSeleccionado?.saldo || 0);
+                                                    const maxTotal = round2(total);
+                                                    setMontoUsarSaldo(Math.min(rounded, maxSaldo, maxTotal));
+                                                }}
+                                            />
                                         </div>
                                     )}
-                                    <div className="pay-field"><label>Efectivo</label><input type="number" className="pay-input" value={efectivoRecibido} onChange={e => setEfectivoRecibido(parseFloat(e.target.value) || 0)} /></div>
+                                    <div className="pay-field">
+                                        <label>Efectivo</label>
+                                        <input
+                                            type="number"
+                                            className="pay-input"
+                                            value={efectivoRecibido}
+                                            onChange={e => setEfectivoRecibido(round2(parseFloat(e.target.value) || 0))}
+                                        />
+                                    </div>
                                 </div>
                                 {cambio > 0 && <div className="change-indicator">Cambio: ${cambio.toFixed(2)}</div>}
                             </div>

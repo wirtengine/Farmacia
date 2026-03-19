@@ -34,43 +34,102 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* 2. CABECERA */
-.main-header {
+/* =========================================
+   HEADER DE DOS FILAS (unificado)
+========================================= */
+.module-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 16px;
     margin-bottom: 24px;
     flex-shrink: 0;
 }
-.main-header h1 {
-    font-size: 26px;
+
+.header-title h1 {
+    font-size: 28px;
     font-weight: 800;
     color: var(--slate-900);
     letter-spacing: -0.5px;
     margin: 0;
 }
-.vendedor-name {
+
+.header-title p {
     font-size: 14px;
     color: var(--slate-500);
     font-weight: 500;
+    margin: 4px 0 0 0;
 }
 
-/* 3. BOTONES */
+.vendedor-name {
+    color: #3b82f6;
+    font-weight: 600;
+}
+
+.header-actions-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: center; /* Centra los elementos horizontalmente */
+}
+
+/* =========================================
+   BUSCADOR ERP
+========================================= */
+.search-bar-container {
+    position: relative;
+    flex: 1 1 300px;
+    max-width: 500px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.5;
+}
+
+.search-input-main {
+    padding: 11px 12px 11px 34px;
+    border-radius: 40px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    width: 100%;
+    transition: 0.25s;
+}
+
+.search-input-main:focus {
+    outline: none;
+    background: white;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+}
+
+/* =========================================
+   BOTÓN NUEVA SOLICITUD
+========================================= */
 .btn-add-venta {
     background: var(--primary);
     color: white;
     border: none;
-    padding: 12px 20px;
-    border-radius: var(--radius-md);
+    padding: 11px 18px;
+    border-radius: 40px;
     font-weight: 600;
-    font-size: 14px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: 0.25s;
+    white-space: nowrap;
+    flex-shrink: 0;
     box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2);
 }
+
 .btn-add-venta:hover {
     background: var(--primary-hover);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
     box-shadow: 0 6px 15px rgba(79, 70, 229, 0.3);
 }
 
@@ -81,11 +140,25 @@
     border: 1px solid var(--slate-200);
     box-shadow: var(--shadow-sm);
     flex: 1;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
-.modern-table { width: 100%; border-collapse: collapse; }
+
+.table-responsive {
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modern-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
 .modern-table th {
-    position: sticky; top: 0; z-index: 10;
+    position: sticky;
+    top: 0;
+    z-index: 10;
     background: #fcfcfd;
     padding: 16px 20px;
     text-align: left;
@@ -95,13 +168,17 @@
     letter-spacing: 0.05em;
     border-bottom: 1px solid var(--slate-200);
 }
+
 .modern-table td {
     padding: 14px 20px;
     border-bottom: 1px solid var(--slate-100);
     color: var(--slate-700);
     font-size: 14px;
 }
-.modern-table tr:hover td { background-color: #f8fafc; }
+
+.modern-table tr:hover td {
+    background-color: #f8fafc;
+}
 
 .actions-cell {
     display: flex;
@@ -121,8 +198,16 @@
     justify-content: center;
     transition: all 0.2s;
 }
-.btn-action.approve:hover { background: #d1fae5; transform: scale(1.1); }
-.btn-action.reject:hover { background: #fee2e2; transform: scale(1.1); }
+
+.btn-action.approve:hover {
+    background: #d1fae5;
+    transform: scale(1.1);
+}
+
+.btn-action.reject:hover {
+    background: #fee2e2;
+    transform: scale(1.1);
+}
 
 .btn-circle-print {
     background: var(--primary-light);
@@ -134,7 +219,11 @@
     cursor: pointer;
     transition: all 0.2s;
 }
-.btn-circle-print:hover { background: var(--primary); color: white; }
+
+.btn-circle-print:hover {
+    background: var(--primary);
+    color: white;
+}
 
 /* 5. ESTADOS (PILLS) */
 .status-pill {
@@ -145,17 +234,158 @@
     display: inline-flex;
     text-transform: uppercase;
 }
-.status-pill.pendiente { background: #fef3c7; color: #92400e; }
-.status-pill.aprobada { background: #d1fae5; color: #065f46; }
-.status-pill.rechazada { background: #fee2e2; color: #991b1b; }
 
-/* 6. DRAWER (MODAL LATERAL) */
+.status-pill.pendiente {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-pill.aprobada {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-pill.rechazada {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* =========================================
+   ANIMACIONES DE FILA Y SKELETON
+========================================= */
+@keyframes fadeInRow {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-row {
+    animation: fadeInRow 0.3s ease-out forwards;
+}
+
+.skeleton-row td {
+    padding: 14px 20px;
+}
+
+.skeleton-cell {
+    height: 20px;
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* =========================================
+   PAGINACIÓN MODERNA
+========================================= */
+.pagination-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    gap: 10px;
+    flex-wrap: wrap;
+    border-top: 1px solid #e2e8f0;
+    background: #f9fafc;
+}
+
+.pagination-btn {
+    background: white;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+    padding: 10px 18px;
+    border-radius: 40px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination-pages {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.pagination-number {
+    min-width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pagination-number:hover:not(.active) {
+    background: #eef2ff;
+    border-color: #3b82f6;
+    color: #3b82f6;
+    transform: scale(1.05);
+}
+
+.pagination-number.active {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+    cursor: default;
+}
+
+.pagination-ellipsis {
+    padding: 0 5px;
+    color: #64748b;
+    font-weight: 600;
+}
+
+/* =========================================
+   DRAWER (MODAL LATERAL)
+========================================= */
 .glass-overlay {
-    position: fixed; inset: 0;
+    position: fixed;
+    inset: 0;
     background: rgba(15, 23, 42, 0.4);
     backdrop-filter: blur(4px);
-    display: flex; justify-content: flex-end; z-index: 1000;
+    display: flex;
+    justify-content: flex-end;
+    z-index: 1000;
 }
+
 .pos-drawer {
     width: 480px;
     background: var(--white);
@@ -165,57 +395,174 @@
     flex-direction: column;
     animation: drawerSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
-@keyframes drawerSlide { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+@keyframes drawerSlide {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
 
 .drawer-nav {
     padding: 24px;
     border-bottom: 1px solid var(--slate-100);
-    display: flex; align-items: center; gap: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
+
 .close-drawer-btn {
-    background: var(--slate-100); border: none; width: 32px; height: 32px;
-    border-radius: 50%; cursor: pointer;
+    background: var(--slate-100);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .drawer-scrollable-content {
-    flex: 1; overflow-y: auto; padding: 24px; background: #fcfcfd;
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    background: #fcfcfd;
 }
 
 /* 7. FORMULARIOS DENTRO DEL DRAWER */
 .section-label {
-    display: block; font-size: 11px; font-weight: 700; color: var(--slate-400);
-    text-transform: uppercase; margin-bottom: 8px;
-}
-.pos-input-sm {
-    width: 100%; padding: 12px; border-radius: 10px;
-    border: 1px solid var(--slate-200); margin-bottom: 15px;
-}
-.result-card {
-    background: white; border: 1px solid var(--slate-200);
-    padding: 15px; border-radius: 12px; margin-bottom: 10px;
-    display: flex; justify-content: space-between; cursor: pointer;
-}
-.cart-row-sm {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px; background: white; border-radius: 10px;
-    border: 1px solid var(--slate-100); margin-bottom: 8px;
-}
-.qty-input-sm {
-    width: 60px; padding: 8px; border-radius: 6px; border: 1px solid var(--slate-200); text-align: center;
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--slate-400);
+    text-transform: uppercase;
+    margin-bottom: 8px;
 }
 
-.pos-fixed-footer {
-    padding: 24px; border-top: 1px solid var(--slate-100);
+.pos-input-sm {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--slate-200);
+    margin-bottom: 15px;
+    font-size: 14px;
 }
-.btn-confirm-final {
-    width: 100%; padding: 16px; border-radius: 12px;
-    background: var(--success); color: white; border: none; font-weight: 700; cursor: pointer;
+
+.result-card {
+    background: white;
+    border: 1px solid var(--slate-200);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.result-card:hover {
+    background: var(--primary-light);
+    border-color: var(--primary);
+}
+
+.selection-active-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--primary-light);
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.btn-reset-sm {
+    background: white;
+    border: 1px solid var(--slate-200);
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.cart-row-sm {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid var(--slate-100);
+    margin-bottom: 8px;
+}
+
+.qty-input-sm {
+    width: 60px;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--slate-200);
+    text-align: center;
+}
+
+/* Footer del Drawer (unificado) */
+.drawer-footer-fixed {
+    padding: 20px 24px;
+    border-top: 1px solid var(--slate-200);
+    display: flex;
+    gap: 12px;
+    background: white;
+}
+
+.btn-save-final {
+    flex: 2;
+    background: var(--success);
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: 40px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-save-final:hover {
+    background: #059669;
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-cancel {
+    flex: 1;
+    background: var(--slate-100);
+    color: var(--slate-700);
+    border: none;
+    padding: 14px;
+    border-radius: 40px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-cancel:hover {
+    background: var(--slate-200);
+}
+
+/* Estado vacío */
+.empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--slate-400);
+    font-size: 16px;
 }
 
 /* 8. CUSTOM SCROLLBAR */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-thumb { background: var(--slate-200); border-radius: 10px; }
-
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-thumb {
+    background: var(--slate-200);
+    border-radius: 10px;
+}
 
 /* ===========================================================
    9. FACTURA DE IMPRESIÓN DETALLADA (SOLO VISIBLE EN PAPEL)
@@ -316,5 +663,51 @@
     }
     body {
         background: white !important;
+    }
+}
+
+/* =========================================
+   RESPONSIVE (MÓVILES)
+========================================= */
+@media (max-width: 768px) {
+    .module-container {
+        padding: 20px;
+    }
+
+    .header-actions-row {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .search-bar-container {
+        max-width: none;
+        width: 100%;
+    }
+
+    .btn-add-venta {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .pagination-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .pagination-pages {
+        order: -1;
+        margin-bottom: 10px;
+    }
+
+    .pagination-number:not(.active):not(:first-of-type):not(:last-of-type) {
+        display: none;
+    }
+
+    .pagination-ellipsis {
+        display: none;
+    }
+
+    .pos-drawer {
+        width: 100%;
     }
 }

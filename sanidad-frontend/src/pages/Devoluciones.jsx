@@ -9,8 +9,19 @@ export default function Devoluciones() {
     const esAdmin = user?.rol === 'ADMIN';
     const usuarioId = user?.id;
 
+    // Función auxiliar para redondear a 2 decimales
+    const round2 = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
+
+    // Datos
     const [devoluciones, setDevoluciones] = useState([]);
     const [loading, setLoading] = useState(false);
+
+    // Filtros
+    const [searchTerm, setSearchTerm] = useState('');
+
+    // Paginación
+    const [currentPage, setCurrentPage] = useState(1);
+    const rowsPerPage = 15;
 
     // Estados del Drawer
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -29,9 +40,88 @@ export default function Devoluciones() {
         setLoading(true);
         try {
             const res = await listarDevoluciones();
-            setDevoluciones(res.data);
+            // Ordenar por ID descendente (último registrado primero)
+            const sorted = (res.data || []).sort((a, b) => b.id - a.id);
+            setDevoluciones(sorted);
         } catch (error) { console.error(error); }
         finally { setLoading(false); }
+    };
+
+    // Filtrado por número de devolución o factura
+    const devolucionesFiltradas = useMemo(() => {
+        const term = searchTerm.toLowerCase().trim();
+        return devoluciones.filter(d =>
+            !term ||
+            (d.numeroDevolucion && d.numeroDevolucion.toLowerCase().includes(term)) ||
+            (d.numeroFactura && d.numeroFactura.toLowerCase().includes(term))
+        );
+    }, [devoluciones, searchTerm]);
+
+    // Resetear página al cambiar filtro
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm]);
+
+    // Paginación
+    const totalPages = Math.ceil(devolucionesFiltradas.length / rowsPerPage);
+    const paginatedDevoluciones = useMemo(() => {
+        const start = (currentPage - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+        return devolucionesFiltradas.slice(start, end);
+    }, [devolucionesFiltradas, currentPage]);
+
+    const goToPage = (page) => {
+        if (page >= 1 && page <= totalPages) setCurrentPage(page);
+    };
+
+    const renderPageNumbers = () => {
+        if (totalPages <= 1) return null;
+        const pages = [];
+        const maxVisible = 5;
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, currentPage + 2);
+
+        if (currentPage <= 3) {
+            startPage = 1;
+            endPage = Math.min(totalPages, maxVisible);
+        }
+        if (currentPage > totalPages - 3) {
+            startPage = Math.max(1, totalPages - maxVisible + 1);
+            endPage = totalPages;
+        }
+
+        if (startPage > 1) {
+            pages.push(
+                <button key={1} className="pagination-number" onClick={() => goToPage(1)}>1</button>
+            );
+            if (startPage > 2) {
+                pages.push(<span key="ellipsis-start" className="pagination-ellipsis">...</span>);
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(
+                <button
+                    key={i}
+                    className={`pagination-number ${currentPage === i ? 'active' : ''}`}
+                    onClick={() => goToPage(i)}
+                >
+                    {i}
+                </button>
+            );
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                pages.push(<span key="ellipsis-end" className="pagination-ellipsis">...</span>);
+            }
+            pages.push(
+                <button key={totalPages} className="pagination-number" onClick={() => goToPage(totalPages)}>
+                    {totalPages}
+                </button>
+            );
+        }
+        return pages;
     };
 
     const handleAprobarAccion = async (devolucionId, aprobado) => {
@@ -51,7 +141,6 @@ export default function Devoluciones() {
 
     const handleImprimir = (devolucion) => {
         setTicketPrint(devolucion);
-        // Pequeño delay para asegurar que el DOM se renderice antes de abrir el diálogo de impresión
         setTimeout(() => {
             window.print();
         }, 500);
@@ -80,7 +169,7 @@ export default function Devoluciones() {
                 precioUnitario: d.precioUnitario
             }));
             setItemsDevolucion(inicial);
-            setVentaSeleccionada(res.data); // Usamos la data completa con detalles
+            setVentaSeleccionada(res.data);
         } catch (error) { alert('Error al cargar detalles'); }
     };
 
@@ -109,104 +198,107 @@ export default function Devoluciones() {
 
     return (
         <div className="module-container">
-            <header className="main-header">
-                <div>
+            {/* HEADER DE DOS FILAS */}
+            <header className="module-header">
+                <div className="header-title">
                     <h1>Devoluciones</h1>
                     <p className="vendedor-name">{esAdmin ? 'Panel de Control Administrativo' : 'Gestión de Solicitudes'}</p>
                 </div>
-                <button className="btn-add-venta" onClick={handleNuevaDevolucion}>+ Nueva Solicitud</button>
+                <div className="header-actions-row">
+                    <div className="search-bar-container">
+                        <span className="search-icon">🔍</span>
+                        <input
+                            type="text"
+                            className="search-input-main"
+                            placeholder="Buscar devolución o factura..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <button className="btn-add-venta" onClick={handleNuevaDevolucion}>
+                        ＋ Nueva Solicitud
+                    </button>
+                </div>
             </header>
 
             <div className="table-wrapper">
-                <table className="modern-table">
-                    <thead>
-                    <tr>
-                        <th>N° Devolución</th>
-                        <th>Factura Original</th>
-                        <th>Solicitante</th>
-                        <th>Estado</th>
-                        <th>Total Reembolso</th>
-                        <th>Acciones</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {devoluciones.map(d => (
-                        <tr key={d.id}>
-                            <td className="bold">{d.numeroDevolucion || '---'}</td>
-                            <td>{d.numeroFactura}</td>
-                            <td><span className="user-tag">{d.usuarioSolicitanteNombre}</span></td>
-                            <td><span className={`status-pill ${d.estado.toLowerCase()}`}>{d.estado}</span></td>
-                            <td className="price-text">${d.totalDevuelto?.toFixed(2)}</td>
-                            <td className="actions-cell">
-                                {esAdmin && d.estado === 'PENDIENTE' && (
-                                    <>
-                                        <button className="btn-action approve" onClick={() => handleAprobarAccion(d.id, true)}>✅</button>
-                                        <button className="btn-action reject" onClick={() => handleAprobarAccion(d.id, false)}>❌</button>
-                                    </>
-                                )}
-                                <button className="btn-circle-print" onClick={() => handleImprimir(d)}>📄</button>
-                            </td>
-                        </tr>
-                    ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* --- COMPONENTE DE FACTURA DETALLADA (SOLO VISIBLE AL IMPRIMIR) --- */}
-            {ticketPrint && (
-                <div id="ticket-devolucion" className="print-invoice-container">
-                    <div className="ticket-header">
-                        <h2>FARMASYSTEM</h2>
-                        <p>Nit: 900.123.456-1</p>
-                        <p><strong>RECIBO DE DEVOLUCIÓN</strong></p>
-                    </div>
-
-                    <div className="ticket-info">
-                        <p>Devolución: {ticketPrint.numeroDevolucion || 'PENDIENTE'}</p>
-                        <p>Factura Ref: {ticketPrint.numeroFactura}</p>
-                        <p>Fecha: {new Date().toLocaleDateString()}</p>
-                        <p>Atiende: {ticketPrint.usuarioSolicitanteNombre}</p>
-                    </div>
-
-                    <div className="ticket-divider">--------------------------------</div>
-
-                    <table className="ticket-table">
+                <div className="table-responsive">
+                    <table className="modern-table">
                         <thead>
                         <tr>
-                            <th>Prod.</th>
-                            <th>Cant.</th>
-                            <th>Total</th>
+                            <th>N° Devolución</th>
+                            <th>Factura Original</th>
+                            <th>Solicitante</th>
+                            <th>Estado</th>
+                            <th>Total Reembolso</th>
+                            <th>Acciones</th>
                         </tr>
                         </thead>
                         <tbody>
-                        {/* Se asume que el objeto trae los detalles mapeados */}
-                        {ticketPrint.detalles?.map((det, i) => (
-                            <tr key={i}>
-                                <td>{det.productoNombre}</td>
-                                <td>{det.cantidadDevuelta}</td>
-                                <td>${(det.cantidadDevuelta * det.precioUnitario).toFixed(2)}</td>
-                            </tr>
-                        ))}
+                        {loading ? (
+                            // Skeleton loader
+                            Array.from({ length: rowsPerPage }).map((_, idx) => (
+                                <tr key={idx} className="skeleton-row">
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
+                                </tr>
+                            ))
+                        ) : (
+                            paginatedDevoluciones.map((d, idx) => (
+                                <tr key={d.id} className="fade-in-row" style={{ animationDelay: `${idx * 0.05}s` }}>
+                                    <td className="bold">{d.numeroDevolucion || '---'}</td>
+                                    <td>{d.numeroFactura}</td>
+                                    <td><span className="user-tag">{d.usuarioSolicitanteNombre}</span></td>
+                                    <td><span className={`status-pill ${d.estado.toLowerCase()}`}>{d.estado}</span></td>
+                                    <td className="price-text">${d.totalDevuelto?.toFixed(2)}</td>
+                                    <td className="actions-cell">
+                                        {esAdmin && d.estado === 'PENDIENTE' && (
+                                            <>
+                                                <button className="btn-action approve" onClick={() => handleAprobarAccion(d.id, true)}>✅</button>
+                                                <button className="btn-action reject" onClick={() => handleAprobarAccion(d.id, false)}>❌</button>
+                                            </>
+                                        )}
+                                        <button className="btn-circle-print" onClick={() => handleImprimir(d)}>📄</button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                         </tbody>
                     </table>
-
-                    <div className="ticket-divider">--------------------------------</div>
-
-                    <div className="ticket-summary">
-                        <p>Subtotal Original: ${ticketPrint.totalVentaOriginal?.toFixed(2)}</p>
-                        <p className="total-label">TOTAL REEMBOLSO: ${ticketPrint.totalDevuelto?.toFixed(2)}</p>
-                    </div>
-
-                    <div className="ticket-footer">
-                        <p>Motivo: {ticketPrint.motivo}</p>
-                        <br /><br />
-                        <p>__________________________</p>
-                        <p>Firma Cliente / Recibido</p>
-                    </div>
+                    {!loading && devolucionesFiltradas.length === 0 && (
+                        <div className="empty-state">No se encontraron devoluciones.</div>
+                    )}
                 </div>
-            )}
 
-            {/* --- DRAWER FORMULARIO --- */}
+                {/* Paginación */}
+                {!loading && devolucionesFiltradas.length > 0 && (
+                    <div className="pagination-container">
+                        <button
+                            className="pagination-btn"
+                            onClick={() => goToPage(currentPage - 1)}
+                            disabled={currentPage === 1}
+                        >
+                            ← Anterior
+                        </button>
+                        <div className="pagination-pages">
+                            {renderPageNumbers()}
+                        </div>
+                        <button
+                            className="pagination-btn"
+                            onClick={() => goToPage(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                        >
+                            Siguiente →
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* DRAWER (Nueva Devolución) */}
             {drawerOpen && (
                 <div className="glass-overlay" onClick={() => setDrawerOpen(false)}>
                     <div className="pos-drawer" onClick={e => e.stopPropagation()}>
@@ -219,12 +311,17 @@ export default function Devoluciones() {
                             {!ventaSeleccionada ? (
                                 <div className="pos-section">
                                     <label className="section-label">Seleccionar Factura de Venta</label>
-                                    <input className="pos-input-sm" placeholder="Buscar por número..." value={busquedaVenta} onChange={e => setBusquedaVenta(e.target.value)} />
+                                    <input
+                                        className="pos-input-sm"
+                                        placeholder="Buscar por número..."
+                                        value={busquedaVenta}
+                                        onChange={e => setBusquedaVenta(e.target.value)}
+                                    />
                                     <div className="results-grid">
                                         {ventasFiltradas.map(v => (
                                             <div key={v.id} className="result-card" onClick={() => handleSeleccionarVenta(v)}>
                                                 <div><strong>{v.numeroFactura}</strong><p>{v.fecha}</p></div>
-                                                <span>${v.total}</span>
+                                                <span>${round2(v.total).toFixed(2)}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -243,23 +340,78 @@ export default function Devoluciones() {
                                                     <p><strong>{item.producto}</strong></p>
                                                     <small>Original: {item.cantidadMax} unidades</small>
                                                 </div>
-                                                <input type="number" className="qty-input-sm" value={item.cantidadDevuelta} onChange={e => actualizarCantidad(item.ventaDetalleId, parseInt(e.target.value) || 0)} />
+                                                <input
+                                                    type="number"
+                                                    className="qty-input-sm"
+                                                    value={item.cantidadDevuelta}
+                                                    onChange={e => actualizarCantidad(item.ventaDetalleId, parseInt(e.target.value) || 0)}
+                                                    min="0"
+                                                    max={item.cantidadMax}
+                                                />
                                             </div>
                                         ))}
                                     </div>
                                     <div className="pos-section">
                                         <label className="section-label">Motivo de la solicitud</label>
-                                        <textarea className="pos-input-sm" rows="3" value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ej: Vencimiento, Empaque dañado..."/>
+                                        <textarea
+                                            className="pos-input-sm"
+                                            rows="3"
+                                            value={motivo}
+                                            onChange={e => setMotivo(e.target.value)}
+                                            placeholder="Ej: Vencimiento, Empaque dañado..."
+                                        />
                                     </div>
                                 </>
                             )}
                         </div>
 
                         {ventaSeleccionada && (
-                            <div className="pos-fixed-footer">
-                                <button className="btn-confirm-final" onClick={handleSolicitar}>Crear Solicitud de Devolución</button>
+                            <div className="drawer-footer-fixed">
+                                <button className="btn-cancel" onClick={() => setDrawerOpen(false)}>Cancelar</button>
+                                <button className="btn-save-final" onClick={handleSolicitar}>Crear Solicitud</button>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Ticket de impresión (oculto en pantalla) */}
+            {ticketPrint && (
+                <div id="ticket-devolucion" className="print-invoice-container">
+                    <div className="ticket-header">
+                        <h2>FARMASYSTEM</h2>
+                        <p>Nit: 900.123.456-1</p>
+                        <p><strong>RECIBO DE DEVOLUCIÓN</strong></p>
+                    </div>
+                    <div className="ticket-info">
+                        <p>Devolución: {ticketPrint.numeroDevolucion || 'PENDIENTE'}</p>
+                        <p>Factura Ref: {ticketPrint.numeroFactura}</p>
+                        <p>Fecha: {new Date().toLocaleDateString()}</p>
+                        <p>Atiende: {ticketPrint.usuarioSolicitanteNombre}</p>
+                    </div>
+                    <div className="ticket-divider">--------------------------------</div>
+                    <table className="ticket-table">
+                        <thead><tr><th>Prod.</th><th>Cant.</th><th>Total</th></tr></thead>
+                        <tbody>
+                        {ticketPrint.detalles?.map((det, i) => (
+                            <tr key={i}>
+                                <td>{det.productoNombre}</td>
+                                <td>{det.cantidadDevuelta}</td>
+                                <td>${(det.cantidadDevuelta * det.precioUnitario).toFixed(2)}</td>
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
+                    <div className="ticket-divider">--------------------------------</div>
+                    <div className="ticket-summary">
+                        <p>Subtotal Original: ${ticketPrint.totalVentaOriginal?.toFixed(2)}</p>
+                        <p className="total-label">TOTAL REEMBOLSO: ${ticketPrint.totalDevuelto?.toFixed(2)}</p>
+                    </div>
+                    <div className="ticket-footer">
+                        <p>Motivo: {ticketPrint.motivo}</p>
+                        <br /><br />
+                        <p>__________________________</p>
+                        <p>Firma Cliente / Recibido</p>
                     </div>
                 </div>
             )}
