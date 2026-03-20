@@ -41,18 +41,16 @@
 }
 
 /* =========================================
-   CABECERA MODERNA
+   CABECERA MODERNA - DOS FILAS
    ========================================= */
 .module-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 16px;
+    margin-bottom: 24px;
 }
 
-.module-header h1 {
+.header-title h1 {
     font-size: 28px;
     font-weight: 800;
     color: var(--slate-900);
@@ -60,18 +58,29 @@
     margin: 0;
 }
 
-.module-header p {
+.header-title p {
     font-size: 14px;
     color: var(--slate-500);
     font-weight: 500;
     margin: 4px 0 0 0;
 }
 
+/* Contenedor de acciones: buscador + botones */
+.header-actions-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+/* Si por algún motivo mantienes .header-actions, que herede lo mismo */
 .header-actions {
     display: flex;
     gap: 12px;
     align-items: center;
     flex-wrap: wrap;
+    width: 100%;
 }
 
 /* Barra de búsqueda */
@@ -85,6 +94,8 @@
     min-width: 280px;
     transition: all 0.2s ease;
     box-shadow: var(--shadow-sm);
+    flex: 1 1 300px;
+    max-width: 500px;
 }
 
 .search-box:focus-within {
@@ -125,13 +136,14 @@
     transition: all 0.2s ease;
     border: none;
     white-space: nowrap;
-    box-shadow: var(--shadow-sm);
+    flex-shrink: 0;
 }
 
 .btn-print {
     background: var(--white);
     color: var(--slate-700);
     border: 1px solid var(--slate-200);
+    box-shadow: var(--shadow-sm);
 }
 
 .btn-print:hover {
@@ -248,19 +260,7 @@
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    /* Eliminado min-width fijo para que se adapte mejor al ancho */
-    /* min-width: 1000px; */
 }
-
-/* Ajuste de anchos de columna para mejor distribución */
-.custom-table th:nth-child(1), .custom-table td:nth-child(1) { width: 18%; } /* Medicamento */
-.custom-table th:nth-child(2), .custom-table td:nth-child(2) { width: 12%; } /* Registro */
-.custom-table th:nth-child(3), .custom-table td:nth-child(3) { width: 15%; } /* Fabricante */
-.custom-table th:nth-child(4), .custom-table td:nth-child(4) { width: 12%; } /* Presentación */
-.custom-table th:nth-child(5), .custom-table td:nth-child(5) { width: 10%; } /* Vía */
-.custom-table th:nth-child(6), .custom-table td:nth-child(6) { width: 10%; } /* Precio */
-.custom-table th:nth-child(7), .custom-table td:nth-child(7) { width: 8%; }  /* Estado */
-.custom-table th:nth-child(8), .custom-table td:nth-child(8) { width: 15%; } /* Acciones */
 
 .custom-table th {
     background: #fcfcfd;
@@ -403,7 +403,6 @@
     animation: fadeInRow 0.3s ease-out forwards;
 }
 
-/* Skeleton loading */
 .skeleton-row td {
     padding: 12px 20px;
 }
@@ -523,7 +522,8 @@
 }
 
 .drawer-panel {
-    width: 480px;
+    width: 520px;
+    max-width: 95vw;
     background: var(--white);
     height: 100vh;
     display: flex;
@@ -595,7 +595,7 @@
 }
 
 .field-group {
-    margin-bottom: 16px;
+    margin-bottom: 18px;
 }
 
 .field-group label {
@@ -614,6 +614,7 @@
     border-radius: 10px;
     font-size: 14px;
     transition: all 0.2s;
+    box-sizing: border-box;
 }
 
 .field-group input:focus,
@@ -621,6 +622,12 @@
     border-color: var(--primary);
     outline: none;
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.field-group input:disabled {
+    background: var(--slate-50);
+    color: var(--slate-500);
+    cursor: not-allowed;
 }
 
 .receta-warning-card {
@@ -692,38 +699,18 @@
     .module-container {
         padding: 20px;
     }
+}
 
-    .module-header {
+@media (max-width: 768px) {
+    .header-actions-row,
+    .header-actions {
         flex-direction: column;
         align-items: stretch;
     }
 
-    .header-actions {
-        justify-content: space-between;
-    }
-
     .search-box {
-        flex: 1;
-        min-width: auto;
-    }
-}
-
-@media (max-width: 768px) {
-    .module-header h1 {
-        font-size: 24px;
-    }
-
-    .header-actions {
-        flex-wrap: wrap;
-    }
-
-    .btn-print, .btn-primary-compact {
-        padding: 8px 16px;
-        font-size: 13px;
-    }
-
-    .custom-table th, .custom-table td {
-        white-space: nowrap;
+        max-width: none;
+        width: 100%;
     }
 
     .pagination-container {
@@ -734,17 +721,6 @@
     .pagination-pages {
         order: -1;
         margin-bottom: 10px;
-    }
-
-    .pagination-number {
-        min-width: 32px;
-        height: 32px;
-        font-size: 13px;
-    }
-
-    .pagination-btn {
-        padding: 8px 12px;
-        font-size: 13px;
     }
 
     .pagination-number:not(.active):not(:first-of-type):not(:last-of-type) {
@@ -770,7 +746,8 @@
         padding: 16px;
     }
 
-    .custom-table td, .custom-table th {
+    .custom-table td,
+    .custom-table th {
         padding: 12px 15px;
         font-size: 13px;
     }
@@ -779,7 +756,9 @@
         gap: 4px;
     }
 
-    .btn-edit-icon, .btn-delete-icon, .btn-restore-icon {
+    .btn-edit-icon,
+    .btn-delete-icon,
+    .btn-restore-icon {
         width: 30px;
         height: 30px;
     }

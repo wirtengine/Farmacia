@@ -27,7 +27,7 @@ export default function Lotes() {
 
     // Estados para paginación
     const [currentPage, setCurrentPage] = useState(1);
-    const rowsPerPage = 15; // Mismo número que en medicamentos
+    const rowsPerPage = 15;
 
     const [formData, setFormData] = useState({
         fechaFabricacion: '',
@@ -201,7 +201,6 @@ export default function Lotes() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        // Validaciones básicas
         if (!formData.proveedorId) {
             alert('Seleccione un proveedor');
             return;
@@ -253,13 +252,11 @@ export default function Lotes() {
     return (
         <div className="module-container">
             <header className="module-header">
-                {/* Primera fila: título y subtítulo */}
                 <div className="header-title">
                     <h1>Inventario de Lotes</h1>
                     <p>Filtra por factura, proveedor o medicamento</p>
                 </div>
 
-                {/* Segunda fila: acciones (filtros, buscador, botón) */}
                 <div className="header-actions-row">
                     <div className="stock-filter-group">
                         <button
@@ -322,7 +319,6 @@ export default function Lotes() {
                         </thead>
                         <tbody>
                         {loading ? (
-                            // Skeleton loading
                             Array.from({ length: rowsPerPage }).map((_, idx) => (
                                 <tr key={idx} className="skeleton-row">
                                     <td><div className="skeleton-cell" /></td>
@@ -352,9 +348,11 @@ export default function Lotes() {
                                                 ))}
                                             </div>
                                         </td>
-                                        <td className={vencido ? 'text-danger' : ''}>
-                                            {l.fechaVencimiento}
-                                            {vencido && <span className="vencido-badge"> Vencido</span>}
+                                        <td>
+                                                <span className="vencimiento-wrapper">
+                                                    {l.fechaVencimiento}
+                                                    {vencido && <span className="vencido-badge">Vencido</span>}
+                                                </span>
                                         </td>
                                         <td>
                                                 <span className={`status-pill ${l.activo ? (tieneStock ? 'active' : 'agotado') : 'inactive'}`}>
@@ -380,7 +378,6 @@ export default function Lotes() {
                     )}
                 </div>
 
-                {/* Paginación */}
                 {!loading && lotesFiltrados.length > 0 && (
                     <div className="pagination-container">
                         <button
@@ -390,11 +387,9 @@ export default function Lotes() {
                         >
                             ← Anterior
                         </button>
-
                         <div className="pagination-pages">
                             {renderPageNumbers()}
                         </div>
-
                         <button
                             className="pagination-btn"
                             onClick={() => goToPage(currentPage + 1)}

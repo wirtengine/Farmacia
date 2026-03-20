@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
     listarMedicamentos,
@@ -17,6 +17,7 @@ export default function Medicamentos() {
     const { user } = useAuth();
     const [medicamentos, setMedicamentos] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [message, setMessage] = useState({ text: '', type: '' });
     const [loading, setLoading] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -25,7 +26,7 @@ export default function Medicamentos() {
 
     // Estados para paginación
     const [currentPage, setCurrentPage] = useState(1);
-    const rowsPerPage = 15; // Aumentado para tabla más grande
+    const rowsPerPage = 15;
 
     const [formData, setFormData] = useState({
         registroSanitario: '', nombre: '', presentacion: '',
@@ -33,13 +34,20 @@ export default function Medicamentos() {
         precioUnitario: '', receta: false, activo: true
     });
 
+    // Debounce para búsqueda
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
     useEffect(() => { cargarMedicamentos(); }, []);
 
     const cargarMedicamentos = async () => {
         setLoading(true);
         try {
             const response = await listarMedicamentos();
-            // Ordenar por ID descendente (más reciente primero)
             const sorted = response.data.sort((a, b) => b.id - a.id);
             setMedicamentos(sorted);
         } catch (error) {
@@ -47,18 +55,35 @@ export default function Medicamentos() {
         } finally { setLoading(false); }
     };
 
+    // Generar PDF mejorado
     const generarPDF = () => {
         const doc = new jsPDF();
-        const fecha = new Date().toLocaleDateString();
+        const fechaActual = new Date();
+        const fechaStr = fechaActual.toLocaleDateString('es-ES', {
+            year: 'numeric', month: 'long', day: 'numeric'
+        });
+        const horaStr = fechaActual.toLocaleTimeString('es-ES');
         const nombreUsuario = user?.nombre || user?.username || user?.sub || 'Usuario del Sistema';
 
+        // Título
         doc.setFontSize(18);
+        doc.setTextColor(41, 128, 185);
         doc.text('Catálogo de Medicamentos - Sanidad App', 14, 20);
         doc.setFontSize(10);
-        doc.text(`Fecha de reporte: ${fecha}`, 14, 28);
-        doc.text(`Generado por: ${nombreUsuario}`, 14, 33);
+        doc.setTextColor(100);
+        doc.text(`Generado: ${fechaStr} - ${horaStr}`, 14, 28);
+        doc.text(`Usuario: ${nombreUsuario}`, 14, 33);
 
-        const columnas = ["Medicamento", "Reg. Sanitario", "Fabricante", "Presentación", "Vía", "Precio", "Estado"];
+        // Columnas del reporte
+        const columnas = [
+            "Medicamento",
+            "Reg. Sanitario",
+            "Fabricante",
+            "Presentación",
+            "Vía",
+            "Precio (C$)",
+            "Estado"
+        ];
 
         const filas = medicamentosFiltrados.map(m => [
             m.nombre,
@@ -66,7 +91,7 @@ export default function Medicamentos() {
             m.fabricante || 'N/A',
             m.presentacion,
             m.via,
-            `C$ ${parseFloat(m.precioUnitario).toFixed(2)}`,
+            parseFloat(m.precioUnitario).toFixed(2),
             m.activo ? 'Activo' : 'Inactivo'
         ]);
 
@@ -75,30 +100,60 @@ export default function Medicamentos() {
             body: filas,
             startY: 40,
             theme: 'striped',
-            headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-            styles: { fontSize: 9 }
+            headStyles: {
+                fillColor: [41, 128, 185],
+                textColor: 255,
+                fontStyle: 'bold',
+                halign: 'center'
+            },
+            bodyStyles: {
+                fontSize: 9,
+                cellPadding: 3
+            },
+            columnStyles: {
+                5: { halign: 'right' },  // Precio a la derecha
+                6: { halign: 'center' }   // Estado centrado
+            },
+            margin: { top: 40, bottom: 30 },
+            didDrawPage: (data) => {
+                // Pie de página
+                const pageCount = doc.getNumberOfPages();
+                const pageNumber = data.pageNumber;
+                doc.setFontSize(8);
+                doc.setTextColor(150);
+                doc.text(
+                    `Página ${pageNumber} de ${pageCount}`,
+                    doc.internal.pageSize.getWidth() - 30,
+                    doc.internal.pageSize.getHeight() - 10
+                );
+                doc.text(
+                    `Total de medicamentos: ${medicamentosFiltrados.length}`,
+                    14,
+                    doc.internal.pageSize.getHeight() - 10
+                );
+            }
         });
 
-        doc.save(`Reporte_Medicamentos_${fecha}.pdf`);
+        doc.save(`Reporte_Medicamentos_${fechaActual.toISOString().slice(0,10)}.pdf`);
     };
 
-    // Filtrado
+    // Filtrado con debouncedSearch
     const medicamentosFiltrados = useMemo(() => {
         return medicamentos.filter(m => {
             const esActivo = m.activo === true || String(m.activo) === 'true';
             if (user?.rol !== 'ADMIN' && !esActivo) return false;
 
-            const term = searchTerm.toLowerCase();
+            const term = debouncedSearch.toLowerCase();
             return m.nombre.toLowerCase().includes(term) ||
                 m.fabricante?.toLowerCase().includes(term) ||
                 m.registroSanitario.toLowerCase().includes(term);
         });
-    }, [medicamentos, searchTerm, user]);
+    }, [medicamentos, debouncedSearch, user]);
 
     // Resetear página cuando cambia el filtro
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm]);
+    }, [debouncedSearch]);
 
     // Paginación
     const totalPages = Math.ceil(medicamentosFiltrados.length / rowsPerPage);
@@ -114,10 +169,9 @@ export default function Medicamentos() {
         }
     };
 
-    // Renderizado de números de página con elipsis
     const renderPageNumbers = () => {
         const pages = [];
-        const maxVisible = 5; // Número máximo de páginas visibles
+        const maxVisible = 5;
         const sidePages = Math.floor(maxVisible / 2);
 
         let startPage = Math.max(1, currentPage - sidePages);
@@ -241,11 +295,11 @@ export default function Medicamentos() {
     return (
         <div className="module-container">
             <header className="module-header">
-                <div>
+                <div className="header-title">
                     <h1>Catálogo Farmacéutico</h1>
                     <p>Gestión de Medicamentos e Insumos</p>
                 </div>
-                <div className="header-actions">
+                <div className="header-actions-row">
                     <div className="search-box">
                         <span className="search-icon">🔍</span>
                         <input
@@ -292,7 +346,6 @@ export default function Medicamentos() {
                         </thead>
                         <tbody>
                         {loading ? (
-                            // Skeleton loading
                             Array.from({ length: rowsPerPage }).map((_, index) => (
                                 <tr key={index} className="skeleton-row">
                                     <td><div className="skeleton-cell" /></td>
@@ -315,9 +368,9 @@ export default function Medicamentos() {
                                     <td><span className="badge-blue">{m.via}</span></td>
                                     <td className="price-text">C$ {parseFloat(m.precioUnitario).toFixed(2)}</td>
                                     <td>
-                                        <span className={`status-pill ${m.activo ? 'active' : 'inactive'}`}>
-                                            {m.activo ? 'Activo' : 'Inactivo'}
-                                        </span>
+                                            <span className={`status-pill ${m.activo ? 'active' : 'inactive'}`}>
+                                                {m.activo ? 'Activo' : 'Inactivo'}
+                                            </span>
                                     </td>
                                     {user?.rol === 'ADMIN' && (
                                         <td>

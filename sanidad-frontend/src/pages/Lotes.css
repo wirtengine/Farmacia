@@ -84,7 +84,7 @@
     min-width: 280px;
     transition: all 0.2s ease;
     box-shadow: var(--shadow-sm);
-    flex: 1 1 300px; /* Que pueda crecer pero tenga un ancho base */
+    flex: 1 1 300px;
     max-width: 500px;
 }
 
@@ -313,9 +313,15 @@
     text-align: center;
 }
 
-.text-danger {
-    color: var(--danger);
-    font-weight: 600;
+/* =========================================
+   MEJORA VISUAL DEL BADGE "VENCIDO"
+   ========================================= */
+.custom-table td .vencimiento-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    background-color: transparent;
 }
 
 .vencido-badge {
@@ -324,8 +330,29 @@
     font-size: 10px;
     padding: 2px 6px;
     border-radius: 20px;
-    margin-left: 6px;
     font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+/* Para pantallas pequeñas, permitimos que el contenido se ajuste */
+@media (max-width: 768px) {
+    .custom-table td .vencimiento-wrapper {
+        white-space: normal;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    .vencido-badge {
+        display: inline-block;
+        margin-top: 2px;
+    }
+}
+
+/* Opcional: ancho mínimo para la columna de vencimiento */
+.custom-table th:nth-child(4),
+.custom-table td:nth-child(4) {
+    min-width: 110px;
 }
 
 /* Chips de medicamentos */
@@ -764,7 +791,7 @@
 }
 
 /* =========================================
-   RESPONSIVE (MÓVILES Y TABLETS) - MEJORADO
+   RESPONSIVE (MÓVILES Y TABLETS)
    ========================================= */
 @media (max-width: 1024px) {
     .module-container {
