@@ -734,3 +734,21 @@ textarea.pos-input-sm {
     .pagination-pages { gap: 3px; }
     .pagination-number { min-width: 28px; height: 28px; }
 }
+.btn-whatsapp {
+    background: #25D366;
+    color: white;
+    border: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 1.2rem;
+}
+.btn-whatsapp:hover {
+    background: #128C7E;
+    transform: scale(1.05);
+}

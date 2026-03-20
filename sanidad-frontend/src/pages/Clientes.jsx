@@ -17,6 +17,9 @@ export default function Clientes() {
     // Función auxiliar para redondear a 2 decimales
     const round2 = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
 
+    // Formato de moneda en Córdobas
+    const formatCurrency = (value) => `C$ ${value.toFixed(2)}`;
+
     const [clientes, setClientes] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [message, setMessage] = useState({ text: '', type: '' });
@@ -159,7 +162,6 @@ export default function Clientes() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        // Validaciones básicas
         if (!formData.cedula.trim() || !formData.nombre.trim()) {
             alert('Cédula y Nombre son obligatorios');
             return;
@@ -203,7 +205,7 @@ export default function Clientes() {
         doc.text(`Nombre: ${cliente.nombre}`, 14, 45);
         doc.text(`Teléfono: ${cliente.telefono || 'N/A'}`, 14, 55);
         doc.text(`Email: ${cliente.email || 'N/A'}`, 14, 65);
-        doc.text(`Saldo Actual: $${round2(cliente.saldo || 0).toFixed(2)}`, 14, 75);
+        doc.text(`Saldo Actual: ${formatCurrency(round2(cliente.saldo || 0))}`, 14, 75);
         doc.text(`Estado: ${cliente.activo ? 'ACTIVO' : 'INACTIVO'}`, 14, 85);
         doc.save(`Reporte_${cliente.cedula}.pdf`);
     };
@@ -215,7 +217,7 @@ export default function Clientes() {
             c.cedula,
             c.nombre,
             c.telefono || '—',
-            `$${round2(c.saldo || 0).toFixed(2)}`,
+            formatCurrency(round2(c.saldo || 0)),
             c.activo ? 'Activo' : 'Inactivo'
         ]);
         autoTable(doc, {
@@ -301,7 +303,7 @@ export default function Clientes() {
                                     <td className="font-bold">{c.cedula}</td>
                                     <td>{c.nombre}</td>
                                     <td>{c.telefono || '—'}</td>
-                                    <td className="font-semibold">${round2(c.saldo || 0).toFixed(2)}</td>
+                                    <td className="font-semibold">{formatCurrency(round2(c.saldo || 0))}</td>
                                     <td>
                                         <span className={`status-pill ${c.activo ? 'active' : 'inactive'}`}>
                                             {c.activo ? 'Activo' : 'Inactivo'}
@@ -410,7 +412,7 @@ export default function Clientes() {
                                     />
                                 </div>
                                 <div className="field-group">
-                                    <label>Saldo Inicial ($)</label>
+                                    <label>Saldo Inicial (C$)</label>
                                     <input
                                         type="number"
                                         step="0.01"

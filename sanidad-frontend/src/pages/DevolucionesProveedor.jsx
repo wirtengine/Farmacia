@@ -14,6 +14,7 @@ export default function DevolucionesProveedor() {
 
     const [devoluciones, setDevoluciones] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [proveedores, setProveedores] = useState([]); // Para obtener teléfono
 
     // Estados para filtro y paginación
     const [searchTerm, setSearchTerm] = useState('');
@@ -23,26 +24,39 @@ export default function DevolucionesProveedor() {
     // Estados para el drawer
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [lotes, setLotes] = useState([]);
-    const [proveedores, setProveedores] = useState([]);
     const [loteSeleccionado, setLoteSeleccionado] = useState(null);
     const [itemsDevolucion, setItemsDevolucion] = useState([]);
     const [motivo, setMotivo] = useState('');
     const [busquedaLote, setBusquedaLote] = useState('');
 
-    useEffect(() => { cargarDevoluciones(); }, []);
+    useEffect(() => {
+        cargarDevoluciones();
+        cargarProveedores(); // Cargamos proveedores para tener los teléfonos
+    }, []);
+
+    const cargarProveedores = async () => {
+        try {
+            const res = await listarProveedores();
+            setProveedores(res.data || []);
+        } catch (error) {
+            console.error('Error al cargar proveedores', error);
+        }
+    };
 
     const cargarDevoluciones = async () => {
         setLoading(true);
         try {
             const res = await listarDevolucionesProveedor();
-            // Ordenar por ID descendente (último primero)
             const sorted = (res.data || []).sort((a, b) => b.id - a.id);
             setDevoluciones(sorted);
-        } catch (error) { console.error(error); }
-        finally { setLoading(false); }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // Filtrado por número de solicitud o factura
+    // Filtrado
     const devolucionesFiltradas = useMemo(() => {
         const term = searchTerm.toLowerCase().trim();
         return devoluciones.filter(d =>
@@ -53,12 +67,11 @@ export default function DevolucionesProveedor() {
         );
     }, [devoluciones, searchTerm]);
 
-    // Resetear página al cambiar filtro
+    // Paginación
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm]);
 
-    // Paginación
     const totalPages = Math.ceil(devolucionesFiltradas.length / rowsPerPage);
     const paginatedDevoluciones = useMemo(() => {
         const start = (currentPage - 1) * rowsPerPage;
@@ -120,6 +133,78 @@ export default function DevolucionesProveedor() {
         return pages;
     };
 
+    // Función para imprimir (PDF) de una devolución existente
+    const imprimirDevolucion = (devolucion) => {
+        const doc = new jsPDF();
+        const margin = 14;
+
+        doc.setFontSize(18);
+        doc.setTextColor(37, 99, 235);
+        doc.text("FarmaSystem - Devolución a Proveedor", margin, 22);
+
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Fecha: ${new Date().toLocaleString()}`, margin, 30);
+        doc.text(`Solicitado por: ${devolucion.usuarioSolicitanteNombre || 'Desconocido'}`, margin, 35);
+
+        doc.setDrawColor(226, 232, 240);
+        doc.line(margin, 40, 196, 40);
+
+        doc.setFontSize(11);
+        doc.setTextColor(15);
+        doc.text(`Proveedor: ${devolucion.proveedorNombre}`, margin, 50);
+        doc.text(`Factura Lote: ${devolucion.numeroFacturaLote}`, margin, 56);
+        doc.text(`N° Solicitud: ${devolucion.numeroDevolucion || 'Pendiente'}`, margin, 62);
+        doc.text(`Estado: ${devolucion.estado}`, margin, 68);
+
+        const productos = devolucion.detalles?.map(d => [d.medicamentoNombre, d.cantidadDevuelta]) || [];
+        autoTable(doc, {
+            startY: 75,
+            head: [['Medicamento', 'Cantidad Devuelta']],
+            body: productos,
+            headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+        });
+
+        const finalY = doc.lastAutoTable.finalY + 15;
+        doc.setFontSize(10);
+        doc.text("Motivo:", margin, finalY);
+        doc.setFontSize(11);
+        doc.setTextColor(60);
+        doc.text(devolucion.motivo || "No especificado", margin, finalY + 7, { maxWidth: 180 });
+
+        doc.save(`Devolucion_${devolucion.numeroFacturaLote}.pdf`);
+    };
+
+    // Función para enviar por WhatsApp (genera PDF y abre WhatsApp)
+    const enviarWhatsApp = (devolucion) => {
+        // Buscar el proveedor para obtener el teléfono
+        const proveedor = proveedores.find(p => p.nombre === devolucion.proveedorNombre);
+        const telefono = proveedor?.telefono || ''; // Si no hay teléfono, se puede omitir o usar un placeholder
+
+        // Generar PDF (se descarga automáticamente)
+        imprimirDevolucion(devolucion);
+
+        // Construir mensaje
+        const productosTexto = devolucion.detalles?.map(d => `- ${d.medicamentoNombre}: ${d.cantidadDevuelta}`).join('\n') || '';
+        const mensaje = `*HOLA, REPORTE DE DEVOLUCIÓN*\n\n` +
+            `*N° Solicitud:* ${devolucion.numeroDevolucion || 'Pendiente'}\n` +
+            `*Factura Lote:* ${devolucion.numeroFacturaLote}\n` +
+            `*Proveedor:* ${devolucion.proveedorNombre}\n` +
+            `*Estado:* ${devolucion.estado}\n` +
+            `*Motivo:* ${devolucion.motivo || 'No especificado'}\n\n` +
+            `*Productos devueltos:*\n${productosTexto}\n\n` +
+            `_Se ha generado un PDF con los detalles completos._`;
+
+        // Abrir WhatsApp (si hay teléfono)
+        if (telefono) {
+            const url = `https://wa.me/+505${telefono}?text=${encodeURIComponent(mensaje)}`;
+            window.open(url, '_blank');
+        } else {
+            alert('No se encontró el número de teléfono del proveedor.');
+        }
+    };
+
     const handleNuevaDevolucion = async () => {
         setLoteSeleccionado(null);
         setItemsDevolucion([]);
@@ -128,9 +213,11 @@ export default function DevolucionesProveedor() {
         try {
             const [resLotes, resProv] = await Promise.all([listarLotes(), listarProveedores()]);
             setLotes(resLotes.data);
-            setProveedores(resProv.data);
+            setProveedores(resProv.data); // Actualizamos proveedores
             setDrawerOpen(true);
-        } catch (error) { alert('Error al cargar datos'); }
+        } catch (error) {
+            alert('Error al cargar datos');
+        }
     };
 
     const handleSeleccionarLote = async (lote) => {
@@ -144,7 +231,9 @@ export default function DevolucionesProveedor() {
             }));
             setItemsDevolucion(detalles);
             setLoteSeleccionado(lote);
-        } catch (error) { alert('Error al cargar detalles del lote'); }
+        } catch (error) {
+            alert('Error al cargar detalles del lote');
+        }
     };
 
     const actualizarCantidad = (id, val) => {
@@ -227,7 +316,9 @@ export default function DevolucionesProveedor() {
 
             setDrawerOpen(false);
             cargarDevoluciones();
-        } catch (error) { alert('Error al crear la solicitud'); }
+        } catch (error) {
+            alert('Error al crear la solicitud');
+        }
     };
 
     const handleAprobar = async (id) => {
@@ -235,7 +326,9 @@ export default function DevolucionesProveedor() {
         try {
             await aprobarDevolucionProveedor({ devolucionId: id, aprobadoPorId: usuarioId, aprobada: true });
             cargarDevoluciones();
-        } catch (error) { alert('Error'); }
+        } catch (error) {
+            alert('Error');
+        }
     };
 
     const handleRechazar = async (id) => {
@@ -244,7 +337,9 @@ export default function DevolucionesProveedor() {
         try {
             await aprobarDevolucionProveedor({ devolucionId: id, aprobadoPorId: usuarioId, aprobada: false, motivoRechazo });
             cargarDevoluciones();
-        } catch (error) { alert('Error'); }
+        } catch (error) {
+            alert('Error');
+        }
     };
 
     const lotesFiltrados = useMemo(() => {
@@ -307,9 +402,9 @@ export default function DevolucionesProveedor() {
                                     <td>{d.numeroFacturaLote}</td>
                                     <td><span className="user-tag">{d.proveedorNombre}</span></td>
                                     <td>
-                                            <span className={`status-pill ${d.estado.toLowerCase()}`}>
-                                                {d.estado}
-                                            </span>
+                                        <span className={`status-pill ${d.estado.toLowerCase()}`}>
+                                            {d.estado}
+                                        </span>
                                     </td>
                                     <td className="text-center">
                                         <div className="action-buttons-group">
@@ -319,7 +414,8 @@ export default function DevolucionesProveedor() {
                                                     <button className="btn-action reject" onClick={() => handleRechazar(d.id)} title="Rechazar">✗</button>
                                                 </>
                                             )}
-                                            <button className="btn-circle-print" title="Imprimir PDF">📄</button>
+                                            <button className="btn-circle-print" onClick={() => imprimirDevolucion(d)} title="Imprimir PDF">📄</button>
+                                            <button className="btn-whatsapp" onClick={() => enviarWhatsApp(d)} title="Enviar por WhatsApp">📱</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -356,7 +452,7 @@ export default function DevolucionesProveedor() {
                 )}
             </div>
 
-            {/* Drawer */}
+            {/* Drawer para nueva solicitud */}
             {drawerOpen && (
                 <div className="glass-overlay" onClick={() => setDrawerOpen(false)}>
                     <div className="pos-drawer" onClick={e => e.stopPropagation()}>

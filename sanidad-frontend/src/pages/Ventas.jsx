@@ -13,8 +13,11 @@ export default function Ventas() {
     const usuarioId = user?.id;
     const nombreVendedor = user?.username || "Vendedor";
 
-    // Función auxiliar para redondear a 2 decimales
+    // Función para redondear a 2 decimales
     const round2 = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
+
+    // Formato de moneda en Córdobas
+    const formatCurrency = (value) => `C$ ${value.toFixed(2)}`;
 
     // Datos
     const [ventas, setVentas] = useState([]);
@@ -57,7 +60,7 @@ export default function Ventas() {
         }
     };
 
-    // Lógica de filtrado de la tabla principal
+    // Lógica de filtrado
     const ventasFiltradas = useMemo(() => {
         let filtradas = ventas;
         if (!esAdmin) {
@@ -191,7 +194,7 @@ export default function Ventas() {
         setBusquedaMedicamento("");
     };
 
-    // Cálculos con redondeo a 2 decimales
+    // Cálculos
     const subtotal = detallesVenta.reduce((acc, d) => acc + d.subtotal, 0);
     const total = round2(subtotal * 1.15);
     const cambio = round2(Math.max((parseFloat(efectivoRecibido) + parseFloat(montoUsarSaldo)) - total, 0));
@@ -222,10 +225,10 @@ export default function Ventas() {
         autoTable(doc, {
             startY: 25,
             head: [["Cant", "Producto", "Sub"]],
-            body: items.map(d => [d.cantidad, d.medicamentoNombre, `$${d.subtotal.toFixed(2)}`]),
+            body: items.map(d => [d.cantidad, d.medicamentoNombre, formatCurrency(d.subtotal)]),
             styles: { fontSize: 6 }
         });
-        doc.text(`TOTAL: $${venta.total?.toFixed(2) || total.toFixed(2)}`, 5, doc.lastAutoTable.finalY + 5);
+        doc.text(`TOTAL: ${formatCurrency(venta.total || total)}`, 5, doc.lastAutoTable.finalY + 5);
         doc.save(`Venta_${venta.numeroFactura}.pdf`);
     };
 
@@ -301,7 +304,7 @@ export default function Ventas() {
                                     <td className="bold">#{v.numeroFactura}</td>
                                     <td><span className="user-tag">{v.usuarioUsername}</span></td>
                                     <td>{v.clienteNombre || "Consumidor Final"}</td>
-                                    <td className="price-text">${v.total?.toFixed(2)}</td>
+                                    <td className="price-text">{formatCurrency(v.total || 0)}</td>
                                     <td><button className="btn-circle-print" onClick={() => generarPDF(v, v.detalles)}>🖨️</button></td>
                                 </tr>
                             ))
@@ -360,7 +363,7 @@ export default function Ventas() {
                                         <div className="selection-active-card">
                                             <div className="active-details">
                                                 <strong>{clienteSeleccionado.nombre}</strong>
-                                                <span className="success">Saldo: ${round2(clienteSeleccionado.saldo).toFixed(2)}</span>
+                                                <span className="success">Saldo: {formatCurrency(round2(clienteSeleccionado.saldo || 0))}</span>
                                             </div>
                                             <button className="btn-reset-sm" onClick={() => setClienteSeleccionado(null)}>Cambiar</button>
                                         </div>
@@ -379,7 +382,7 @@ export default function Ventas() {
                                                     <span className="card-title">{m.medicamentoNombre}</span>
                                                     <span className="card-sub">{m.loteNum} | Stock: {m.cantidad}</span>
                                                 </div>
-                                                <div className="card-price">${m.precioUnitario.toFixed(2)}</div>
+                                                <div className="card-price">{formatCurrency(m.precioUnitario)}</div>
                                             </button>
                                         ))}
                                 </div>
@@ -388,18 +391,31 @@ export default function Ventas() {
                             <section className="pos-section">
                                 {detallesVenta.map((d, i) => (
                                     <div key={i} className="cart-row-sm">
-                                        <div className="cart-info-sm"><strong>{d.medicamentoNombre}</strong><span>${d.precioUnitario.toFixed(2)}</span></div>
+                                        <div className="cart-info-sm">
+                                            <strong>{d.medicamentoNombre}</strong>
+                                            <span>{formatCurrency(d.precioUnitario)}</span>
+                                        </div>
                                         <div className="cart-ctrls-sm">
-                                            <input type="number" className="qty-input-sm" min="1" value={d.cantidad} onChange={e => {
-                                                const v = parseInt(e.target.value) || 1;
-                                                const medOriginal = lotes.flatMap(l => l.detalles).find(m => m.id === d.loteDetalleId);
-                                                if (medOriginal && v > medOriginal.cantidad) {
-                                                    alert(`Solo hay ${medOriginal.cantidad} unidades disponibles.`);
-                                                    return;
-                                                }
-                                                setDetallesVenta(prev => prev.map((p, idx) => idx === i ? {...p, cantidad: v, subtotal: v * p.precioUnitario} : p));
-                                            }} />
-                                            <span className="item-total-sm">${d.subtotal.toFixed(2)}</span>
+                                            <input
+                                                type="number"
+                                                className="qty-input-sm"
+                                                min="1"
+                                                value={d.cantidad}
+                                                onChange={e => {
+                                                    const v = parseInt(e.target.value) || 1;
+                                                    const medOriginal = lotes.flatMap(l => l.detalles).find(m => m.id === d.loteDetalleId);
+                                                    if (medOriginal && v > medOriginal.cantidad) {
+                                                        alert(`Solo hay ${medOriginal.cantidad} unidades disponibles.`);
+                                                        return;
+                                                    }
+                                                    setDetallesVenta(prev =>
+                                                        prev.map((p, idx) =>
+                                                            idx === i ? { ...p, cantidad: v, subtotal: v * p.precioUnitario } : p
+                                                        )
+                                                    );
+                                                }}
+                                            />
+                                            <span className="item-total-sm">{formatCurrency(d.subtotal)}</span>
                                             <button className="btn-remove-sm" onClick={() => setDetallesVenta(detallesVenta.filter((_, idx) => idx !== i))}>×</button>
                                         </div>
                                     </div>
@@ -409,7 +425,10 @@ export default function Ventas() {
 
                         <div className="pos-fixed-footer">
                             <div className="payment-summary-card">
-                                <div className="payment-row main-total"><span>Total Final</span><span>${total.toFixed(2)}</span></div>
+                                <div className="payment-row main-total">
+                                    <span>Total Final</span>
+                                    <span>{formatCurrency(total)}</span>
+                                </div>
                                 <div className="payment-grid">
                                     {tipoVenta === 'cliente' && (
                                         <div className="pay-field">
@@ -438,7 +457,7 @@ export default function Ventas() {
                                         />
                                     </div>
                                 </div>
-                                {cambio > 0 && <div className="change-indicator">Cambio: ${cambio.toFixed(2)}</div>}
+                                {cambio > 0 && <div className="change-indicator">Cambio: {formatCurrency(cambio)}</div>}
                             </div>
                             <div className="pos-final-actions">
                                 <button className="btn-cancel-final" onClick={() => setDrawerOpen(false)}>Cancelar</button>

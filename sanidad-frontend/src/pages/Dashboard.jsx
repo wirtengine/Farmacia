@@ -7,23 +7,37 @@ import {
 } from 'recharts';
 import './Dashboard.css';
 
-export default function Dashboard() {
+// Función para formatear montos en Córdobas
+const formatCurrency = (value) => `C$ ${value.toFixed(2)}`;
 
+// Tooltip personalizado (reutilizable)
+const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="custom-tooltip">
+                <p className="tooltip-label">{label}</p>
+                <p className="tooltip-value">{formatCurrency(payload[0].value)}</p>
+            </div>
+        );
+    }
+    return null;
+};
+
+export default function Dashboard() {
     const { user } = useAuth();
     const esAdmin = user?.rol === 'ADMIN';
 
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-
-    useEffect(() => {
-        cargarDatos();
-    }, []);
+    const [lastUpdated, setLastUpdated] = useState(null);
 
     const cargarDatos = async () => {
+        setLoading(true);
         try {
             const res = await obtenerResumenDashboard();
             setData(res.data);
+            setLastUpdated(new Date());
         } catch {
             setError('Error al conectar con el servidor.');
         } finally {
@@ -31,14 +45,26 @@ export default function Dashboard() {
         }
     };
 
-    if (loading) return <div className="dashboard-loading-state"><div className="spinner"></div></div>;
-    if (error) return <div className="dashboard-error-state">⚠️ {error}</div>;
+    useEffect(() => {
+        cargarDatos();
+    }, []);
+
+    if (loading) return (
+        <div className="dashboard-loading-state">
+            <div className="spinner"></div>
+            <p>Cargando indicadores...</p>
+        </div>
+    );
+
+    if (error) return (
+        <div className="dashboard-error-state">
+            ⚠️ {error}
+        </div>
+    );
+
     if (!data) return null;
 
-    // =========================
-    // DATOS PARA GRÁFICAS
-    // =========================
-
+    // Preparación de datos para gráficas
     const ventasPorVendedor = data.rankingVendedores.map(v => ({
         name: v.username,
         ventas: v.totalVentas
@@ -56,61 +82,39 @@ export default function Dashboard() {
 
     const COLORS = ['#10b981', '#3b82f6', '#6366f1', '#f59e0b', '#ef4444'];
 
-    // =========================
-    // TOOLTIP PERSONALIZADO
-    // =========================
-
-    const CustomTooltip = ({ active, payload, label }) => {
-        if (active && payload && payload.length) {
-            return (
-                <div style={{
-                    background: "#fff",
-                    padding: "10px",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 10px rgba(0,0,0,0.05)"
-                }}>
-                    <strong>{label}</strong>
-                    <p style={{ margin: 0 }}>
-                        C${payload[0].value.toFixed(2)}
-                    </p>
-                </div>
-            );
-        }
-        return null;
-    };
-
     return (
         <div className="module-container dashboard-pro">
-
             {/* HEADER */}
             <header className="dashboard-header">
-                <div>
+                <div className="header-left">
                     <h1>Dashboard {esAdmin ? 'Ejecutivo' : 'Personal'}</h1>
-                    <span>{user?.username} ({user?.rol})</span>
+                    <span className="user-badge">{user?.username} ({user?.rol})</span>
+                    {lastUpdated && (
+                        <span className="last-updated">
+                            Última actualización: {lastUpdated.toLocaleTimeString()}
+                        </span>
+                    )}
                 </div>
-                <button onClick={cargarDatos}>Actualizar</button>
+                <button className="btn-refresh" onClick={cargarDatos}>
+                    <span className="refresh-icon">↻</span> Actualizar
+                </button>
             </header>
 
             <div className="dashboard-content">
-
                 {/* KPIs */}
                 <div className="kpi-grid">
                     <div className="kpi-card">
                         <h4>Ventas Hoy</h4>
-                        <p>C${data.ventasDelDia.totalVentas.toFixed(2)}</p>
+                        <p>{formatCurrency(data.ventasDelDia.totalVentas)}</p>
                     </div>
-
                     <div className="kpi-card">
                         <h4>Ventas Mes</h4>
-                        <p>C${data.ventasMesActual.toFixed(2)}</p>
+                        <p>{formatCurrency(data.ventasMesActual)}</p>
                     </div>
-
                     <div className="kpi-card">
                         <h4>Facturas Hoy</h4>
                         <p>{data.ventasDelDia.cantidadVentas}</p>
                     </div>
-
                     <div className="kpi-card">
                         <h4>Stock Bajo</h4>
                         <p>{data.productosBajoStock.length}</p>
@@ -119,98 +123,112 @@ export default function Dashboard() {
 
                 {/* GRÁFICAS */}
                 <div className="charts-grid">
-
-                    {/* BARRAS */}
+                    {/* Gráfico de Barras */}
                     <div className="chart-card">
                         <h3>Ventas por Vendedor</h3>
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={ventasPorVendedor}>
-                                <XAxis dataKey="name" />
-                                <YAxis />
+                            <BarChart data={ventasPorVendedor} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+                                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                                <YAxis tickFormatter={(value) => `C$${value}`} width={60} />
                                 <Tooltip content={<CustomTooltip />} />
-                                <Bar dataKey="ventas" radius={[6,6,0,0]} />
+                                <Bar dataKey="ventas" fill="#10b981" radius={[6, 6, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
 
-                    {/* PIE */}
-                    <div className="chart-card">
+                    {/* Gráfico de Pastel con Leyenda Personalizada */}
+                    <div className="chart-card pie-card">
                         <h3>Productos Más Rentables</h3>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={topProductos}
-                                    dataKey="value"
-                                    nameKey="name"
-                                    outerRadius={90}
-                                    label={({ name }) => name}
-                                >
-                                    {topProductos.map((entry, index) => (
-                                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip content={<CustomTooltip />} />
-                            </PieChart>
-                        </ResponsiveContainer>
+                        <div className="pie-content">
+                            <div className="pie-chart">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={topProductos}
+                                            dataKey="value"
+                                            nameKey="name"
+                                            outerRadius="80%"
+                                            innerRadius="40%"
+                                            paddingAngle={2}
+                                        >
+                                            {topProductos.map((entry, index) => (
+                                                <Cell key={index} fill={COLORS[index % COLORS.length]} stroke="none" />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip content={<CustomTooltip />} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <div className="pie-legend">
+                                {topProductos.map((item, index) => (
+                                    <div key={index} className="legend-item">
+                                        <span className="legend-color" style={{ background: COLORS[index % COLORS.length] }}></span>
+                                        <div className="legend-info">
+                                            <span className="legend-name">{item.name}</span>
+                                            <span className="legend-value">{formatCurrency(item.value)}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
 
-                    {/* LINEA */}
+                    {/* Gráfico de Línea (Tendencia) */}
                     <div className="chart-card full">
                         <h3>Tendencia de Ventas</h3>
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={tendenciaMensual}>
+                            <LineChart data={tendenciaMensual} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
                                 <XAxis dataKey="name" />
-                                <YAxis />
+                                <YAxis tickFormatter={(value) => `C$${value}`} width={60} />
                                 <Tooltip content={<CustomTooltip />} />
-                                <Line type="monotone" dataKey="ventas" stroke="#10b981" strokeWidth={3} />
+                                <Line type="monotone" dataKey="ventas" stroke="#10b981" strokeWidth={3} dot={{ r: 6 }} />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
-
                 </div>
 
-                {/* TABLAS */}
+                {/* TABLAS ADICIONALES (solo admin) */}
                 {esAdmin && (
                     <div className="bottom-grid">
-
                         <div className="table-card">
-                            <h3>Ranking Vendedores</h3>
-                            <table>
-                                <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Nombre</th>
-                                    <th>Ventas</th>
-                                    <th>Total</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                {data.rankingVendedores.map((v, i) => (
-                                    <tr key={i}>
-                                        <td>{i+1}</td>
-                                        <td>{v.username}</td>
-                                        <td>{v.cantidadVentas}</td>
-                                        <td>C${v.totalVentas.toFixed(2)}</td>
+                            <h3>Ranking de Vendedores</h3>
+                            <div className="table-scroll">
+                                <table>
+                                    <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Nombre</th>
+                                        <th>Ventas</th>
+                                        <th>Total</th>
                                     </tr>
-                                ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                    {data.rankingVendedores.map((v, i) => (
+                                        <tr key={i}>
+                                            <td>{i + 1}</td>
+                                            <td>{v.username}</td>
+                                            <td>{v.cantidadVentas}</td>
+                                            <td>{formatCurrency(v.totalVentas)}</td>
+                                        </tr>
+                                    ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
                         <div className="table-card">
-                            <h3>Stock Bajo</h3>
-                            <ul>
+                            <h3>Productos con Stock Bajo</h3>
+                            <ul className="stock-list">
                                 {data.productosBajoStock.map((p, i) => (
                                     <li key={i}>
-                                        {p.nombre} - {p.stockTotal} uds
+                                        <span className="product-name">{p.nombre}</span>
+                                        <span className="stock-qty">{p.stockTotal} uds</span>
                                     </li>
                                 ))}
                             </ul>
                         </div>
-
                     </div>
                 )}
-
             </div>
         </div>
     );

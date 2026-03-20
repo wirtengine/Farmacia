@@ -12,6 +12,9 @@ export default function Devoluciones() {
     // Función auxiliar para redondear a 2 decimales
     const round2 = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
 
+    // Formato de moneda en Córdobas
+    const formatCurrency = (value) => `C$ ${value.toFixed(2)}`;
+
     // Datos
     const [devoluciones, setDevoluciones] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -254,7 +257,7 @@ export default function Devoluciones() {
                                     <td>{d.numeroFactura}</td>
                                     <td><span className="user-tag">{d.usuarioSolicitanteNombre}</span></td>
                                     <td><span className={`status-pill ${d.estado.toLowerCase()}`}>{d.estado}</span></td>
-                                    <td className="price-text">${d.totalDevuelto?.toFixed(2)}</td>
+                                    <td className="price-text">{formatCurrency(d.totalDevuelto || 0)}</td>
                                     <td className="actions-cell">
                                         {esAdmin && d.estado === 'PENDIENTE' && (
                                             <>
@@ -321,7 +324,7 @@ export default function Devoluciones() {
                                         {ventasFiltradas.map(v => (
                                             <div key={v.id} className="result-card" onClick={() => handleSeleccionarVenta(v)}>
                                                 <div><strong>{v.numeroFactura}</strong><p>{v.fecha}</p></div>
-                                                <span>${round2(v.total).toFixed(2)}</span>
+                                                <span>{formatCurrency(round2(v.total))}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -397,15 +400,15 @@ export default function Devoluciones() {
                             <tr key={i}>
                                 <td>{det.productoNombre}</td>
                                 <td>{det.cantidadDevuelta}</td>
-                                <td>${(det.cantidadDevuelta * det.precioUnitario).toFixed(2)}</td>
+                                <td>{formatCurrency(det.cantidadDevuelta * det.precioUnitario)}</td>
                             </tr>
                         ))}
                         </tbody>
                     </table>
                     <div className="ticket-divider">--------------------------------</div>
                     <div className="ticket-summary">
-                        <p>Subtotal Original: ${ticketPrint.totalVentaOriginal?.toFixed(2)}</p>
-                        <p className="total-label">TOTAL REEMBOLSO: ${ticketPrint.totalDevuelto?.toFixed(2)}</p>
+                        <p>Subtotal Original: {formatCurrency(ticketPrint.totalVentaOriginal || 0)}</p>
+                        <p className="total-label">TOTAL REEMBOLSO: {formatCurrency(ticketPrint.totalDevuelto || 0)}</p>
                     </div>
                     <div className="ticket-footer">
                         <p>Motivo: {ticketPrint.motivo}</p>
