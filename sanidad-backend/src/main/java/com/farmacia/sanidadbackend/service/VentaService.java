@@ -25,6 +25,7 @@ public class VentaService {
     private final UsuarioRepository usuarioRepository;
     private final LoteDetalleRepository loteDetalleRepository;
     private final ClienteService clienteService;
+    private final UbicacionLoteRepository ubicacionLoteRepository;
 
     private static final BigDecimal IVA_PORCENTAJE = new BigDecimal("0.15");
 
@@ -52,7 +53,6 @@ public class VentaService {
         if (request.getClienteId() != null) {
             cliente = clienteRepository.findByIdAndActivoTrue(request.getClienteId())
                     .orElseThrow(() -> new EntityNotFoundException("Cliente no encontrado"));
-
             tipo = TipoVenta.CLIENTE;
         }
 
@@ -84,13 +84,12 @@ public class VentaService {
                 throw new IllegalStateException("Stock insuficiente");
             }
 
-            loteDetalle.setCantidad(
-                    loteDetalle.getCantidad() - detalleReq.getCantidad()
-            );
+            loteDetalle.setCantidad(loteDetalle.getCantidad() - detalleReq.getCantidad());
+
+            descontarDeUbicacion(loteDetalle, detalleReq.getCantidad());
 
             BigDecimal precioUnitario = loteDetalle.getMedicamento().getPrecioUnitario();
             BigDecimal cantidad = BigDecimal.valueOf(detalleReq.getCantidad());
-
             BigDecimal subtotalDetalle = precioUnitario.multiply(cantidad);
 
             VentaDetalle detalle = new VentaDetalle();
@@ -101,7 +100,6 @@ public class VentaService {
             detalle.setSubtotal(subtotalDetalle);
 
             venta.getDetalles().add(detalle);
-
             subtotal = subtotal.add(subtotalDetalle);
         }
 
@@ -112,18 +110,8 @@ public class VentaService {
         venta.setIva(iva);
         venta.setTotal(total);
 
-        /* -----------------------------
-           VALIDACIÓN DE MÉTODO DE PAGO
-           ----------------------------- */
-
-        BigDecimal montoSaldo = request.getMontoUsadoSaldo() != null
-                ? request.getMontoUsadoSaldo()
-                : BigDecimal.ZERO;
-
-        BigDecimal montoEfectivo = request.getMontoEfectivo() != null
-                ? request.getMontoEfectivo()
-                : BigDecimal.ZERO;
-
+        BigDecimal montoSaldo = request.getMontoUsadoSaldo() != null ? request.getMontoUsadoSaldo() : BigDecimal.ZERO;
+        BigDecimal montoEfectivo = request.getMontoEfectivo() != null ? request.getMontoEfectivo() : BigDecimal.ZERO;
         BigDecimal totalPagado = montoSaldo.add(montoEfectivo);
         BigDecimal cambio = totalPagado.subtract(total);
 
@@ -147,8 +135,34 @@ public class VentaService {
         venta.setMontoEfectivo(montoEfectivo);
 
         Venta saved = ventaRepository.save(venta);
-
         return mapToResponse(saved);
+    }
+
+    private void descontarDeUbicacion(LoteDetalle loteDetalle, int cantidad) {
+        List<UbicacionLote> ubicaciones = ubicacionLoteRepository
+                .findByLoteDetalleIdAndActivoTrueOrderById(loteDetalle.getId());
+        int restante = cantidad;
+        for (UbicacionLote ubicacion : ubicaciones) {
+            if (restante <= 0) break;
+            int disponible = ubicacion.getCantidad();
+            if (disponible >= restante) {
+                ubicacion.setCantidad(disponible - restante);
+                if (ubicacion.getCantidad() == 0) {
+                    ubicacion.setActivo(false);
+                }
+                restante = 0;
+            } else {
+                ubicacion.setCantidad(0);
+                ubicacion.setActivo(false);
+                restante -= disponible;
+            }
+            ubicacionLoteRepository.save(ubicacion);
+        }
+        if (restante > 0) {
+            throw new IllegalStateException(
+                    "No hay suficientes unidades en las ubicaciones para descontar"
+            );
+        }
     }
 
     public List<VentaResponse> listarVentas() {

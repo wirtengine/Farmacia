@@ -52,6 +52,8 @@ export default function Ubicaciones() {
                 listarMedicamentos(),
                 listarTodasUbicaciones()
             ]);
+            console.log('📦 TODAS LAS UBICACIONES:', todasUbicRes.data);
+            console.log('📦 LOTES RECIBIDOS:', lotesRes.data);
             setRacks(racksRes.data || []);
             setLotes(lotesRes.data || []);
             setMedicamentos(medsRes.data || []);
@@ -93,6 +95,7 @@ export default function Ubicaciones() {
         return lotes.map(lote => {
             const detallesCalculados = lote.detalles?.map(det => {
                 const stockDisp = obtenerStockDisponible(det.id);
+                console.log(`🔍 Lote: ${lote.factura} - Detalle ID: ${det.id} - Cantidad total: ${det.cantidad} - Ya ubicado: ${det.cantidad - stockDisp} - Stock disponible: ${stockDisp}`);
                 return { ...det, stockDisponible: stockDisp };
             }).filter(d => d.stockDisponible > 0) || [];
             return { ...lote, detallesCalculados };
@@ -115,19 +118,16 @@ export default function Ubicaciones() {
         }
 
         setLoading(true);
-        // Variables que mutarán durante el recorrido
         let n = parseInt(celdaSeleccionada.nivel);
         let c = parseInt(celdaSeleccionada.columna);
         let p = parseInt(celdaSeleccionada.profundidadIndex);
         let restantes = cantidad;
         const slotsParaEnviar = [];
 
-        // Para evitar bucle infinito
         const totalCeldas = rackSeleccionado.alto * rackSeleccionado.ancho * rackSeleccionado.profundidad;
         let intentos = 0;
 
         while (restantes > 0 && intentos < totalCeldas) {
-            // Verificar si la celda actual está ocupada
             const ocupada = ubicaciones.some(u =>
                 u.nivel === n && u.columna === c && u.profundidadIndex === p && u.activo !== false
             );
@@ -144,19 +144,11 @@ export default function Ubicaciones() {
                 restantes--;
             }
 
-            // Avanzar a la siguiente celda (primero profundidad, luego columna, luego nivel, circular)
             p++;
-            if (p >= rackSeleccionado.profundidad) {
-                p = 0;
-                c++;
-                if (c >= rackSeleccionado.ancho) {
-                    c = 0;
-                    n++;
-                    if (n >= rackSeleccionado.alto) {
-                        n = 0; // reiniciar circular
-                    }
-                }
-            }
+            if (p >= rackSeleccionado.profundidad) { p = 0; c++; }
+            if (c >= rackSeleccionado.ancho) { c = 0; n++; }
+            if (n >= rackSeleccionado.alto) { n = 0; }
+
             intentos++;
         }
 
@@ -166,7 +158,7 @@ export default function Ubicaciones() {
 
         try {
             await Promise.all(slotsParaEnviar.map(slot => asignarUbicacion(slot)));
-            await cargarDatosBase(); // recarga todas las ubicaciones
+            await cargarDatosBase();
             const resUbic = await listarUbicacionesPorRack(rackSeleccionado.id);
             setUbicaciones(resUbic.data);
             resetearSeleccion();
@@ -184,11 +176,16 @@ export default function Ubicaciones() {
         if (!window.confirm(`¿Eliminar este producto de la celda?`)) return;
         try {
             await eliminarUbicacion(ubicacion.id);
+            // Recargar todos los datos después de eliminar
             await cargarDatosBase();
-            const resUbic = await listarUbicacionesPorRack(rackSeleccionado.id);
-            setUbicaciones(resUbic.data);
+            // Actualizar la lista de ubicaciones del rack actual
+            if (rackSeleccionado) {
+                const resUbic = await listarUbicacionesPorRack(rackSeleccionado.id);
+                setUbicaciones(resUbic.data);
+            }
             setMessage({ text: 'Producto eliminado del estante', type: 'success' });
         } catch (err) {
+            console.error(err);
             setMessage({ text: 'Error al eliminar', type: 'error' });
         }
     };
@@ -210,7 +207,6 @@ export default function Ubicaciones() {
             setMessage({ text: 'Seleccione una celda destino', type: 'error' });
             return;
         }
-        // Verificar que la celda destino no esté ocupada (excluyendo la propia ubicación)
         const ocupada = ubicaciones.some(u =>
             u.nivel === celdaSeleccionada.nivel &&
             u.columna === celdaSeleccionada.columna &&
@@ -224,7 +220,6 @@ export default function Ubicaciones() {
 
         setLoading(true);
         try {
-            // 1. Crear la nueva ubicación
             await asignarUbicacion({
                 loteDetalleId: ubicacionAMover.loteDetalleId,
                 rackId: rackSeleccionado.id,
@@ -233,9 +228,7 @@ export default function Ubicaciones() {
                 profundidadIndex: celdaSeleccionada.profundidadIndex,
                 cantidad: ubicacionAMover.cantidad
             });
-            // 2. Eliminar la antigua
             await eliminarUbicacion(ubicacionAMover.id);
-            // 3. Recargar datos
             await cargarDatosBase();
             const resUbic = await listarUbicacionesPorRack(rackSeleccionado.id);
             setUbicaciones(resUbic.data);
@@ -315,11 +308,16 @@ export default function Ubicaciones() {
                     <h1>Gestión de Ubicaciones</h1>
                     <span className="badge-blue">{racks.length} Estantes</span>
                 </div>
-                {esAdmin && (
-                    <button className="btn-save-final" style={{ width: 'auto', padding: '10px 20px' }} onClick={() => setDrawerNuevoOpen(true)}>
-                        + Nuevo Estante
+                <div className="header-actions">
+                    <button className="btn-primary-compact" onClick={cargarDatosBase} style={{ marginRight: '10px' }}>
+                        ↻ Recargar
                     </button>
-                )}
+                    {esAdmin && (
+                        <button className="btn-save-final" style={{ width: 'auto', padding: '10px 20px' }} onClick={() => setDrawerNuevoOpen(true)}>
+                            + Nuevo Estante
+                        </button>
+                    )}
+                </div>
             </header>
 
             {message.text && (

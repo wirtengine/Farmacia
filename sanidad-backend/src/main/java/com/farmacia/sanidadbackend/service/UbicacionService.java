@@ -10,6 +10,7 @@ import com.farmacia.sanidadbackend.repository.RackRepository;
 import com.farmacia.sanidadbackend.repository.UbicacionLoteRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,12 +39,14 @@ public class UbicacionService {
         LoteDetalle loteDetalle = loteDetalleRepository.findById(request.getLoteDetalleId())
                 .orElseThrow(() -> new EntityNotFoundException("LoteDetalle no encontrado"));
 
+        // Validar límites del rack
         if (request.getNivel() >= rack.getAlto() ||
                 request.getColumna() >= rack.getAncho() ||
                 request.getProfundidadIndex() >= rack.getProfundidad()) {
             throw new IllegalArgumentException("Coordenadas fuera del rango del rack");
         }
 
+        // Verificar que la celda no esté ocupada (prevención lógica)
         if (ubicacionRepository.findByCoordenadas(
                 rack.getId(),
                 request.getNivel(),
@@ -53,12 +56,12 @@ public class UbicacionService {
             throw new IllegalStateException("La celda ya está ocupada");
         }
 
+        // Validar stock global
         int yaAsignado = ubicacionRepository
                 .findByLoteDetalleIdAndActivoTrue(request.getLoteDetalleId())
                 .stream()
                 .mapToInt(UbicacionLote::getCantidad)
                 .sum();
-
         int nuevoTotal = yaAsignado + request.getCantidad();
 
         if (nuevoTotal > loteDetalle.getCantidad()) {
@@ -80,7 +83,12 @@ public class UbicacionService {
         ubicacion.setCantidad(request.getCantidad());
         ubicacion.setActivo(true);
 
-        return mapToResponse(ubicacionRepository.save(ubicacion));
+        try {
+            return mapToResponse(ubicacionRepository.save(ubicacion));
+        } catch (DataIntegrityViolationException e) {
+            // Captura la violación de unicidad (ej: dos peticiones simultáneas)
+            throw new IllegalStateException("La celda ya está ocupada (conflicto de concurrencia)");
+        }
     }
 
     public List<UbicacionLoteResponse> listarUbicacionesPorRack(Long rackId) {

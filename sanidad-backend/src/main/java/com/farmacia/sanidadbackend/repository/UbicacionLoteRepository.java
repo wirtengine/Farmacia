@@ -14,6 +14,8 @@ public interface UbicacionLoteRepository extends JpaRepository<UbicacionLote, Lo
 
     List<UbicacionLote> findByLoteDetalleIdAndActivoTrue(Long loteDetalleId);
 
+    List<UbicacionLote> findByLoteDetalleIdAndActivoTrueOrderById(Long loteDetalleId);
+
     @Query("SELECT u FROM UbicacionLote u WHERE u.rack.id = :rackId AND u.nivel = :nivel AND u.columna = :columna AND u.profundidadIndex = :profundidadIndex AND u.activo = true")
     Optional<UbicacionLote> findByCoordenadas(@Param("rackId") Long rackId,
                                               @Param("nivel") Integer nivel,
