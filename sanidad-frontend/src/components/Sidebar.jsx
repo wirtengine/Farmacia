@@ -18,6 +18,14 @@ const MENU_SECTIONS = [
             { path: '/medicamentos', icon: '💊', label: 'Medicamentos' },
             { path: '/lotes', icon: '📦', label: 'Lotes' },
             { path: '/proveedores', icon: '🚚', label: 'Proveedores' },
+
+            // 👇 NUEVO ITEM
+            {
+                path: '/ubicaciones',
+                icon: '📦',
+                label: 'Ubicaciones de estante',
+                roles: ['ADMIN']
+            },
         ],
     },
     {
@@ -86,9 +94,11 @@ export default function Sidebar() {
                     {MENU_SECTIONS.map((section) => {
                         const hasAccess = section.roles.includes('ALL') || section.roles.includes(userRole);
                         if (!hasAccess) return null;
+
                         return (
                             <div key={section.title} className="menu-section">
                                 {!collapsed && <p className="section-title">{section.title}</p>}
+
                                 {section.items
                                     .filter(item => !item.roles || item.roles.includes(userRole))
                                     .map((item) => (

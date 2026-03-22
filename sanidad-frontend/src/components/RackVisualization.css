@@ -1,0 +1,201 @@
+/* =========================================
+   ESTILOS VISUALIZACIÓN DE RACK - FARMA
+   ========================================= */
+
+.pharmacy-rack-card {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--slate-200);
+    box-shadow: var(--shadow-md);
+    padding: 24px;
+    width: 100%;
+    max-width: 100%;
+}
+
+.rack-header-modern {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--slate-100);
+}
+
+.rack-main-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.rack-icon-bg {
+    width: 42px;
+    height: 42px;
+    background: var(--primary-light);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.rack-main-info h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--slate-900);
+}
+
+/* Contenedor del estante con scroll si es muy grande */
+.rack-viewport {
+    background: var(--slate-50);
+    border-radius: var(--radius-md);
+    padding: 40px 20px;
+    overflow-x: auto;
+    border: 1px solid var(--slate-100);
+    display: flex;
+    justify-content: center;
+}
+
+.shelf-container {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    min-width: fit-content;
+}
+
+.shelf-level-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.level-label {
+    width: 65px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--slate-400);
+    text-transform: uppercase;
+}
+
+.columns-container {
+    display: flex;
+    gap: 20px;
+}
+
+/* El Stack de Profundidad */
+.depth-stack {
+    position: relative;
+    width: 60px;
+    height: 60px;
+}
+
+.cell-unit {
+    /* Solución para IntelliJ: Definir variable base */
+    --p-offset: 0px;
+
+    position: absolute;
+    width: 55px;
+    height: 55px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid transparent;
+
+    /* Aplicación de profundidad */
+    left: var(--p-offset);
+    top: calc(-1 * var(--p-offset));
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
+}
+
+.cell-unit.is-free {
+    background: var(--white);
+    border: 2px dashed var(--slate-200);
+}
+
+.cell-unit.is-free:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    transform: scale(1.1) translate(4px, -4px);
+    z-index: 100 !important;
+}
+
+.cell-unit.is-occupied {
+    background: var(--slate-100);
+    border: 2px solid var(--slate-200);
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+.cell-unit.is-selected {
+    background: var(--primary);
+    border-color: var(--primary-hover);
+    transform: scale(1.1) translate(6px, -6px);
+    z-index: 101 !important;
+    box-shadow: 0 10px 20px rgba(79, 70, 229, 0.4);
+}
+
+.box-icon {
+    font-size: 20px;
+    opacity: 0.6;
+}
+
+/* Animación de selección activa */
+.selection-ping {
+    width: 12px;
+    height: 12px;
+    background: white;
+    border-radius: 50%;
+    animation: ping-anim 1.5s infinite;
+}
+
+@keyframes ping-anim {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* Leyenda */
+.rack-footer-legend {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--slate-100);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.legend-group {
+    display: flex;
+    gap: 20px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--slate-600);
+}
+
+.swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+}
+
+.swatch.free { background: var(--white); border: 1px solid var(--slate-300); border-style: dashed; }
+.swatch.occupied { background: var(--slate-200); }
+.swatch.selected { background: var(--primary); }
+
+.legend-tip {
+    font-size: 12px;
+    color: var(--slate-500);
+    background: var(--slate-100);
+    padding: 6px 14px;
+    border-radius: 20px;
+}

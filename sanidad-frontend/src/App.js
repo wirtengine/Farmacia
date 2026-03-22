@@ -13,6 +13,7 @@ import Clientes from './pages/Clientes';
 import Ventas from './pages/Ventas';
 import Devoluciones from './pages/Devoluciones';
 import DevolucionesProveedor from './pages/DevolucionesProveedor';
+import Ubicaciones from './pages/Ubicaciones'; // 👈 agregado
 
 function AppContent() {
     const { user, loading } = useAuth();
@@ -121,6 +122,16 @@ function AppContent() {
                         element={
                             <PrivateRoute allowedRoles={['ADMIN']}>
                                 <DevolucionesProveedor />
+                            </PrivateRoute>
+                        }
+                    />
+
+                    {/* 👇 NUEVA RUTA Ubicaciones */}
+                    <Route
+                        path="/ubicaciones"
+                        element={
+                            <PrivateRoute allowedRoles={['ADMIN']}>
+                                <Ubicaciones />
                             </PrivateRoute>
                         }
                     />

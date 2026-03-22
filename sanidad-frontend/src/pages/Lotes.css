@@ -898,4 +898,21 @@
         min-width: 28px;
         height: 28px;
     }
+    .rack-coords-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+    }
+    .rack-select {
+        flex: 2;
+        min-width: 120px;
+    }
+    .coord-input {
+        width: 80px;
+        padding: 6px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+    }
 }
+

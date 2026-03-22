@@ -27,17 +27,15 @@ public class LoteService {
     private final MedicamentoRepository medicamentoRepository;
     private final ProveedorRepository proveedorRepository;
     private final VentaDetalleRepository ventaDetalleRepository;
+    private final UbicacionService ubicacionService;
 
     private String generarNumeroLote() {
-
         String fecha = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String numero;
-
         do {
             int random = ThreadLocalRandom.current().nextInt(1000, 10000);
             numero = "LOTE-" + fecha + "-" + random;
         } while (loteRepository.existsByNumeroLote(numero));
-
         return numero;
     }
 
@@ -61,6 +59,22 @@ public class LoteService {
         lote.setDetalles(crearDetalles(request.getDetalles(), lote));
 
         Lote saved = loteRepository.save(lote);
+
+        for (int i = 0; i < request.getDetalles().size(); i++) {
+            LoteDetalleRequest detalleReq = request.getDetalles().get(i);
+            LoteDetalle detalle = saved.getDetalles().get(i);
+
+            if (detalleReq.getRackId() != null) {
+                UbicacionLoteRequest ubicReq = new UbicacionLoteRequest();
+                ubicReq.setLoteDetalleId(detalle.getId());
+                ubicReq.setRackId(detalleReq.getRackId());
+                ubicReq.setNivel(detalleReq.getNivel());
+                ubicReq.setColumna(detalleReq.getColumna());
+                ubicReq.setProfundidadIndex(detalleReq.getProfundidadIndex());
+                ubicReq.setCantidad(detalleReq.getCantidad());
+                ubicacionService.asignarUbicacion(ubicReq);
+            }
+        }
 
         return mapToResponse(saved);
     }
@@ -95,7 +109,6 @@ public class LoteService {
     }
 
     public List<LoteResponse> listarLotes() {
-
         return loteRepository.findByActivoTrue()
                 .stream()
                 .map(this::mapToResponse)
@@ -103,29 +116,22 @@ public class LoteService {
     }
 
     public LoteResponse obtenerLote(Long id) {
-
         Lote lote = loteRepository.findByIdAndActivoTrue(id)
                 .orElseThrow(() -> new EntityNotFoundException("Lote no encontrado o suspendido"));
-
         return mapToResponse(lote);
     }
 
     @Transactional
     public void suspenderLote(Long id) {
-
         Lote lote = loteRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Lote no encontrado"));
-
         lote.setActivo(false);
-
         loteRepository.save(lote);
     }
 
     private List<LoteDetalle> crearDetalles(List<LoteDetalleRequest> detallesRequest, Lote lote) {
-
         return detallesRequest.stream()
                 .map(detalleReq -> {
-
                     Medicamento medicamento = medicamentoRepository
                             .findByIdAndActivoTrue(detalleReq.getMedicamentoId())
                             .orElseThrow(() -> new EntityNotFoundException(
@@ -135,14 +141,12 @@ public class LoteService {
                     detalle.setMedicamento(medicamento);
                     detalle.setCantidad(detalleReq.getCantidad());
                     detalle.setLote(lote);
-
                     return detalle;
                 })
                 .toList();
     }
 
     private LoteResponse mapToResponse(Lote lote) {
-
         LoteResponse response = new LoteResponse();
 
         response.setId(lote.getId());
@@ -162,9 +166,7 @@ public class LoteService {
         List<LoteDetalleResponse> detalles = lote.getDetalles()
                 .stream()
                 .map(detalle -> {
-
                     LoteDetalleResponse dto = new LoteDetalleResponse();
-
                     dto.setId(detalle.getId());
                     dto.setMedicamentoId(detalle.getMedicamento().getId());
                     dto.setMedicamentoNombre(detalle.getMedicamento().getNombre());
@@ -172,7 +174,6 @@ public class LoteService {
                     dto.setFabricante(detalle.getMedicamento().getFabricante());
                     dto.setCantidad(detalle.getCantidad());
                     dto.setPrecioUnitario(detalle.getMedicamento().getPrecioUnitario());
-
                     return dto;
                 })
                 .toList();
@@ -183,7 +184,6 @@ public class LoteService {
     }
 
     private void validarFechas(LocalDate fabricacion, LocalDate vencimiento) {
-
         if (fabricacion != null && vencimiento != null && vencimiento.isBefore(fabricacion)) {
             throw new IllegalArgumentException("La fecha de vencimiento no puede ser menor que la fecha de fabricación");
         }

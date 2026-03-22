@@ -1,56 +1,18 @@
 /* =========================================
-   VARIABLES DE DISEÑO - FARMASYSTEM
+   MODULO UBICACIONES - INTEGRACIÓN FARMA
    ========================================= */
-:root {
-    --bg-main: #f8fafc;
-    --primary: #4f46e5;
-    --primary-hover: #4338ca;
-    --primary-light: #eef2ff;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --slate-900: #0f172a;
-    --slate-800: #1e293b;
-    --slate-700: #334155;
-    --slate-600: #475569;
-    --slate-500: #64748b;
-    --slate-400: #94a3b8;
-    --slate-300: #cbd5e1;
-    --slate-200: #e2e8f0;
-    --slate-100: #f1f5f9;
-    --slate-50: #f8fafc;
-    --white: #ffffff;
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
-    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
-    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
-    --radius-lg: 16px;
-    --radius-md: 10px;
-    --radius-sm: 8px;
-}
 
-/* =========================================
-   RESET Y ESTRUCTURA PRINCIPAL
-   ========================================= */
-.module-container {
+.inventory-dashboard {
     background-color: var(--bg-main);
     min-height: 100vh;
     padding: 24px 40px;
     display: flex;
     flex-direction: column;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Inter', sans-serif;
 }
 
-/* =========================================
-   CABECERA MODERNA - DOS FILAS
-   ========================================= */
-.module-header {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    margin-bottom: 24px;
-}
-
-.header-title h1 {
+/* Reutilizando tu estilo de cabecera */
+.header-content h1 {
     font-size: 28px;
     font-weight: 800;
     color: var(--slate-900);
@@ -58,717 +20,238 @@
     margin: 0;
 }
 
-.header-title p {
+.header-content p {
     font-size: 14px;
     color: var(--slate-500);
     font-weight: 500;
     margin: 4px 0 0 0;
 }
 
-/* Contenedor de acciones: buscador + botones */
-.header-actions-row {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-    width: 100%;
+/* Layout de dos columnas mejorado */
+.main-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 24px;
+    margin-top: 24px;
+    align-items: start;
 }
 
-/* Si por algún motivo mantienes .header-actions, que herede lo mismo */
-.header-actions {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-    width: 100%;
-}
-
-/* Barra de búsqueda */
-.search-box {
-    display: flex;
-    align-items: center;
-    background: var(--white);
-    border: 1px solid var(--slate-200);
-    border-radius: 40px;
-    padding: 8px 16px;
-    min-width: 280px;
-    transition: all 0.2s ease;
-    box-shadow: var(--shadow-sm);
-    flex: 1 1 300px;
-    max-width: 500px;
-}
-
-.search-box:focus-within {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
-
-.search-icon {
-    color: var(--slate-400);
-    font-size: 16px;
-    margin-right: 8px;
-}
-
-.search-box input {
-    border: none;
-    background: transparent;
-    outline: none;
-    width: 100%;
-    font-size: 14px;
-    color: var(--slate-700);
-}
-
-.search-box input::placeholder {
-    color: var(--slate-400);
-}
-
-/* Botones de acción */
-.btn-print, .btn-primary-compact {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 10px 20px;
-    border-radius: 40px;
-    font-weight: 600;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: none;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-.btn-print {
-    background: var(--white);
-    color: var(--slate-700);
-    border: 1px solid var(--slate-200);
-    box-shadow: var(--shadow-sm);
-}
-
-.btn-print:hover {
-    background: var(--slate-50);
-    border-color: var(--slate-300);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
-}
-
-.btn-primary-compact {
-    background: var(--primary);
-    color: white;
-    box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2);
-}
-
-.btn-primary-compact:hover {
-    background: var(--primary-hover);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 15px rgba(79, 70, 229, 0.3);
-}
-
-/* =========================================
-   ALERTAS
-   ========================================= */
-.alert-banner {
-    padding: 14px 20px;
-    border-radius: var(--radius-md);
-    margin-bottom: 24px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-weight: 500;
-    font-size: 14px;
-    animation: slideDown 0.3s ease-out;
-}
-
-.alert-banner.success {
-    background: #d1fae5;
-    color: #065f46;
-    border-left: 4px solid var(--success);
-}
-
-.alert-banner.error {
-    background: #fee2e2;
-    color: #991b1b;
-    border-left: 4px solid var(--danger);
-}
-
-.alert-banner button {
-    background: transparent;
-    border: none;
-    color: currentColor;
-    font-size: 20px;
-    cursor: pointer;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-
-.alert-banner button:hover {
-    opacity: 1;
-}
-
-@keyframes slideDown {
-    from {
-        transform: translateY(-10px);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
-}
-
-/* =========================================
-   TARJETA DE TABLA (MODERNA)
-   ========================================= */
-.table-card {
+/* Panel Izquierdo: Lista de Racks */
+.side-panel {
     background: var(--white);
     border-radius: var(--radius-lg);
     border: 1px solid var(--slate-200);
     box-shadow: var(--shadow-md);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    flex: 1;
+    padding: 20px;
 }
 
-.table-responsive {
-    overflow-x: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--slate-300) var(--slate-100);
-}
-
-.table-responsive::-webkit-scrollbar {
-    height: 8px;
-}
-
-.table-responsive::-webkit-scrollbar-track {
-    background: var(--slate-100);
-    border-radius: 10px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb {
-    background: var(--slate-300);
-    border-radius: 10px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb:hover {
-    background: var(--slate-400);
-}
-
-/* Tabla */
-.custom-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-}
-
-.custom-table th {
-    background: #fcfcfd;
-    padding: 18px 20px;
-    text-align: left;
-    font-size: 12px;
-    font-weight: 700;
+.side-panel h3 {
+    font-size: 14px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--slate-500);
-    border-bottom: 1px solid var(--slate-200);
-    white-space: nowrap;
-}
-
-.custom-table td {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--slate-100);
-    color: var(--slate-700);
-    font-size: 14px;
-}
-
-.custom-table tr:last-child td {
-    border-bottom: none;
-}
-
-.custom-table tr:hover td {
-    background-color: var(--slate-50);
-}
-
-/* Estilos para celdas especiales */
-.font-bold {
+    margin-bottom: 16px;
     font-weight: 700;
-    color: var(--slate-900);
 }
 
-.text-muted {
-    color: var(--slate-500);
-    font-size: 13px;
-}
-
-.price-text {
-    font-weight: 700;
-    color: var(--slate-900);
-    font-family: 'Inter', monospace;
-}
-
-/* Badges y pills */
-.badge-gray, .badge-blue, .status-pill {
-    display: inline-block;
-    padding: 5px 12px;
-    border-radius: 99px;
-    font-size: 11px;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.badge-gray {
-    background: var(--slate-100);
-    color: var(--slate-700);
-}
-
-.badge-blue {
-    background: var(--primary-light);
-    color: var(--primary);
-}
-
-.status-pill.active {
-    background: #d1fae5;
-    color: #065f46;
-}
-
-.status-pill.inactive {
-    background: #fee2e2;
-    color: #991b1b;
-}
-
-/* Grupo de botones de acción */
-.action-buttons-group {
+.racks-grid-mini {
     display: flex;
-    gap: 8px;
-    align-items: center;
+    flex-direction: column;
+    gap: 12px;
 }
 
-.btn-edit-icon, .btn-delete-icon, .btn-restore-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: var(--radius-sm);
+.rack-tab {
     display: flex;
     align-items: center;
-    justify-content: center;
-    border: none;
-    background: var(--slate-100);
-    color: var(--slate-700);
-    cursor: pointer;
-    transition: all 0.2s;
-    font-size: 16px;
-}
-
-.btn-edit-icon:hover {
-    background: var(--primary-light);
-    color: var(--primary);
-    transform: scale(1.05);
-}
-
-.btn-delete-icon:hover {
-    background: #fee2e2;
-    color: var(--danger);
-    transform: scale(1.05);
-}
-
-.btn-restore-icon:hover {
-    background: #d1fae5;
-    color: var(--success);
-    transform: scale(1.05);
-}
-
-/* Estado vacío */
-.empty-state {
-    padding: 60px 20px;
-    text-align: center;
-    color: var(--slate-400);
-    font-size: 16px;
-}
-
-/* =========================================
-   ANIMACIONES DE FILA Y SKELETON
-   ========================================= */
-@keyframes fadeInRow {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.fade-in-row {
-    animation: fadeInRow 0.3s ease-out forwards;
-}
-
-.skeleton-row td {
-    padding: 12px 20px;
-}
-
-.skeleton-cell {
-    height: 20px;
-    background: linear-gradient(90deg, var(--slate-200) 25%, var(--slate-100) 50%, var(--slate-200) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: 4px;
-}
-
-@keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-}
-
-/* =========================================
-   PAGINACIÓN MODERNA (MEJORADA)
-   ========================================= */
-.pagination-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-    gap: 10px;
-    flex-wrap: wrap;
-    border-top: 1px solid var(--slate-200);
-    background: #f9fafc;
-}
-
-.pagination-btn {
+    gap: 12px;
+    padding: 14px;
     background: var(--white);
     border: 1px solid var(--slate-200);
-    color: var(--slate-700);
-    padding: 10px 18px;
-    border-radius: 40px;
-    font-weight: 600;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    box-shadow: var(--shadow-sm);
-}
-
-.pagination-btn:hover:not(:disabled) {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
-    box-shadow: var(--shadow-md);
-}
-
-.pagination-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.pagination-pages {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    flex-wrap: wrap;
-    justify-content: center;
-}
-
-.pagination-number {
-    min-width: 38px;
-    height: 38px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--white);
-    border: 1px solid var(--slate-200);
-    border-radius: 10px;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--slate-700);
+    border-radius: var(--radius-md);
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
-.pagination-number:hover:not(.active) {
+.rack-tab:hover {
+    border-color: var(--primary);
+    background: var(--slate-50);
+    transform: translateY(-2px);
+}
+
+.rack-tab.active {
     background: var(--primary-light);
     border-color: var(--primary);
-    color: var(--primary);
-    transform: scale(1.05);
+    box-shadow: var(--shadow-sm);
 }
 
-.pagination-number.active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: white;
-    font-weight: 600;
-    box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
-    cursor: default;
-}
+.rack-icon { font-size: 20px; }
+.rack-info strong { display: block; color: var(--slate-900); font-size: 14px; }
+.rack-info small { color: var(--slate-500); font-size: 12px; }
 
-.pagination-ellipsis {
-    padding: 0 5px;
-    color: var(--slate-500);
-    font-weight: 600;
-}
-
-/* =========================================
-   DRAWER (PANEL LATERAL) MEJORADO
-   ========================================= */
-.drawer-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(6px);
-    display: flex;
-    justify-content: flex-end;
-    z-index: 9999;
-}
-
-.drawer-panel {
-    width: 520px;
-    max-width: 95vw;
+/* Área Central: Visualizador */
+.content-area {
     background: var(--white);
-    height: 100vh;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--slate-200);
+    box-shadow: var(--shadow-md);
+    padding: 30px;
+    min-height: 600px;
+}
+
+.view-flex {
     display: flex;
-    flex-direction: column;
-    box-shadow: -10px 0 30px rgba(0,0,0,0.1);
-    animation: drawerSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    gap: 30px;
+    flex-wrap: wrap;
 }
 
-@keyframes drawerSlide {
-    from { transform: translateX(100%); }
-    to { transform: translateX(0); }
-}
-
-.drawer-header-compact {
-    padding: 24px;
-    border-bottom: 1px solid var(--slate-100);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.drawer-header-compact h2 {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--slate-900);
-    margin: 0;
-}
-
-.close-btn-round {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: none;
-    background: var(--slate-100);
-    cursor: pointer;
-    font-size: 1.2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-}
-
-.close-btn-round:hover {
-    background: var(--slate-200);
-}
-
-.drawer-body-scrollable {
+.vis-wrapper {
     flex: 1;
-    overflow-y: auto;
-    padding: 24px;
-    background: #fcfcfd;
+    min-width: 400px;
+    display: flex;
+    justify-content: center;
 }
 
-/* Formulario dentro del Drawer */
-.section-divider {
+/* Panel de Acción (Asignación con Mouse) */
+.action-panel {
+    width: 340px;
+    background: var(--slate-50);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--slate-200);
+    padding: 20px;
+    position: sticky;
+    top: 20px;
+}
+
+.pos-indicator {
+    background: var(--slate-800);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 40px;
     font-size: 11px;
     font-weight: 700;
-    text-transform: uppercase;
-    color: var(--slate-400);
-    letter-spacing: 0.05em;
-    margin: 24px 0 16px 0;
+    margin-bottom: 15px;
+    display: inline-block;
 }
 
-.field-grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 16px;
-}
-
-.field-group {
-    margin-bottom: 18px;
-}
-
-.field-group label {
+/* Stepper Estilo FarmaSystem */
+.stepper-group label {
     display: block;
     font-size: 12px;
     font-weight: 600;
     color: var(--slate-600);
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
-.field-group input,
-.field-group select {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid var(--slate-200);
-    border-radius: 10px;
-    font-size: 14px;
-    transition: all 0.2s;
-    box-sizing: border-box;
-}
-
-.field-group input:focus,
-.field-group select:focus {
-    border-color: var(--primary);
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
-
-.field-group input:disabled {
-    background: var(--slate-50);
-    color: var(--slate-500);
-    cursor: not-allowed;
-}
-
-.receta-warning-card {
-    background: #fef2f2;
-    padding: 16px;
-    border-radius: 10px;
-    border: 1px solid #fee2e2;
+.stepper {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin: 20px 0;
-}
-
-.receta-warning-card label {
-    color: #991b1b;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-}
-
-.drawer-footer-fixed {
-    padding: 20px 24px;
-    border-top: 1px solid var(--slate-200);
-    display: flex;
-    gap: 12px;
     background: white;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--slate-200);
+    width: fit-content;
 }
 
-.btn-save-final {
-    flex: 2;
-    background: var(--success);
-    color: white;
+.stepper button {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
     border: none;
-    padding: 14px;
-    border-radius: 40px;
-    font-weight: 700;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-save-final:hover {
-    background: #059669;
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
-}
-
-.btn-cancel {
-    flex: 1;
     background: var(--slate-100);
     color: var(--slate-700);
-    border: none;
-    padding: 14px;
-    border-radius: 40px;
-    font-weight: 600;
-    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.stepper button:hover { background: var(--slate-200); }
+.qty { font-weight: 700; min-width: 30px; text-align: center; color: var(--slate-900); }
+
+/* Lotes - Estilo Cards */
+.lot-cards-container {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.lot-card-selectable {
+    background: white;
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--slate-200);
     cursor: pointer;
     transition: all 0.2s;
 }
 
-.btn-cancel:hover {
-    background: var(--slate-200);
+.lot-card-selectable:hover { border-color: var(--primary); }
+.lot-card-selectable.selected {
+    border-color: var(--success);
+    background: #f0fdf4;
+    box-shadow: 0 0 0 1px var(--success);
 }
 
-/* =========================================
-   RESPONSIVE (MÓVILES Y TABLETS) - MEJORADO
-   ========================================= */
+.lot-factura { font-weight: 700; font-size: 13px; color: var(--slate-800); }
+.lot-qty { font-size: 12px; color: var(--slate-500); margin-top: 2px; }
+
+/* Botón Principal */
+.btn-assign-confirm {
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 40px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2);
+}
+
+/* Drawer Configurator */
+.visual-dimension-picker {
+    display: grid;
+    gap: 16px;
+    margin-top: 20px;
+}
+
+.dim-stepper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--slate-50);
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+}
+
+/* Alerts customizados */
+.alert-toast {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 10000;
+    padding: 16px 24px;
+    border-radius: var(--radius-md);
+    color: white;
+    font-weight: 600;
+    box-shadow: var(--shadow-lg);
+    animation: slideInRight 0.3s ease;
+}
+.alert-toast.success { background: var(--success); }
+.alert-toast.error { background: var(--danger); }
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* Responsive */
 @media (max-width: 1024px) {
-    .module-container {
-        padding: 20px;
-    }
-}
-
-@media (max-width: 768px) {
-    .header-actions-row,
-    .header-actions {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .search-box {
-        max-width: none;
-        width: 100%;
-    }
-
-    .pagination-container {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .pagination-pages {
-        order: -1;
-        margin-bottom: 10px;
-    }
-
-    .pagination-number:not(.active):not(:first-of-type):not(:last-of-type) {
-        display: none;
-    }
-
-    .pagination-ellipsis {
-        display: none;
-    }
-
-    .drawer-panel {
-        width: 100%;
-        max-width: 400px;
-    }
-
-    .field-grid-2 {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 480px) {
-    .module-container {
-        padding: 16px;
-    }
-
-    .custom-table td,
-    .custom-table th {
-        padding: 12px 15px;
-        font-size: 13px;
-    }
-
-    .action-buttons-group {
-        gap: 4px;
-    }
-
-    .btn-edit-icon,
-    .btn-delete-icon,
-    .btn-restore-icon {
-        width: 30px;
-        height: 30px;
-    }
-
-    .pagination-pages {
-        gap: 3px;
-    }
-
-    .pagination-number {
-        min-width: 28px;
-        height: 28px;
-    }
+    .main-layout { grid-template-columns: 1fr; }
+    .side-panel { max-width: none; }
+    .action-panel { width: 100%; position: static; }
 }

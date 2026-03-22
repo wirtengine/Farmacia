@@ -13,4 +13,9 @@ public class LoteDetalleRequest {
     @NotNull(message = "La cantidad es obligatoria")
     @Positive(message = "La cantidad debe ser mayor que cero")
     private Integer cantidad;
+
+    private Long rackId;
+    private Integer nivel;
+    private Integer columna;
+    private Integer profundidadIndex;
 }

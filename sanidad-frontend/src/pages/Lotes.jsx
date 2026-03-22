@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { listarLotes, crearLote, desactivarLote } from '../services/lotes';
 import { listarMedicamentos } from '../services/medicamentos';
 import { listarProveedores } from '../services/proveedores';
+import { listarRacks } from '../services/racks';
 import { useAuth } from '../context/AuthContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -15,6 +16,7 @@ export default function Lotes() {
     const [lotes, setLotes] = useState([]);
     const [medicamentos, setMedicamentos] = useState([]);
     const [proveedores, setProveedores] = useState([]);
+    const [racks, setRacks] = useState([]);
 
     // Estados de Filtros
     const [searchTerm, setSearchTerm] = useState('');
@@ -38,8 +40,18 @@ export default function Lotes() {
     });
 
     useEffect(() => {
+        cargarRacks();
         cargarDatos();
     }, []);
+
+    const cargarRacks = async () => {
+        try {
+            const res = await listarRacks();
+            setRacks(res.data);
+        } catch (error) {
+            console.error('Error cargando racks', error);
+        }
+    };
 
     const cargarDatos = async () => {
         setLoading(true);
@@ -49,7 +61,6 @@ export default function Lotes() {
                 listarMedicamentos(),
                 listarProveedores()
             ]);
-            // Ordenar lotes por ID descendente (último ingresado primero)
             const sortedLotes = (resLotes.data || []).sort((a, b) => b.id - a.id);
             setLotes(sortedLotes);
             setMedicamentos(resMeds.data || []);
@@ -66,7 +77,6 @@ export default function Lotes() {
         const term = searchTerm.toLowerCase().trim();
 
         return lotes.filter(l => {
-            // Solo mostrar activos para usuarios no admin
             if (!isAdmin && !l.activo) return false;
 
             const proveedor = proveedores.find(p => p.id === l.proveedorId);
@@ -74,7 +84,6 @@ export default function Lotes() {
             const facturaMatch = l.factura?.toLowerCase().includes(term);
             const proveedorMatch = nombreProveedor.includes(term);
 
-            // Buscar en medicamentos del detalle
             const medicamentoMatch = l.detalles?.some(d => {
                 const med = medicamentos.find(m => m.id === d.medicamentoId);
                 return med?.nombre.toLowerCase().includes(term);
@@ -90,17 +99,14 @@ export default function Lotes() {
             if (filtroStock === 'agotado') {
                 return coincideBusqueda && totalStock === 0 && l.activo;
             }
-            // 'todos' - mostramos activos (con o sin stock)
             return coincideBusqueda && l.activo;
         });
     }, [lotes, searchTerm, proveedores, medicamentos, filtroStock, isAdmin]);
 
-    // Resetear página al cambiar filtros
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, filtroStock]);
 
-    // Paginación
     const totalPages = Math.ceil(lotesFiltrados.length / rowsPerPage);
     const paginatedLotes = useMemo(() => {
         const start = (currentPage - 1) * rowsPerPage;
@@ -109,12 +115,9 @@ export default function Lotes() {
     }, [lotesFiltrados, currentPage]);
 
     const goToPage = (page) => {
-        if (page >= 1 && page <= totalPages) {
-            setCurrentPage(page);
-        }
+        if (page >= 1 && page <= totalPages) setCurrentPage(page);
     };
 
-    // Renderizado de números de página con elipsis
     const renderPageNumbers = () => {
         if (totalPages <= 1) return null;
         const pages = [];
@@ -135,9 +138,7 @@ export default function Lotes() {
             pages.push(
                 <button key={1} className="pagination-number" onClick={() => goToPage(1)}>1</button>
             );
-            if (startPage > 2) {
-                pages.push(<span key="ellipsis-start" className="pagination-ellipsis">...</span>);
-            }
+            if (startPage > 2) pages.push(<span key="ellipsis-start" className="pagination-ellipsis">...</span>);
         }
 
         for (let i = startPage; i <= endPage; i++) {
@@ -153,9 +154,7 @@ export default function Lotes() {
         }
 
         if (endPage < totalPages) {
-            if (endPage < totalPages - 1) {
-                pages.push(<span key="ellipsis-end" className="pagination-ellipsis">...</span>);
-            }
+            if (endPage < totalPages - 1) pages.push(<span key="ellipsis-end" className="pagination-ellipsis">...</span>);
             pages.push(
                 <button key={totalPages} className="pagination-number" onClick={() => goToPage(totalPages)}>
                     {totalPages}
@@ -194,7 +193,7 @@ export default function Lotes() {
             fechaVencimiento: '',
             proveedorId: '',
             factura: generarCodigoFactura(),
-            detalles: [{ medicamentoId: '', cantidad: 1 }]
+            detalles: [{ medicamentoId: '', cantidad: 1, rackId: '', nivel: 0, columna: 0, profundidadIndex: 0 }]
         });
         setDrawerOpen(true);
     };
@@ -434,7 +433,7 @@ export default function Lotes() {
 
                             <h4 className="section-divider">Productos</h4>
                             {formData.detalles.map((det, index) => (
-                                <div className="item-entry-row" key={index}>
+                                <div key={index} className="item-entry-row">
                                     <select
                                         className="flex-2"
                                         value={det.medicamentoId}
@@ -467,12 +466,69 @@ export default function Lotes() {
                                     >
                                         ×
                                     </button>
+
+                                    {/* Campos de rack y coordenadas */}
+                                    <div className="rack-coords-row">
+                                        <select
+                                            className="rack-select"
+                                            value={det.rackId}
+                                            onChange={e => {
+                                                const newDet = [...formData.detalles];
+                                                newDet[index].rackId = e.target.value;
+                                                setFormData({...formData, detalles: newDet});
+                                            }}
+                                        >
+                                            <option value="">Sin rack</option>
+                                            {racks.map(rack => (
+                                                <option key={rack.id} value={rack.id}>{rack.nombre}</option>
+                                            ))}
+                                        </select>
+                                        <input
+                                            type="number"
+                                            placeholder="Nivel"
+                                            className="coord-input"
+                                            value={det.nivel}
+                                            onChange={e => {
+                                                const newDet = [...formData.detalles];
+                                                newDet[index].nivel = parseInt(e.target.value) || 0;
+                                                setFormData({...formData, detalles: newDet});
+                                            }}
+                                            min="0"
+                                        />
+                                        <input
+                                            type="number"
+                                            placeholder="Columna"
+                                            className="coord-input"
+                                            value={det.columna}
+                                            onChange={e => {
+                                                const newDet = [...formData.detalles];
+                                                newDet[index].columna = parseInt(e.target.value) || 0;
+                                                setFormData({...formData, detalles: newDet});
+                                            }}
+                                            min="0"
+                                        />
+                                        <input
+                                            type="number"
+                                            placeholder="Prof."
+                                            className="coord-input"
+                                            value={det.profundidadIndex}
+                                            onChange={e => {
+                                                const newDet = [...formData.detalles];
+                                                newDet[index].profundidadIndex = parseInt(e.target.value) || 0;
+                                                setFormData({...formData, detalles: newDet});
+                                            }}
+                                            min="0"
+                                        />
+                                    </div>
                                 </div>
                             ))}
                             <button
                                 type="button"
                                 className="btn-add-item"
-                                onClick={() => setFormData({...formData, detalles: [...formData.detalles, {medicamentoId: '', cantidad: 1}]})}
+                                onClick={() => setFormData({
+                                    ...formData,
+                                    detalles: [...formData.detalles, { medicamentoId: '', cantidad: 1, rackId: '', nivel: 0, columna: 0, profundidadIndex: 0 }]
+                                })}
                             >
                                 + Añadir Medicamento
                             </button>
