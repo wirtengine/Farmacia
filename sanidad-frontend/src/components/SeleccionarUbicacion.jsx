@@ -10,7 +10,7 @@ export default function SeleccionarUbicacion({ rack, onUbicacionSeleccionada }) 
     useEffect(() => {
         if (rack) {
             cargarUbicaciones();
-            setSeleccion(null); // Resetear selección al cambiar de rack
+            setSeleccion(null);
         }
     }, [rack]);
 
@@ -26,7 +26,6 @@ export default function SeleccionarUbicacion({ rack, onUbicacionSeleccionada }) 
         }
     };
 
-    // Mapa de ocupación
     const ocupadasMap = new Map();
     ubicaciones.forEach(ubic => {
         const key = `${ubic.nivel},${ubic.columna},${ubic.profundidadIndex}`;
@@ -59,7 +58,7 @@ export default function SeleccionarUbicacion({ rack, onUbicacionSeleccionada }) 
                 ) : (
                     <div className="mini-shelf-structure">
                         {Array.from({ length: rack.alto }).map((_, nIdx) => {
-                            const nivelIdx = rack.alto - 1 - nIdx; // Invertir para que N1 esté abajo
+                            const nivelIdx = rack.alto - 1 - nIdx;
                             return (
                                 <div key={nivelIdx} className="mini-level-row">
                                     <div className="mini-label">N{nivelIdx + 1}</div>

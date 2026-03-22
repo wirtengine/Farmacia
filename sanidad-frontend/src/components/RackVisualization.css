@@ -10,6 +10,23 @@
     padding: 24px;
     width: 100%;
     max-width: 100%;
+    transition: all 0.2s ease;
+}
+
+/* Animación de entrada */
+.fade-in-row {
+    animation: fadeInRow 0.3s ease-out forwards;
+}
+
+@keyframes fadeInRow {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .rack-header-modern {
@@ -45,7 +62,21 @@
     color: var(--slate-900);
 }
 
-/* Contenedor del estante con scroll si es muy grande */
+.text-muted {
+    color: var(--slate-500);
+    font-size: 0.8rem;
+    margin: 4px 0 0 0;
+}
+
+.badge-blue {
+    background: var(--primary-light);
+    color: var(--primary);
+    padding: 4px 12px;
+    border-radius: 40px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
 .rack-viewport {
     background: var(--slate-50);
     border-radius: var(--radius-md);
@@ -75,6 +106,7 @@
     font-weight: 700;
     color: var(--slate-400);
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .columns-container {
@@ -82,7 +114,7 @@
     gap: 20px;
 }
 
-/* El Stack de Profundidad */
+/* --- Apilamiento de profundidad (efecto 3D) --- */
 .depth-stack {
     position: relative;
     width: 60px;
@@ -90,7 +122,6 @@
 }
 
 .cell-unit {
-    /* Solución para IntelliJ: Definir variable base */
     --p-offset: 0px;
 
     position: absolute;
@@ -104,12 +135,12 @@
     justify-content: center;
     border: 2px solid transparent;
 
-    /* Aplicación de profundidad */
     left: var(--p-offset);
     top: calc(-1 * var(--p-offset));
-    box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.05);
 }
 
+/* Celda libre */
 .cell-unit.is-free {
     background: var(--white);
     border: 2px dashed var(--slate-200);
@@ -122,27 +153,37 @@
     z-index: 100 !important;
 }
 
+/* Celda ocupada */
 .cell-unit.is-occupied {
     background: var(--slate-100);
     border: 2px solid var(--slate-200);
-    cursor: not-allowed;
-    opacity: 0.8;
+    cursor: pointer; /* se puede mover o eliminar, por eso sigue siendo clickeable */
+    opacity: 0.9;
 }
 
+.cell-unit.is-occupied:hover {
+    border-color: var(--primary);
+    background: var(--slate-200);
+    transform: scale(1.05) translate(2px, -2px);
+    z-index: 100 !important;
+}
+
+/* Celda seleccionada */
 .cell-unit.is-selected {
     background: var(--primary);
-    border-color: var(--primary-hover);
+    border-color: var(--primary-dark);
     transform: scale(1.1) translate(6px, -6px);
     z-index: 101 !important;
     box-shadow: 0 10px 20px rgba(79, 70, 229, 0.4);
 }
 
+/* Icono dentro de celdas ocupadas */
 .box-icon {
     font-size: 20px;
     opacity: 0.6;
 }
 
-/* Animación de selección activa */
+/* Animación de selección */
 .selection-ping {
     width: 12px;
     height: 12px;
@@ -152,8 +193,14 @@
 }
 
 @keyframes ping-anim {
-    0% { transform: scale(1); opacity: 1; }
-    100% { transform: scale(2.5); opacity: 0; }
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(2.5);
+        opacity: 0;
+    }
 }
 
 /* Leyenda */
@@ -188,9 +235,20 @@
     border-radius: 4px;
 }
 
-.swatch.free { background: var(--white); border: 1px solid var(--slate-300); border-style: dashed; }
-.swatch.occupied { background: var(--slate-200); }
-.swatch.selected { background: var(--primary); }
+.swatch.free {
+    background: var(--white);
+    border: 1px solid var(--slate-300);
+    border-style: dashed;
+}
+
+.swatch.occupied {
+    background: var(--slate-200);
+    border: 1px solid var(--slate-300);
+}
+
+.swatch.selected {
+    background: var(--primary);
+}
 
 .legend-tip {
     font-size: 12px;

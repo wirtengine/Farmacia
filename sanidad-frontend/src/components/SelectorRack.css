@@ -1,146 +1,287 @@
 /* =========================================
-   SELECTOR DE RACK POR TARJETAS - FARMA
+   ESTILOS VISUALIZACIÓN DE RACK - FARMA
    ========================================= */
 
-.rack-selector-wrapper {
-    margin-bottom: 25px;
+.pharmacy-rack-card {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--slate-200);
+    box-shadow: var(--shadow-md);
+    padding: 24px;
+    width: 100%;
+    max-width: 100%;
+    transition: all 0.2s ease;
 }
 
-.selector-label {
+/* Animación de entrada */
+.fade-in-row {
+    animation: fadeInRow 0.3s ease-out forwards;
+}
+
+@keyframes fadeInRow {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.rack-header-modern {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--slate-100);
+}
+
+.rack-main-info {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 15px;
+    gap: 15px;
 }
 
-.step-number {
+.rack-icon-bg {
+    width: 42px;
+    height: 42px;
+    background: var(--primary-light);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.rack-main-info h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--slate-900);
+}
+
+.text-muted {
+    color: var(--slate-500);
+    font-size: 0.8rem;
+    margin: 4px 0 0 0;
+}
+
+.badge-blue {
     background: var(--primary-light);
     color: var(--primary);
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: 800;
+    padding: 4px 12px;
+    border-radius: 40px;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 
-.selector-label label {
-    font-weight: 700;
-    color: var(--slate-700);
-    font-size: 14px;
-}
-
-/* Rejilla de Tarjetas */
-.rack-cards-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 12px;
-    max-height: 250px;
-    overflow-y: auto;
-    padding: 5px;
-}
-
-.rack-option-card {
-    background: var(--white);
-    border: 1px solid var(--slate-200);
-    border-radius: var(--radius-md);
-    padding: 12px 15px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.rack-option-card:hover {
-    border-color: var(--primary-light);
+.rack-viewport {
     background: var(--slate-50);
-    transform: translateY(-2px);
-}
-
-.rack-option-card.active {
-    border-color: var(--primary);
-    background: var(--primary-light);
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.1);
-}
-
-.rack-card-icon {
-    font-size: 20px;
-    background: var(--slate-100);
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
+    padding: 40px 20px;
+    overflow-x: auto;
+    border: 1px solid var(--slate-100);
     display: flex;
-    align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
 }
 
-.active .rack-card-icon {
-    background: var(--primary);
-    color: white;
-}
-
-.rack-card-content {
+.shelf-container {
     display: flex;
     flex-direction: column;
+    gap: 30px;
+    min-width: fit-content;
 }
 
-.rack-name {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--slate-800);
+.shelf-level-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
 }
 
-.rack-details {
+.level-label {
+    width: 65px;
     font-size: 11px;
-    color: var(--slate-500);
+    font-weight: 700;
+    color: var(--slate-400);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-/* Indicador lateral para la tarjeta activa */
-.active-indicator {
+.columns-container {
+    display: flex;
+    gap: 20px;
+}
+
+/* --- Apilamiento de profundidad (efecto 3D) --- */
+.depth-stack {
+    position: relative;
+    width: 60px;
+    height: 60px;
+}
+
+.cell-unit {
+    --p-offset: 0px;
+
     position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 4px;
+    width: 55px;
+    height: 55px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid transparent;
+
+    left: var(--p-offset);
+    top: calc(-1 * var(--p-offset));
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Celda libre */
+.cell-unit.is-free {
+    background: var(--white);
+    border: 2px dashed var(--slate-200);
+}
+
+.cell-unit.is-free:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    transform: scale(1.1) translate(4px, -4px);
+    z-index: 100 !important;
+}
+
+/* Celda ocupada */
+.cell-unit.is-occupied {
+    background: var(--slate-100);
+    border: 2px solid var(--slate-200);
+    cursor: pointer;
+    opacity: 0.9;
+}
+
+.cell-unit.is-occupied:hover {
+    border-color: var(--primary);
+    background: var(--slate-200);
+    transform: scale(1.05) translate(2px, -2px);
+    z-index: 100 !important;
+}
+
+/* Celda seleccionada */
+.cell-unit.is-selected {
+    background: var(--primary);
+    border-color: var(--primary-dark);
+    transform: scale(1.1) translate(6px, -6px);
+    z-index: 101 !important;
+    box-shadow: 0 10px 20px rgba(79, 70, 229, 0.4);
+}
+
+/* Celda origen en modo movimiento */
+.cell-unit.is-moving-source {
+    background: var(--success-light);
+    border: 2px solid var(--success);
+    cursor: grabbing;
+    animation: pulse-move 1s infinite;
+}
+
+.move-icon {
+    font-size: 1.2rem;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.8;
+}
+
+@keyframes pulse-move {
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+    70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* Icono dentro de celdas ocupadas */
+.box-icon {
+    font-size: 20px;
+    opacity: 0.6;
+}
+
+/* Animación de selección */
+.selection-ping {
+    width: 12px;
+    height: 12px;
+    background: white;
+    border-radius: 50%;
+    animation: ping-anim 1.5s infinite;
+}
+
+@keyframes ping-anim {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(2.5);
+        opacity: 0;
+    }
+}
+
+/* Leyenda */
+.rack-footer-legend {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--slate-100);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.legend-group {
+    display: flex;
+    gap: 20px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--slate-600);
+}
+
+.swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+}
+
+.swatch.free {
+    background: var(--white);
+    border: 1px solid var(--slate-300);
+    border-style: dashed;
+}
+
+.swatch.occupied {
+    background: var(--slate-200);
+    border: 1px solid var(--slate-300);
+}
+
+.swatch.selected {
     background: var(--primary);
 }
 
-/* Loading State */
-.rack-selector-loading {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 20px;
+.swatch.moving {
+    background: var(--success-light);
+    border: 1px solid var(--success);
+}
+
+.legend-tip {
+    font-size: 12px;
     color: var(--slate-500);
-    font-size: 14px;
-}
-
-.spinner-mini {
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--slate-200);
-    border-top-color: var(--primary);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-.no-racks-alert {
-    grid-column: 1 / -1;
-    padding: 20px;
-    text-align: center;
-    background: #fffbeb;
-    border: 1px solid #fef3c7;
-    color: #92400e;
-    border-radius: var(--radius-md);
-    font-size: 13px;
+    background: var(--slate-100);
+    padding: 6px 14px;
+    border-radius: 20px;
 }

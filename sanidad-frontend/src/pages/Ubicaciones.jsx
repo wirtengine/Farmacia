@@ -32,6 +32,10 @@ export default function Ubicaciones() {
     const [cantidad, setCantidad] = useState(1);
     const [ubicacionAMover, setUbicacionAMover] = useState(null);
 
+    // --- ESTADOS PARA MOVIMIENTO CON EL MOUSE ---
+    const [modoMovimiento, setModoMovimiento] = useState(false);
+    const [origenMovimiento, setOrigenMovimiento] = useState(null);
+
     const resetearSeleccion = useCallback(() => {
         setCeldaSeleccionada(null);
         setDetalleSeleccionado(null);
@@ -41,6 +45,8 @@ export default function Ubicaciones() {
         setDrawerNuevoOpen(false);
         setDrawerMoverOpen(false);
         setUbicacionAMover(null);
+        setModoMovimiento(false);
+        setOrigenMovimiento(null);
     }, []);
 
     const cargarDatosBase = useCallback(async () => {
@@ -52,8 +58,6 @@ export default function Ubicaciones() {
                 listarMedicamentos(),
                 listarTodasUbicaciones()
             ]);
-            console.log('📦 TODAS LAS UBICACIONES:', todasUbicRes.data);
-            console.log('📦 LOTES RECIBIDOS:', lotesRes.data);
             setRacks(racksRes.data || []);
             setLotes(lotesRes.data || []);
             setMedicamentos(medsRes.data || []);
@@ -95,7 +99,6 @@ export default function Ubicaciones() {
         return lotes.map(lote => {
             const detallesCalculados = lote.detalles?.map(det => {
                 const stockDisp = obtenerStockDisponible(det.id);
-                console.log(`🔍 Lote: ${lote.factura} - Detalle ID: ${det.id} - Cantidad total: ${det.cantidad} - Ya ubicado: ${det.cantidad - stockDisp} - Stock disponible: ${stockDisp}`);
                 return { ...det, stockDisponible: stockDisp };
             }).filter(d => d.stockDisponible > 0) || [];
             return { ...lote, detallesCalculados };
@@ -107,7 +110,7 @@ export default function Ubicaciones() {
         });
     }, [lotes, todasUbicaciones, medicamentos, searchTerm]);
 
-    // --- LÓGICA DE ASIGNACIÓN (CASCADA CORREGIDA) ---
+    // --- LÓGICA DE ASIGNACIÓN EN CASCADA ---
     const handleAsignarCascada = async () => {
         if (!detalleSeleccionado || !celdaSeleccionada || !rackSeleccionado) return;
 
@@ -176,9 +179,7 @@ export default function Ubicaciones() {
         if (!window.confirm(`¿Eliminar este producto de la celda?`)) return;
         try {
             await eliminarUbicacion(ubicacion.id);
-            // Recargar todos los datos después de eliminar
             await cargarDatosBase();
-            // Actualizar la lista de ubicaciones del rack actual
             if (rackSeleccionado) {
                 const resUbic = await listarUbicacionesPorRack(rackSeleccionado.id);
                 setUbicaciones(resUbic.data);
@@ -190,7 +191,7 @@ export default function Ubicaciones() {
         }
     };
 
-    // --- MOVER UBICACIÓN (iniciar proceso) ---
+    // --- MOVER UBICACIÓN (mediante drawer) ---
     const iniciarMover = (ubicacion) => {
         setUbicacionAMover(ubicacion);
         setDrawerMoverOpen(true);
@@ -201,7 +202,6 @@ export default function Ubicaciones() {
         setDrawerNuevoOpen(false);
     };
 
-    // --- CONFIRMAR MOVER ---
     const handleMover = async () => {
         if (!ubicacionAMover || !celdaSeleccionada) {
             setMessage({ text: 'Seleccione una celda destino', type: 'error' });
@@ -242,6 +242,98 @@ export default function Ubicaciones() {
         }
     };
 
+    // --- MOVIMIENTO CON EL MOUSE ---
+    const iniciarMovimiento = (ubicacion, nivel, columna, profundidadIndex) => {
+        if (!esAdmin) return;
+        setDrawerAsignarOpen(false);
+        setDrawerMoverOpen(false);
+        setDrawerNuevoOpen(false);
+        setModoMovimiento(true);
+        setOrigenMovimiento({
+            ubicacionId: ubicacion.id,
+            loteDetalleId: ubicacion.loteDetalleId,
+            cantidad: ubicacion.cantidad,
+            nivel,
+            columna,
+            profundidadIndex,
+            medicamentoNombre: (() => {
+                const lote = lotes.find(l => l.detalles?.some(d => d.id === ubicacion.loteDetalleId));
+                const det = lote?.detalles.find(d => d.id === ubicacion.loteDetalleId);
+                const med = medicamentos.find(m => m.id === det?.medicamentoId);
+                return med?.nombre || 'Producto';
+            })()
+        });
+        setMessage({ text: 'Modo movimiento activado. Haz clic en una celda libre para mover el producto.', type: 'info' });
+    };
+
+    const cancelarMovimiento = () => {
+        setModoMovimiento(false);
+        setOrigenMovimiento(null);
+        setMessage({ text: 'Movimiento cancelado', type: 'info' });
+    };
+
+    const handleCeldaClick = async (nivel, columna, profundidadIndex) => {
+        const ocupada = ubicaciones.some(u => u.nivel === nivel && u.columna === columna && u.profundidadIndex === profundidadIndex && u.activo !== false);
+        const ubicacionEnCelda = ubicaciones.find(u => u.nivel === nivel && u.columna === columna && u.profundidadIndex === profundidadIndex);
+
+        // MODO MOVIMIENTO: intentar mover
+        if (modoMovimiento && origenMovimiento) {
+            if (origenMovimiento.nivel === nivel && origenMovimiento.columna === columna && origenMovimiento.profundidadIndex === profundidadIndex) {
+                cancelarMovimiento();
+                return;
+            }
+            if (ocupada) {
+                setMessage({ text: 'La celda destino está ocupada. Movimiento cancelado.', type: 'error' });
+                cancelarMovimiento();
+                return;
+            }
+            try {
+                await asignarUbicacion({
+                    loteDetalleId: origenMovimiento.loteDetalleId,
+                    rackId: rackSeleccionado.id,
+                    nivel,
+                    columna,
+                    profundidadIndex,
+                    cantidad: origenMovimiento.cantidad
+                });
+                await eliminarUbicacion(origenMovimiento.ubicacionId);
+                await cargarDatosBase();
+                const resUbic = await listarUbicacionesPorRack(rackSeleccionado.id);
+                setUbicaciones(resUbic.data);
+                setMessage({ text: 'Producto movido con éxito', type: 'success' });
+            } catch (err) {
+                console.error(err);
+                setMessage({ text: 'Error al mover el producto', type: 'error' });
+            } finally {
+                cancelarMovimiento();
+            }
+            return;
+        }
+
+        // MODO NORMAL
+        setCeldaSeleccionada({ nivel, columna, profundidadIndex });
+        if (!ocupada) {
+            setDrawerAsignarOpen(true);
+        } else {
+            setDrawerAsignarOpen(true);
+        }
+    };
+
+    // --- INFO CELDA ---
+    const infoCelda = useMemo(() => {
+        if (!celdaSeleccionada) return null;
+        const u = ubicaciones.find(u =>
+            u.nivel === celdaSeleccionada.nivel &&
+            u.columna === celdaSeleccionada.columna &&
+            u.profundidadIndex === celdaSeleccionada.profundidadIndex
+        );
+        if (!u) return null;
+        const lote = lotes.find(l => l.detalles?.some(d => d.id === u.loteDetalleId));
+        const det = lote?.detalles.find(d => d.id === u.loteDetalleId);
+        const med = medicamentos.find(m => m.id === det?.medicamentoId);
+        return { nombre: med?.nombre, factura: lote?.factura, vence: lote?.fechaVencimiento, ubicacionId: u.id, loteDetalleId: u.loteDetalleId };
+    }, [celdaSeleccionada, ubicaciones, lotes, medicamentos]);
+
     // --- ELIMINAR RACK ---
     const eliminarRackHandler = async (rackId) => {
         if (!window.confirm('¿Está seguro de eliminar este estante? Se perderán todas las ubicaciones asociadas.')) return;
@@ -257,21 +349,6 @@ export default function Ubicaciones() {
             setMessage({ text: 'Error al eliminar estante', type: 'error' });
         }
     };
-
-    // --- INFO CELDA (para mostrar ocupado) ---
-    const infoCelda = useMemo(() => {
-        if (!celdaSeleccionada) return null;
-        const u = ubicaciones.find(u =>
-            u.nivel === celdaSeleccionada.nivel &&
-            u.columna === celdaSeleccionada.columna &&
-            u.profundidadIndex === celdaSeleccionada.profundidadIndex
-        );
-        if (!u) return null;
-        const lote = lotes.find(l => l.detalles?.some(d => d.id === u.loteDetalleId));
-        const det = lote?.detalles.find(d => d.id === u.loteDetalleId);
-        const med = medicamentos.find(m => m.id === det?.medicamentoId);
-        return { nombre: med?.nombre, factura: lote?.factura, vence: lote?.fechaVencimiento, ubicacionId: u.id, loteDetalleId: u.loteDetalleId };
-    }, [celdaSeleccionada, ubicaciones, lotes, medicamentos]);
 
     // --- CREAR RACK ---
     const handleCrearRack = async () => {
@@ -355,12 +432,11 @@ export default function Ubicaciones() {
                             <RackVisualization
                                 rack={rackSeleccionado}
                                 ubicaciones={ubicaciones}
-                                onSeleccionarCelda={(nivel, columna, profundidadIndex) => {
-                                    setCeldaSeleccionada({ nivel, columna, profundidadIndex });
-                                    if (!drawerMoverOpen) {
-                                        setDrawerAsignarOpen(true);
-                                    }
-                                }}
+                                onSeleccionarCelda={handleCeldaClick}
+                                seleccionActual={celdaSeleccionada}
+                                modoMovimiento={modoMovimiento}
+                                origenMovimiento={origenMovimiento}
+                                onIniciarMovimiento={iniciarMovimiento}
                             />
                         </div>
                     ) : (
@@ -390,7 +466,17 @@ export default function Ubicaciones() {
                             <p><strong>Vence:</strong> {infoCelda.vence}</p>
                             {esAdmin && (
                                 <div className="action-buttons" style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                                    <button className="btn-primary-compact" onClick={() => iniciarMover({ id: infoCelda.ubicacionId, loteDetalleId: infoCelda.loteDetalleId, cantidad: 1 })}>
+                                    <button
+                                        className="btn-primary-compact"
+                                        onClick={() => {
+                                            const ubic = ubicaciones.find(u =>
+                                                u.nivel === celdaSeleccionada.nivel &&
+                                                u.columna === celdaSeleccionada.columna &&
+                                                u.profundidadIndex === celdaSeleccionada.profundidadIndex
+                                            );
+                                            if (ubic) iniciarMovimiento(ubic, celdaSeleccionada.nivel, celdaSeleccionada.columna, celdaSeleccionada.profundidadIndex);
+                                        }}
+                                    >
                                         Mover a otra celda
                                     </button>
                                     <button className="btn-danger-compact" onClick={() => confirmarEliminarUbicacion({ id: infoCelda.ubicacionId })}>
@@ -438,7 +524,7 @@ export default function Ubicaciones() {
                 )}
             </aside>
 
-            {/* DRAWER MOVER PRODUCTO */}
+            {/* DRAWER MOVER PRODUCTO (legado) */}
             <aside className={`drawer-right ${drawerMoverOpen ? 'open' : ''}`}>
                 <div className="drawer-header">
                     <h4>Mover producto</h4>
@@ -507,6 +593,14 @@ export default function Ubicaciones() {
                     </button>
                 </div>
             </aside>
+
+            {/* BOTÓN FLOTANTE PARA CANCELAR MOVIMIENTO */}
+            {modoMovimiento && (
+                <div className="move-cancel-banner">
+                    <span>✋ Modo movimiento activo</span>
+                    <button onClick={cancelarMovimiento}>Cancelar</button>
+                </div>
+            )}
         </div>
     );
 }

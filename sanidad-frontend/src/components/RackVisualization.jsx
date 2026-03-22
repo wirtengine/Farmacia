@@ -10,15 +10,14 @@ export default function RackVisualization({ rack, ubicaciones, onSeleccionarCeld
     const ocupadasMap = new Map();
     if (Array.isArray(ubicaciones)) {
         ubicaciones.forEach(ubic => {
-            // Aseguramos que la llave use los mismos nombres que el DTO
             const key = `${ubic.nivel},${ubic.columna},${ubic.profundidadIndex}`;
             ocupadasMap.set(key, ubic);
         });
     }
 
     const getTooltip = (ocupada) => {
-        if (!ocupada) return 'Posición libre (Clic para asignar)';
-        return `Medicamento: ${ocupada.medicamentoNombre || 'N/A'}\nLote: ${ocupada.loteDetalleId || 'N/A'}\nCantidad: ${ocupada.cantidad ?? 'N/A'}`.trim();
+        if (!ocupada) return 'Posición libre – haz clic para asignar';
+        return `💊 ${ocupada.medicamentoNombre || 'Producto'}\n📦 Lote: ${ocupada.loteDetalleId || 'N/A'}\n🔢 Cantidad: ${ocupada.cantidad ?? 'N/A'}`;
     };
 
     return (
@@ -29,7 +28,7 @@ export default function RackVisualization({ rack, ubicaciones, onSeleccionarCeld
                     <div>
                         <h3>{rack.nombre}</h3>
                         <p className="text-muted">
-                            {alto} Niveles · {ancho} Columnas · {profundidad} de Fondo
+                            {alto} niveles · {ancho} columnas · {profundidad} de fondo
                         </p>
                     </div>
                 </div>
@@ -43,11 +42,13 @@ export default function RackVisualization({ rack, ubicaciones, onSeleccionarCeld
             <div className="rack-viewport">
                 <div className="shelf-container">
                     {Array.from({ length: alto }).map((_, nIdx) => {
-                        const nivelIdx = alto - 1 - nIdx;
+                        // Nivel real (1 = abajo, alto = arriba)
+                        const nivelReal = alto - nIdx;
+                        const nivelIdx = nIdx;
 
                         return (
-                            <div key={nivelIdx} className="shelf-level-row">
-                                <div className="level-label">Nivel {nivelIdx + 1}</div>
+                            <div key={nivelReal} className="shelf-level-row">
+                                <div className="level-label">Nivel {nivelReal}</div>
 
                                 <div className="columns-container">
                                     {Array.from({ length: ancho }).map((_, colIdx) => (
@@ -56,7 +57,6 @@ export default function RackVisualization({ rack, ubicaciones, onSeleccionarCeld
                                                 {Array.from({ length: profundidad }).map((_, profIdx) => {
                                                     const key = `${nivelIdx},${colIdx},${profIdx}`;
                                                     const ocupada = ocupadasMap.get(key);
-
                                                     const esSeleccionada =
                                                         seleccionActual?.nivel === nivelIdx &&
                                                         seleccionActual?.columna === colIdx &&
@@ -73,7 +73,6 @@ export default function RackVisualization({ rack, ubicaciones, onSeleccionarCeld
                                                                 zIndex: profIdx
                                                             }}
                                                             onClick={() => {
-                                                                // ENVIAMOS LOS VALORES POR SEPARADO PARA EVITAR ERRORES DE MAPEO
                                                                 onSeleccionarCelda(nivelIdx, colIdx, profIdx);
                                                             }}
                                                             title={getTooltip(ocupada)}
@@ -98,6 +97,9 @@ export default function RackVisualization({ rack, ubicaciones, onSeleccionarCeld
                     <div className="legend-item"><span className="swatch free"></span> Libre</div>
                     <div className="legend-item"><span className="swatch occupied"></span> Ocupado</div>
                     <div className="legend-item"><span className="swatch selected"></span> Selección</div>
+                </div>
+                <div className="legend-tip">
+                    💡 Haz clic en una celda libre para asignar producto
                 </div>
             </div>
         </div>
