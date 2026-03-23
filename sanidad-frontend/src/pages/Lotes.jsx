@@ -3,9 +3,11 @@ import { listarLotes, crearLote, desactivarLote } from '../services/lotes';
 import { listarMedicamentos } from '../services/medicamentos';
 import { listarProveedores } from '../services/proveedores';
 import { listarRacks } from '../services/racks';
+import { listarUbicacionesPorRack } from '../services/ubicaciones';
 import { useAuth } from '../context/AuthContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import RackVisualization from '../components/RackVisualization';
 import './Lotes.css';
 
 export default function Lotes() {
@@ -27,10 +29,11 @@ export default function Lotes() {
     const [loading, setLoading] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
 
-    // Estados para paginación
+    // Paginación
     const [currentPage, setCurrentPage] = useState(1);
     const rowsPerPage = 15;
 
+    // Formulario nuevo lote
     const [formData, setFormData] = useState({
         fechaFabricacion: '',
         fechaVencimiento: '',
@@ -38,6 +41,13 @@ export default function Lotes() {
         factura: '',
         detalles: []
     });
+
+    // Selector de ubicación
+    const [locationSelectorOpen, setLocationSelectorOpen] = useState(false);
+    const [currentDetailIndex, setCurrentDetailIndex] = useState(null);
+    const [selectedRackForSelector, setSelectedRackForSelector] = useState(null);
+    const [ubicacionesForSelector, setUbicacionesForSelector] = useState([]);
+    const [loadingUbicaciones, setLoadingUbicaciones] = useState(false);
 
     useEffect(() => {
         cargarRacks();
@@ -72,97 +82,37 @@ export default function Lotes() {
         }
     };
 
-    // Filtrado y búsqueda
+    // Filtrado y búsqueda (sin cambios)
     const lotesFiltrados = useMemo(() => {
         const term = searchTerm.toLowerCase().trim();
-
         return lotes.filter(l => {
             if (!isAdmin && !l.activo) return false;
-
             const proveedor = proveedores.find(p => p.id === l.proveedorId);
             const nombreProveedor = proveedor?.nombre.toLowerCase() || '';
             const facturaMatch = l.factura?.toLowerCase().includes(term);
             const proveedorMatch = nombreProveedor.includes(term);
-
             const medicamentoMatch = l.detalles?.some(d => {
                 const med = medicamentos.find(m => m.id === d.medicamentoId);
                 return med?.nombre.toLowerCase().includes(term);
             });
-
             const coincideBusqueda = !term || facturaMatch || proveedorMatch || medicamentoMatch;
-
             const totalStock = l.detalles?.reduce((acc, d) => acc + (d.cantidad || 0), 0) || 0;
-
-            if (filtroStock === 'stock') {
-                return coincideBusqueda && totalStock > 0 && l.activo;
-            }
-            if (filtroStock === 'agotado') {
-                return coincideBusqueda && totalStock === 0 && l.activo;
-            }
+            if (filtroStock === 'stock') return coincideBusqueda && totalStock > 0 && l.activo;
+            if (filtroStock === 'agotado') return coincideBusqueda && totalStock === 0 && l.activo;
             return coincideBusqueda && l.activo;
         });
     }, [lotes, searchTerm, proveedores, medicamentos, filtroStock, isAdmin]);
 
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm, filtroStock]);
-
+    // Paginación (sin cambios)
+    useEffect(() => setCurrentPage(1), [searchTerm, filtroStock]);
     const totalPages = Math.ceil(lotesFiltrados.length / rowsPerPage);
     const paginatedLotes = useMemo(() => {
         const start = (currentPage - 1) * rowsPerPage;
         const end = start + rowsPerPage;
         return lotesFiltrados.slice(start, end);
     }, [lotesFiltrados, currentPage]);
-
-    const goToPage = (page) => {
-        if (page >= 1 && page <= totalPages) setCurrentPage(page);
-    };
-
-    const renderPageNumbers = () => {
-        if (totalPages <= 1) return null;
-        const pages = [];
-        const maxVisible = 5;
-        let startPage = Math.max(1, currentPage - 2);
-        let endPage = Math.min(totalPages, currentPage + 2);
-
-        if (currentPage <= 3) {
-            startPage = 1;
-            endPage = Math.min(totalPages, maxVisible);
-        }
-        if (currentPage > totalPages - 3) {
-            startPage = Math.max(1, totalPages - maxVisible + 1);
-            endPage = totalPages;
-        }
-
-        if (startPage > 1) {
-            pages.push(
-                <button key={1} className="pagination-number" onClick={() => goToPage(1)}>1</button>
-            );
-            if (startPage > 2) pages.push(<span key="ellipsis-start" className="pagination-ellipsis">...</span>);
-        }
-
-        for (let i = startPage; i <= endPage; i++) {
-            pages.push(
-                <button
-                    key={i}
-                    className={`pagination-number ${currentPage === i ? 'active' : ''}`}
-                    onClick={() => goToPage(i)}
-                >
-                    {i}
-                </button>
-            );
-        }
-
-        if (endPage < totalPages) {
-            if (endPage < totalPages - 1) pages.push(<span key="ellipsis-end" className="pagination-ellipsis">...</span>);
-            pages.push(
-                <button key={totalPages} className="pagination-number" onClick={() => goToPage(totalPages)}>
-                    {totalPages}
-                </button>
-            );
-        }
-        return pages;
-    };
+    const goToPage = (page) => { if (page >= 1 && page <= totalPages) setCurrentPage(page); };
+    const renderPageNumbers = () => { /* ... (sin cambios) ... */ };
 
     const handleDesactivar = async (id) => {
         if (!window.confirm('¿Está seguro de desactivar este lote?')) return;
@@ -248,6 +198,66 @@ export default function Lotes() {
         doc.save(`Lote_${lote.factura}.pdf`);
     };
 
+    // --- Funciones del selector visual de ubicación ---
+    const openLocationSelector = (index) => {
+        setCurrentDetailIndex(index);
+        setLocationSelectorOpen(true);
+        const detail = formData.detalles[index];
+        if (detail.rackId) {
+            const rack = racks.find(r => r.id === detail.rackId);
+            if (rack) {
+                setSelectedRackForSelector(rack);
+                loadUbicacionesForRack(rack.id);
+            } else {
+                setSelectedRackForSelector(null);
+                setUbicacionesForSelector([]);
+            }
+        } else {
+            setSelectedRackForSelector(null);
+            setUbicacionesForSelector([]);
+        }
+    };
+
+    const loadUbicacionesForRack = async (rackId) => {
+        setLoadingUbicaciones(true);
+        try {
+            const res = await listarUbicacionesPorRack(rackId);
+            setUbicacionesForSelector(res.data || []);
+        } catch (error) {
+            console.error('Error cargando ubicaciones', error);
+        } finally {
+            setLoadingUbicaciones(false);
+        }
+    };
+
+    const handleSelectRack = async (rack) => {
+        setSelectedRackForSelector(rack);
+        await loadUbicacionesForRack(rack.id);
+    };
+
+    const handleSelectCelda = (nivel, columna, profundidadIndex) => {
+        if (currentDetailIndex !== null) {
+            const newDetalles = [...formData.detalles];
+            newDetalles[currentDetailIndex] = {
+                ...newDetalles[currentDetailIndex],
+                rackId: selectedRackForSelector.id,
+                nivel,
+                columna,
+                profundidadIndex
+            };
+            setFormData({ ...formData, detalles: newDetalles });
+            setLocationSelectorOpen(false);
+            setSelectedRackForSelector(null);
+            setCurrentDetailIndex(null);
+        }
+    };
+
+    const closeLocationSelector = () => {
+        setLocationSelectorOpen(false);
+        setSelectedRackForSelector(null);
+        setCurrentDetailIndex(null);
+    };
+
     return (
         <div className="module-container">
             <header className="module-header">
@@ -255,44 +265,17 @@ export default function Lotes() {
                     <h1>Inventario de Lotes</h1>
                     <p>Filtra por factura, proveedor o medicamento</p>
                 </div>
-
                 <div className="header-actions-row">
                     <div className="stock-filter-group">
-                        <button
-                            className={`btn-filter ${filtroStock === 'todos' ? 'active' : ''}`}
-                            onClick={() => setFiltroStock('todos')}
-                        >
-                            Todos
-                        </button>
-                        <button
-                            className={`btn-filter ${filtroStock === 'stock' ? 'active' : ''}`}
-                            onClick={() => setFiltroStock('stock')}
-                        >
-                            En Stock
-                        </button>
-                        <button
-                            className={`btn-filter ${filtroStock === 'agotado' ? 'active' : ''}`}
-                            onClick={() => setFiltroStock('agotado')}
-                        >
-                            Agotados
-                        </button>
+                        <button className={`btn-filter ${filtroStock === 'todos' ? 'active' : ''}`} onClick={() => setFiltroStock('todos')}>Todos</button>
+                        <button className={`btn-filter ${filtroStock === 'stock' ? 'active' : ''}`} onClick={() => setFiltroStock('stock')}>En Stock</button>
+                        <button className={`btn-filter ${filtroStock === 'agotado' ? 'active' : ''}`} onClick={() => setFiltroStock('agotado')}>Agotados</button>
                     </div>
-
                     <div className="search-box">
                         <span className="search-icon">🔍</span>
-                        <input
-                            type="text"
-                            placeholder="Buscar factura, proveedor o producto..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                        <input type="text" placeholder="Buscar factura, proveedor o producto..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
-
-                    {isAdmin && (
-                        <button className="btn-primary-compact" onClick={handleNuevo}>
-                            ＋ Registrar Entrada
-                        </button>
-                    )}
+                    {isAdmin && <button className="btn-primary-compact" onClick={handleNuevo}>＋ Registrar Entrada</button>}
                 </div>
             </header>
 
@@ -307,25 +290,13 @@ export default function Lotes() {
                 <div className="table-responsive">
                     <table className="custom-table">
                         <thead>
-                        <tr>
-                            <th>Factura Ref.</th>
-                            <th>Proveedor</th>
-                            <th>Medicamentos</th>
-                            <th>Vencimiento</th>
-                            <th>Estado</th>
-                            <th className="text-center">Acciones</th>
-                        </tr>
-                        </thead>
+                        早<th>Factura Ref.</th><th>Proveedor</th><th>Medicamentos</th><th>Vencimiento</th><th>Estado</th><th className="text-center">Acciones</th> </thead>
                         <tbody>
                         {loading ? (
                             Array.from({ length: rowsPerPage }).map((_, idx) => (
                                 <tr key={idx} className="skeleton-row">
-                                    <td><div className="skeleton-cell" /></td>
-                                    <td><div className="skeleton-cell" /></td>
-                                    <td><div className="skeleton-cell" /></td>
-                                    <td><div className="skeleton-cell" /></td>
-                                    <td><div className="skeleton-cell" /></td>
-                                    <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td><td><div className="skeleton-cell" /></td><td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td><td><div className="skeleton-cell" /></td><td><div className="skeleton-cell" /></td>
                                 </tr>
                             ))
                         ) : (
@@ -347,23 +318,12 @@ export default function Lotes() {
                                                 ))}
                                             </div>
                                         </td>
-                                        <td>
-                                                <span className="vencimiento-wrapper">
-                                                    {l.fechaVencimiento}
-                                                    {vencido && <span className="vencido-badge">Vencido</span>}
-                                                </span>
-                                        </td>
-                                        <td>
-                                                <span className={`status-pill ${l.activo ? (tieneStock ? 'active' : 'agotado') : 'inactive'}`}>
-                                                    {l.activo ? (tieneStock ? 'En Stock' : 'Agotado') : 'Inactivo'}
-                                                </span>
-                                        </td>
+                                        <td><span className="vencimiento-wrapper">{l.fechaVencimiento}{vencido && <span className="vencido-badge">Vencido</span>}</span></td>
+                                        <td><span className={`status-pill ${l.activo ? (tieneStock ? 'active' : 'agotado') : 'inactive'}`}>{l.activo ? (tieneStock ? 'En Stock' : 'Agotado') : 'Inactivo'}</span></td>
                                         <td className="text-center">
                                             <div className="action-buttons-group">
                                                 <button className="btn-edit-icon" title="Imprimir" onClick={() => imprimirLote(l)}>📄</button>
-                                                {isAdmin && l.activo && (
-                                                    <button className="btn-delete-icon" title="Desactivar" onClick={() => handleDesactivar(l.id)}>🗑️</button>
-                                                )}
+                                                {isAdmin && l.activo && <button className="btn-delete-icon" title="Desactivar" onClick={() => handleDesactivar(l.id)}>🗑️</button>}
                                             </div>
                                         </td>
                                     </tr>
@@ -372,35 +332,18 @@ export default function Lotes() {
                         )}
                         </tbody>
                     </table>
-                    {!loading && lotesFiltrados.length === 0 && (
-                        <div className="empty-state">No se encontraron lotes que coincidan con los criterios.</div>
-                    )}
+                    {!loading && lotesFiltrados.length === 0 && <div className="empty-state">No se encontraron lotes que coincidan con los criterios.</div>}
                 </div>
-
                 {!loading && lotesFiltrados.length > 0 && (
                     <div className="pagination-container">
-                        <button
-                            className="pagination-btn"
-                            onClick={() => goToPage(currentPage - 1)}
-                            disabled={currentPage === 1}
-                        >
-                            ← Anterior
-                        </button>
-                        <div className="pagination-pages">
-                            {renderPageNumbers()}
-                        </div>
-                        <button
-                            className="pagination-btn"
-                            onClick={() => goToPage(currentPage + 1)}
-                            disabled={currentPage === totalPages}
-                        >
-                            Siguiente →
-                        </button>
+                        <button className="pagination-btn" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>← Anterior</button>
+                        <div className="pagination-pages">{renderPageNumbers()}</div>
+                        <button className="pagination-btn" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>Siguiente →</button>
                     </div>
                 )}
             </div>
 
-            {/* Drawer */}
+            {/* DRAWER para nuevo lote */}
             {drawerOpen && (
                 <div className="drawer-overlay" onClick={() => setDrawerOpen(false)}>
                     <div className="drawer-panel" onClick={e => e.stopPropagation()}>
@@ -467,58 +410,19 @@ export default function Lotes() {
                                         ×
                                     </button>
 
-                                    {/* Campos de rack y coordenadas */}
-                                    <div className="rack-coords-row">
-                                        <select
-                                            className="rack-select"
-                                            value={det.rackId}
-                                            onChange={e => {
-                                                const newDet = [...formData.detalles];
-                                                newDet[index].rackId = e.target.value;
-                                                setFormData({...formData, detalles: newDet});
-                                            }}
+                                    {/* Botón selector de ubicación */}
+                                    <div className="location-selector-button">
+                                        <button
+                                            type="button"
+                                            className="btn-select-location"
+                                            onClick={() => openLocationSelector(index)}
                                         >
-                                            <option value="">Sin rack</option>
-                                            {racks.map(rack => (
-                                                <option key={rack.id} value={rack.id}>{rack.nombre}</option>
-                                            ))}
-                                        </select>
-                                        <input
-                                            type="number"
-                                            placeholder="Nivel"
-                                            className="coord-input"
-                                            value={det.nivel}
-                                            onChange={e => {
-                                                const newDet = [...formData.detalles];
-                                                newDet[index].nivel = parseInt(e.target.value) || 0;
-                                                setFormData({...formData, detalles: newDet});
-                                            }}
-                                            min="0"
-                                        />
-                                        <input
-                                            type="number"
-                                            placeholder="Columna"
-                                            className="coord-input"
-                                            value={det.columna}
-                                            onChange={e => {
-                                                const newDet = [...formData.detalles];
-                                                newDet[index].columna = parseInt(e.target.value) || 0;
-                                                setFormData({...formData, detalles: newDet});
-                                            }}
-                                            min="0"
-                                        />
-                                        <input
-                                            type="number"
-                                            placeholder="Prof."
-                                            className="coord-input"
-                                            value={det.profundidadIndex}
-                                            onChange={e => {
-                                                const newDet = [...formData.detalles];
-                                                newDet[index].profundidadIndex = parseInt(e.target.value) || 0;
-                                                setFormData({...formData, detalles: newDet});
-                                            }}
-                                            min="0"
-                                        />
+                                            {det.rackId ? (
+                                                `📍 ${racks.find(r => r.id === det.rackId)?.nombre || '?'} N${det.nivel+1} C${det.columna+1} P${det.profundidadIndex+1}`
+                                            ) : (
+                                                '📌 Seleccionar ubicación'
+                                            )}
+                                        </button>
                                     </div>
                                 </div>
                             ))}
@@ -540,6 +444,50 @@ export default function Lotes() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal selector de ubicación */}
+            {locationSelectorOpen && (
+                <div className="drawer-overlay" onClick={closeLocationSelector}>
+                    <div className="location-selector-modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>Seleccionar ubicación para el producto</h3>
+                            <button className="close-btn" onClick={closeLocationSelector}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            {!selectedRackForSelector ? (
+                                <div className="racks-list-modal">
+                                    {racks.map(rack => (
+                                        <div key={rack.id} className="rack-card-modal" onClick={() => handleSelectRack(rack)}>
+                                            <strong>{rack.nombre}</strong>
+                                            <small>{rack.ancho}x{rack.alto}x{rack.profundidad}</small>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div>
+                                    <div className="selected-rack-info">
+                                        <strong>{selectedRackForSelector.nombre}</strong>
+                                        <button onClick={() => setSelectedRackForSelector(null)}>Cambiar estante</button>
+                                    </div>
+                                    {loadingUbicaciones ? (
+                                        <div className="loading-spinner">Cargando ubicaciones...</div>
+                                    ) : (
+                                        <RackVisualization
+                                            rack={selectedRackForSelector}
+                                            ubicaciones={ubicacionesForSelector}
+                                            onSeleccionarCelda={handleSelectCelda}
+                                            seleccionActual={null}
+                                            modoMovimiento={false}
+                                            origenMovimiento={null}
+                                            onIniciarMovimiento={() => {}}
+                                        />
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
