@@ -1,12 +1,20 @@
 import React from 'react';
 import './RackVisualization.css';
 
-export default function RackVisualization({ rack, ubicaciones, onSeleccionarCelda, seleccionActual }) {
-    if (!rack) return <div className="empty-state">No hay datos del rack</div>;
+export default function RackVisualization({
+                                              rack,
+                                              ubicaciones,
+                                              onSeleccionarCelda,
+                                              seleccionActual,
+                                              modoMovimiento,
+                                              origenMovimiento,
+                                              onIniciarMovimiento
+                                          }) {
+    if (!rack) return null;
 
     const { ancho, alto, profundidad } = rack;
 
-    // Mapa de ocupación
+    // Mapa de ocupación (todas las profundidades)
     const ocupadasMap = new Map();
     if (Array.isArray(ubicaciones)) {
         ubicaciones.forEach(ubic => {
@@ -15,9 +23,21 @@ export default function RackVisualization({ rack, ubicaciones, onSeleccionarCeld
         });
     }
 
-    const getTooltip = (ocupada) => {
-        if (!ocupada) return 'Posición libre – haz clic para asignar';
-        return `💊 ${ocupada.medicamentoNombre || 'Producto'}\n📦 Lote: ${ocupada.loteDetalleId || 'N/A'}\n🔢 Cantidad: ${ocupada.cantidad ?? 'N/A'}`;
+    const getTooltip = (ocupada, profIdx) => {
+        if (!ocupada) return `Posición libre – fondo ${profIdx + 1}`;
+        return `💊 ${ocupada.medicamentoNombre || 'Producto'}\n📦 Lote: ${ocupada.loteDetalleId}\n🔢 Cantidad: ${ocupada.cantidad}\n📌 Fondo: ${profIdx + 1}`;
+    };
+
+    const handleClick = (nivel, columna, profIdx, ocupada, data) => {
+        if (modoMovimiento) {
+            onSeleccionarCelda(nivel, columna, profIdx);
+            return;
+        }
+        if (ocupada && onIniciarMovimiento) {
+            onIniciarMovimiento(data, nivel, columna, profIdx);
+            return;
+        }
+        onSeleccionarCelda(nivel, columna, profIdx);
     };
 
     return (
@@ -28,7 +48,7 @@ export default function RackVisualization({ rack, ubicaciones, onSeleccionarCeld
                     <div>
                         <h3>{rack.nombre}</h3>
                         <p className="text-muted">
-                            {alto} niveles · {ancho} columnas · {profundidad} de fondo
+                            {alto} niveles · {ancho} columnas · {profundidad} fondos
                         </p>
                     </div>
                 </div>
@@ -39,46 +59,62 @@ export default function RackVisualization({ rack, ubicaciones, onSeleccionarCeld
                 </div>
             </div>
 
+            {/* Indicador visual de profundidad (solo informativo) */}
+            {profundidad > 1 && (
+                <div className="depth-reference">
+                    <span className="depth-label">Profundidades:</span>
+                    <div className="depth-dots">
+                        {Array.from({ length: profundidad }).map((_, i) => (
+                            <span key={i} className="depth-dot" title={`Fondo ${i + 1}`}>
+                                {i + 1}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <div className="rack-viewport">
                 <div className="shelf-container">
                     {Array.from({ length: alto }).map((_, nIdx) => {
-                        // Nivel real (1 = abajo, alto = arriba)
-                        const nivelReal = alto - nIdx;
-                        const nivelIdx = nIdx;
-
+                        const nivelReal = alto - nIdx; // visual: 1 abajo
+                        const nivel = nIdx;
                         return (
                             <div key={nivelReal} className="shelf-level-row">
                                 <div className="level-label">Nivel {nivelReal}</div>
-
                                 <div className="columns-container">
-                                    {Array.from({ length: ancho }).map((_, colIdx) => (
-                                        <div key={colIdx} className="column-space">
+                                    {Array.from({ length: ancho }).map((_, col) => (
+                                        <div key={col} className="column-space">
                                             <div className="depth-stack">
-                                                {Array.from({ length: profundidad }).map((_, profIdx) => {
-                                                    const key = `${nivelIdx},${colIdx},${profIdx}`;
+                                                {Array.from({ length: profundidad }).map((_, prof) => {
+                                                    const key = `${nivel},${col},${prof}`;
                                                     const ocupada = ocupadasMap.get(key);
                                                     const esSeleccionada =
-                                                        seleccionActual?.nivel === nivelIdx &&
-                                                        seleccionActual?.columna === colIdx &&
-                                                        seleccionActual?.profundidadIndex === profIdx;
+                                                        seleccionActual?.nivel === nivel &&
+                                                        seleccionActual?.columna === col &&
+                                                        seleccionActual?.profundidadIndex === prof;
+                                                    const esOrigen = modoMovimiento && origenMovimiento &&
+                                                        origenMovimiento.nivel === nivel &&
+                                                        origenMovimiento.columna === col &&
+                                                        origenMovimiento.profundidadIndex === prof;
 
                                                     return (
                                                         <div
-                                                            key={profIdx}
+                                                            key={prof}
                                                             className={`cell-unit 
                                                                 ${ocupada ? 'is-occupied' : 'is-free'} 
-                                                                ${esSeleccionada ? 'is-selected' : ''}`}
+                                                                ${esSeleccionada ? 'is-selected' : ''}
+                                                                ${esOrigen ? 'is-moving-source' : ''}`}
                                                             style={{
-                                                                '--p-offset': `${profIdx * 5}px`,
-                                                                zIndex: profIdx
+                                                                '--p-offset': `${prof * 5}px`,
+                                                                zIndex: prof
                                                             }}
-                                                            onClick={() => {
-                                                                onSeleccionarCelda(nivelIdx, colIdx, profIdx);
-                                                            }}
-                                                            title={getTooltip(ocupada)}
+                                                            onClick={() => handleClick(nivel, col, prof, ocupada, ocupada)}
+                                                            title={getTooltip(ocupada, prof)}
                                                         >
+                                                            <span className="depth-number">{prof + 1}</span>
                                                             {esSeleccionada && <div className="selection-ping"></div>}
-                                                            {ocupada && <div className="box-icon">💊</div>}
+                                                            {ocupada && !esOrigen && <div className="box-icon">💊</div>}
+                                                            {esOrigen && <div className="move-icon">🖱️</div>}
                                                         </div>
                                                     );
                                                 })}
@@ -97,9 +133,10 @@ export default function RackVisualization({ rack, ubicaciones, onSeleccionarCeld
                     <div className="legend-item"><span className="swatch free"></span> Libre</div>
                     <div className="legend-item"><span className="swatch occupied"></span> Ocupado</div>
                     <div className="legend-item"><span className="swatch selected"></span> Selección</div>
+                    {modoMovimiento && <div className="legend-item"><span className="swatch moving"></span> Origen movimiento</div>}
                 </div>
                 <div className="legend-tip">
-                    💡 Haz clic en una celda libre para asignar producto
+                    💡 Números indican la profundidad (fondo). Haz clic en celda libre para asignar.
                 </div>
             </div>
         </div>
