@@ -38,4 +38,15 @@ export const desactivarMedicamento = (id) => {
 // Reactivar un medicamento (solo ADMIN) - opcional
 export const reactivarMedicamento = (id) => {
     return axios.patch(`${API_URL}/${id}/reactivar`, {}, authHeaders());
+}
+export const subirImagenMedicamento = (id, file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return axios.post(`${API_URL}/${id}/imagen`, formData, {
+        headers: {
+            ...authHeaders().headers,
+            "Content-Type": "multipart/form-data"
+        }
+    });
 };

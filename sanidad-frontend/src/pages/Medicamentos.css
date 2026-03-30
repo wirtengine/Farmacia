@@ -8,10 +8,9 @@
     padding: 24px 40px;
     display: flex;
     flex-direction: column;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', system-ui, sans-serif; /* Fallback de sistema añadido */
 }
 
-/* Reutilizando tu estilo de cabecera */
 .header-content h1 {
     font-size: 28px;
     font-weight: 800;
@@ -41,14 +40,14 @@
     background: var(--white);
     border-radius: var(--radius-lg);
     border: 1px solid var(--slate-200);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm); /* Sombra más sutil para paneles fijos */
     padding: 20px;
 }
 
 .side-panel h3 {
-    font-size: 14px;
+    font-size: 12px; /* Ligeramente más pequeño para ser más elegante */
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
     color: var(--slate-500);
     margin-bottom: 16px;
     font-weight: 700;
@@ -57,7 +56,7 @@
 .racks-grid-mini {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px; /* Reducido levemente para mayor cohesión */
 }
 
 .rack-tab {
@@ -69,22 +68,31 @@
     border: 1px solid var(--slate-200);
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); /* Transición más fluida */
 }
 
 .rack-tab:hover {
     border-color: var(--primary);
     background: var(--slate-50);
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Añadida sombra en hover */
 }
 
 .rack-tab.active {
-    background: var(--primary-light);
+    background: var(--primary-light, #eef2ff); /* Fallback por si acaso */
     border-color: var(--primary);
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 0 0 1px var(--primary); /* Efecto de borde doble sutil */
 }
 
-.rack-icon { font-size: 20px; }
+.rack-icon {
+    font-size: 20px;
+    transition: transform 0.2s ease;
+}
+
+.rack-tab:hover .rack-icon {
+    transform: scale(1.1); /* Micro-interacción en el icono */
+}
+
 .rack-info strong { display: block; color: var(--slate-900); font-size: 14px; }
 .rack-info small { color: var(--slate-500); font-size: 12px; }
 
@@ -93,7 +101,7 @@
     background: var(--white);
     border-radius: var(--radius-lg);
     border: 1px solid var(--slate-200);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm);
     padding: 30px;
     min-height: 600px;
 }
@@ -117,7 +125,7 @@
     background: var(--slate-50);
     border-radius: var(--radius-md);
     border: 1px solid var(--slate-200);
-    padding: 20px;
+    padding: 24px; /* Un poco más de respiro interno */
     position: sticky;
     top: 20px;
 }
@@ -125,91 +133,176 @@
 .pos-indicator {
     background: var(--slate-800);
     color: white;
-    padding: 4px 12px;
+    padding: 6px 14px;
     border-radius: 40px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
-    margin-bottom: 15px;
-    display: inline-block;
+    margin-bottom: 20px;
+    display: inline-flex; /* Mejor alineación */
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-/* Stepper Estilo FarmaSystem */
+/* =========================================
+   NUEVO: Mejoras en Stepper (Sin Teclado)
+   ========================================= */
 .stepper-group label {
     display: block;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
-    color: var(--slate-600);
-    margin-bottom: 8px;
+    color: var(--slate-700);
+    margin-bottom: 10px;
 }
 
 .stepper {
     display: flex;
     align-items: center;
+    justify-content: space-between; /* Distribuye mejor el espacio */
     gap: 12px;
     background: white;
     padding: 6px;
-    border-radius: var(--radius-sm);
+    border-radius: 12px; /* Más redondeado, estilo píldora/chip */
     border: 1px solid var(--slate-200);
-    width: fit-content;
+    width: 140px; /* Ancho fijo para evitar saltos */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
 }
 
 .stepper button {
     width: 32px;
     height: 32px;
-    border-radius: 6px;
+    border-radius: 8px;
     border: none;
     background: var(--slate-100);
     color: var(--slate-700);
     font-weight: 700;
+    font-size: 16px; /* Símbolos más legibles */
     cursor: pointer;
-    transition: 0.2s;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.stepper button:hover { background: var(--slate-200); }
-.qty { font-weight: 700; min-width: 30px; text-align: center; color: var(--slate-900); }
+.stepper button:hover:not(:disabled) {
+    background: var(--slate-200);
+    color: var(--slate-900);
+}
 
-/* Lotes - Estilo Cards */
+.stepper button:active:not(:disabled) {
+    transform: scale(0.92); /* Efecto de "presionado" físico */
+}
+
+.stepper button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.qty {
+    font-weight: 700;
+    min-width: 30px;
+    text-align: center;
+    color: var(--slate-900);
+    font-size: 15px;
+    user-select: none; /* Evita que el texto se seleccione al hacer clics rápidos */
+}
+
+/* =========================================
+   NUEVO: Scrollbar y Cards de Lotes
+   ========================================= */
 .lot-cards-container {
     margin-top: 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     max-height: 280px;
     overflow-y: auto;
-    padding-right: 5px;
+    padding-right: 8px; /* Espacio para el scrollbar */
+}
+
+/* Custom Scrollbar minimalista */
+.lot-cards-container::-webkit-scrollbar {
+    width: 6px;
+}
+.lot-cards-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+.lot-cards-container::-webkit-scrollbar-thumb {
+    background-color: var(--slate-300);
+    border-radius: 10px;
+}
+.lot-cards-container::-webkit-scrollbar-thumb:hover {
+    background-color: var(--slate-400);
 }
 
 .lot-card-selectable {
     background: white;
-    padding: 12px;
-    border-radius: var(--radius-sm);
+    padding: 14px;
+    border-radius: var(--radius-md);
     border: 1px solid var(--slate-200);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
+    position: relative; /* Para el checkmark */
 }
 
-.lot-card-selectable:hover { border-color: var(--primary); }
+.lot-card-selectable:hover {
+    border-color: var(--primary);
+    transform: translateX(4px); /* Sutil movimiento indicando interactividad */
+}
+
 .lot-card-selectable.selected {
     border-color: var(--success);
-    background: #f0fdf4;
+    background: #f0fdf4; /* Verde muy claro */
     box-shadow: 0 0 0 1px var(--success);
 }
 
+/* Indicador visual de selección */
+.lot-card-selectable.selected::after {
+    content: '✓';
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--success);
+    font-weight: 900;
+    font-size: 16px;
+}
+
 .lot-factura { font-weight: 700; font-size: 13px; color: var(--slate-800); }
-.lot-qty { font-size: 12px; color: var(--slate-500); margin-top: 2px; }
+.lot-qty { font-size: 12px; color: var(--slate-500); margin-top: 4px; display: block; }
 
 /* Botón Principal */
 .btn-assign-confirm {
     width: 100%;
-    margin-top: 20px;
-    padding: 14px;
+    margin-top: 24px;
+    padding: 16px;
     background: var(--primary);
     color: white;
     border: none;
-    border-radius: 40px;
+    border-radius: 12px; /* Alineado con bordes más modernos */
     font-weight: 700;
+    font-size: 15px;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+    transition: all 0.2s ease;
+}
+
+.btn-assign-confirm:hover:not(:disabled) {
+    background: var(--primary-dark, #4338ca);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3);
+}
+
+.btn-assign-confirm:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+}
+
+.btn-assign-confirm:disabled {
+    background: var(--slate-300);
+    color: var(--slate-500);
+    cursor: not-allowed;
+    box-shadow: none;
 }
 
 /* Drawer Configurator */
@@ -224,8 +317,9 @@
     justify-content: space-between;
     align-items: center;
     background: var(--slate-50);
-    padding: 12px 16px;
+    padding: 14px 16px;
     border-radius: var(--radius-md);
+    border: 1px solid var(--slate-200); /* Delimita mejor el área */
 }
 
 /* Alerts customizados */
@@ -238,14 +332,18 @@
     border-radius: var(--radius-md);
     color: white;
     font-weight: 600;
-    box-shadow: var(--shadow-lg);
-    animation: slideInRight 0.3s ease;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15); /* Sombra más pronunciada para que flote */
+    animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Animación con rebote sutil */
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
-.alert-toast.success { background: var(--success); }
-.alert-toast.error { background: var(--danger); }
+
+.alert-toast.success { background: var(--success); border-left: 4px solid #166534; } /* Borde para mayor contraste */
+.alert-toast.error { background: var(--danger); border-left: 4px solid #991b1b; }
 
 @keyframes slideInRight {
-    from { transform: translateX(100%); opacity: 0; }
+    from { transform: translateX(120%); opacity: 0; }
     to { transform: translateX(0); opacity: 1; }
 }
 
@@ -254,4 +352,6 @@
     .main-layout { grid-template-columns: 1fr; }
     .side-panel { max-width: none; }
     .action-panel { width: 100%; position: static; }
+    .view-flex { flex-direction: column; }
+    .vis-wrapper { min-width: 100%; }
 }

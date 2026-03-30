@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { listarVentas, crearVenta } from "../services/ventas";
 import { listarClientes } from "../services/clientes";
 import { listarLotes } from "../services/lotes";
+import { listarMedicamentos } from "../services/medicamentos"; // 🔥 NUEVO
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import "./Ventas.css";
@@ -23,6 +24,7 @@ export default function Ventas() {
     const [ventas, setVentas] = useState([]);
     const [clientes, setClientes] = useState([]);
     const [lotes, setLotes] = useState([]);
+    const [medicamentos, setMedicamentos] = useState([]); // 🔥 NUEVO: Estado para medicinas
     const [loading, setLoading] = useState(false);
 
     // Filtros
@@ -45,18 +47,34 @@ export default function Ventas() {
     const [montoUsarSaldo, setMontoUsarSaldo] = useState(0);
     const [efectivoRecibido, setEfectivoRecibido] = useState(0);
 
-    useEffect(() => { cargarVentas(); }, []);
+    // 🔥 MODIFICADO: Cargar medicamentos al inicio para usarlos en la tabla principal
+    useEffect(() => {
+        const cargarDatosIniciales = async () => {
+            setLoading(true);
+            try {
+                const [resV, resM] = await Promise.all([
+                    listarVentas(),
+                    listarMedicamentos()
+                ]);
+                const sorted = (resV.data || []).sort((a, b) => b.id - a.id);
+                setVentas(sorted);
+                setMedicamentos(resM.data || []);
+            } catch (e) {
+                console.error("Error cargando datos iniciales", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        cargarDatosIniciales();
+    }, []);
 
     const cargarVentas = async () => {
-        setLoading(true);
         try {
             const res = await listarVentas();
             const sorted = (res.data || []).sort((a, b) => b.id - a.id);
             setVentas(sorted);
         } catch (e) {
             console.error("Error cargando ventas", e);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -148,9 +166,15 @@ export default function Ventas() {
 
     const iniciarVenta = async () => {
         try {
-            const [resL, resC] = await Promise.all([listarLotes(), listarClientes()]);
+            const [resL, resC, resM] = await Promise.all([
+                listarLotes(),
+                listarClientes(),
+                listarMedicamentos()
+            ]);
             setLotes(resL.data || []);
             setClientes(resC.data || []);
+            setMedicamentos(resM.data || []);
+
             setTipoVenta("rapida");
             setClienteSeleccionado(resC.data?.find(c => c.nombre.toLowerCase().includes("consumidor")));
             setDetallesVenta([]);
@@ -194,7 +218,6 @@ export default function Ventas() {
         setBusquedaMedicamento("");
     };
 
-    // Cálculos
     const subtotal = detallesVenta.reduce((acc, d) => acc + d.subtotal, 0);
     const total = round2(subtotal * 1.15);
     const cambio = round2(Math.max((parseFloat(efectivoRecibido) + parseFloat(montoUsarSaldo)) - total, 0));
@@ -225,7 +248,11 @@ export default function Ventas() {
         autoTable(doc, {
             startY: 25,
             head: [["Cant", "Producto", "Sub"]],
-            body: items.map(d => [d.cantidad, d.medicamentoNombre, formatCurrency(d.subtotal)]),
+            body: items.map(d => {
+                // Buscar nombre real si el detalle solo tiene ID
+                const nombreMed = d.medicamentoNombre || medicamentos.find(m => m.id === d.medicamentoId)?.nombre || "Producto";
+                return [d.cantidad, nombreMed, formatCurrency(d.subtotal || (d.cantidad * d.precioUnitario))];
+            }),
             styles: { fontSize: 6 }
         });
         doc.text(`TOTAL: ${formatCurrency(venta.total || total)}`, 5, doc.lastAutoTable.finalY + 5);
@@ -234,7 +261,6 @@ export default function Ventas() {
 
     return (
         <div className="module-container">
-            {/* HEADER DE DOS FILAS */}
             <header className="module-header">
                 <div className="header-title">
                     <h1>Ventas</h1>
@@ -283,6 +309,7 @@ export default function Ventas() {
                             <th>Factura</th>
                             <th>Vendedor</th>
                             <th>Cliente</th>
+                            <th>Medicamentos</th> {/* 🔥 COLUMNA NUEVA */}
                             <th>Total</th>
                             <th>Acción</th>
                         </tr>
@@ -296,6 +323,7 @@ export default function Ventas() {
                                     <td><div className="skeleton-cell" /></td>
                                     <td><div className="skeleton-cell" /></td>
                                     <td><div className="skeleton-cell" /></td>
+                                    <td><div className="skeleton-cell" /></td>
                                 </tr>
                             ))
                         ) : (
@@ -304,6 +332,30 @@ export default function Ventas() {
                                     <td className="bold">#{v.numeroFactura}</td>
                                     <td><span className="user-tag">{v.usuarioUsername}</span></td>
                                     <td>{v.clienteNombre || "Consumidor Final"}</td>
+
+                                    {/* 🔥 CONTENIDO NUEVO: Chips con imágenes */}
+                                    <td>
+                                        <div className="items-chip-container">
+                                            {v.detalles?.map((det, i) => {
+                                                const med = medicamentos.find(m => m.id === det.medicamentoId);
+                                                return (
+                                                    <div key={i} className="med-chip-with-img">
+                                                        {med?.imagen && (
+                                                            <img
+                                                                src={`http://localhost:8080/${med.imagen}`}
+                                                                alt="med"
+                                                            />
+                                                        )}
+                                                        <span>
+                                                            {med?.nombre || det.medicamentoNombre || 'S/N'}
+                                                            <small> x{det.cantidad}</small>
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </td>
+
                                     <td className="price-text">{formatCurrency(v.total || 0)}</td>
                                     <td><button className="btn-circle-print" onClick={() => generarPDF(v, v.detalles)}>🖨️</button></td>
                                 </tr>
@@ -318,28 +370,14 @@ export default function Ventas() {
 
                 {!loading && ventasFiltradas.length > 0 && (
                     <div className="pagination-container">
-                        <button
-                            className="pagination-btn"
-                            onClick={() => goToPage(currentPage - 1)}
-                            disabled={currentPage === 1}
-                        >
-                            ← Anterior
-                        </button>
-                        <div className="pagination-pages">
-                            {renderPageNumbers()}
-                        </div>
-                        <button
-                            className="pagination-btn"
-                            onClick={() => goToPage(currentPage + 1)}
-                            disabled={currentPage === totalPages}
-                        >
-                            Siguiente →
-                        </button>
+                        <button className="pagination-btn" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>← Anterior</button>
+                        <div className="pagination-pages">{renderPageNumbers()}</div>
+                        <button className="pagination-btn" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>Siguiente →</button>
                     </div>
                 )}
             </div>
 
-            {/* DRAWER */}
+            {/* DRAWER (POS) */}
             {drawerOpen && (
                 <div className="glass-overlay" onClick={() => setDrawerOpen(false)}>
                     <div className="pos-drawer" onClick={e => e.stopPropagation()}>
@@ -374,10 +412,27 @@ export default function Ventas() {
                             <section className="pos-section">
                                 <input className="pos-input-sm" placeholder="Buscar medicamento..." value={busquedaMedicamento} onChange={e => setBusquedaMedicamento(e.target.value)} />
                                 <div className="results-grid">
-                                    {lotes.flatMap(l => l.detalles.map(d => ({ ...d, loteNum: l.numeroLote })))
+                                    {lotes.flatMap(l =>
+                                        l.detalles.map(d => {
+                                            const med = medicamentos.find(m => m.id === d.medicamentoId);
+                                            return {
+                                                ...d,
+                                                loteNum: l.numeroLote,
+                                                imagen: med?.imagen,
+                                                medicamentoNombre: med?.nombre || d.medicamentoNombre
+                                            };
+                                        })
+                                    )
                                         .filter(d => d.medicamentoNombre.toLowerCase().includes(busquedaMedicamento.toLowerCase()) && d.cantidad > 0)
-                                        .slice(0, 3).map(m => (
+                                        .slice(0, 4).map(m => (
                                             <button key={m.id} className="result-card" onClick={() => agregarMedicamento(m)}>
+                                                {m.imagen && (
+                                                    <img
+                                                        src={`http://localhost:8080/${m.imagen}`}
+                                                        alt="med"
+                                                        style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '6px', marginRight: '10px' }}
+                                                    />
+                                                )}
                                                 <div className="card-info">
                                                     <span className="card-title">{m.medicamentoNombre}</span>
                                                     <span className="card-sub">{m.loteNum} | Stock: {m.cantidad}</span>
@@ -408,11 +463,7 @@ export default function Ventas() {
                                                         alert(`Solo hay ${medOriginal.cantidad} unidades disponibles.`);
                                                         return;
                                                     }
-                                                    setDetallesVenta(prev =>
-                                                        prev.map((p, idx) =>
-                                                            idx === i ? { ...p, cantidad: v, subtotal: v * p.precioUnitario } : p
-                                                        )
-                                                    );
+                                                    setDetallesVenta(prev => prev.map((p, idx) => idx === i ? { ...p, cantidad: v, subtotal: v * p.precioUnitario } : p));
                                                 }}
                                             />
                                             <span className="item-total-sm">{formatCurrency(d.subtotal)}</span>
@@ -425,37 +476,15 @@ export default function Ventas() {
 
                         <div className="pos-fixed-footer">
                             <div className="payment-summary-card">
-                                <div className="payment-row main-total">
-                                    <span>Total Final</span>
-                                    <span>{formatCurrency(total)}</span>
-                                </div>
+                                <div className="payment-row main-total"><span>Total Final</span><span>{formatCurrency(total)}</span></div>
                                 <div className="payment-grid">
                                     {tipoVenta === 'cliente' && (
                                         <div className="pay-field">
                                             <label>Usar Saldo</label>
-                                            <input
-                                                type="number"
-                                                className="pay-input"
-                                                value={montoUsarSaldo}
-                                                onChange={e => {
-                                                    const raw = parseFloat(e.target.value) || 0;
-                                                    const rounded = round2(raw);
-                                                    const maxSaldo = round2(clienteSeleccionado?.saldo || 0);
-                                                    const maxTotal = round2(total);
-                                                    setMontoUsarSaldo(Math.min(rounded, maxSaldo, maxTotal));
-                                                }}
-                                            />
+                                            <input type="number" className="pay-input" value={montoUsarSaldo} onChange={e => setMontoUsarSaldo(Math.min(parseFloat(e.target.value) || 0, clienteSeleccionado?.saldo || 0, total))} />
                                         </div>
                                     )}
-                                    <div className="pay-field">
-                                        <label>Efectivo</label>
-                                        <input
-                                            type="number"
-                                            className="pay-input"
-                                            value={efectivoRecibido}
-                                            onChange={e => setEfectivoRecibido(round2(parseFloat(e.target.value) || 0))}
-                                        />
-                                    </div>
+                                    <div className="pay-field"><label>Efectivo</label><input type="number" className="pay-input" value={efectivoRecibido} onChange={e => setEfectivoRecibido(round2(parseFloat(e.target.value) || 0))} /></div>
                                 </div>
                                 {cambio > 0 && <div className="change-indicator">Cambio: {formatCurrency(cambio)}</div>}
                             </div>

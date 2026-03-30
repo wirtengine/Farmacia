@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -69,5 +70,16 @@ public class MedicamentoController {
 
         medicamentoService.activarMedicamento(id);
         return ResponseEntity.ok().build();
+    }
+
+
+    @PostMapping("/{id}/imagen")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> subirImagen(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+
+        String ruta = medicamentoService.guardarImagen(id, file);
+        return ResponseEntity.ok(ruta);
     }
 }

@@ -82,7 +82,6 @@ export default function Lotes() {
         }
     };
 
-    // Filtrado y búsqueda (sin cambios)
     const lotesFiltrados = useMemo(() => {
         const term = searchTerm.toLowerCase().trim();
         return lotes.filter(l => {
@@ -103,7 +102,6 @@ export default function Lotes() {
         });
     }, [lotes, searchTerm, proveedores, medicamentos, filtroStock, isAdmin]);
 
-    // Paginación (sin cambios)
     useEffect(() => setCurrentPage(1), [searchTerm, filtroStock]);
     const totalPages = Math.ceil(lotesFiltrados.length / rowsPerPage);
     const paginatedLotes = useMemo(() => {
@@ -111,8 +109,20 @@ export default function Lotes() {
         const end = start + rowsPerPage;
         return lotesFiltrados.slice(start, end);
     }, [lotesFiltrados, currentPage]);
+
     const goToPage = (page) => { if (page >= 1 && page <= totalPages) setCurrentPage(page); };
-    const renderPageNumbers = () => { /* ... (sin cambios) ... */ };
+
+    const renderPageNumbers = () => {
+        const pages = [];
+        for (let i = 1; i <= totalPages; i++) {
+            pages.push(
+                <button key={i} className={`pagination-number ${currentPage === i ? 'active' : ''}`} onClick={() => goToPage(i)}>
+                    {i}
+                </button>
+            );
+        }
+        return pages;
+    };
 
     const handleDesactivar = async (id) => {
         if (!window.confirm('¿Está seguro de desactivar este lote?')) return;
@@ -150,16 +160,8 @@ export default function Lotes() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.proveedorId) {
-            alert('Seleccione un proveedor');
-            return;
-        }
-        if (!formData.fechaVencimiento) {
-            alert('Ingrese fecha de vencimiento');
-            return;
-        }
-        if (formData.detalles.length === 0 || formData.detalles.some(d => !d.medicamentoId || d.cantidad < 1)) {
-            alert('Complete al menos un medicamento con cantidad válida');
+        if (!formData.proveedorId || !formData.fechaVencimiento) {
+            alert('Por favor complete los campos obligatorios');
             return;
         }
         setLoading(true);
@@ -180,10 +182,6 @@ export default function Lotes() {
         const proveedor = proveedores.find(p => p.id === lote.proveedorId)?.nombre || 'Desconocido';
         doc.setFontSize(16);
         doc.text(`Comprobante de Lote: ${lote.factura}`, 14, 20);
-        doc.setFontSize(10);
-        doc.text(`Proveedor: ${proveedor}`, 14, 30);
-        doc.text(`Fecha de vencimiento: ${lote.fechaVencimiento}`, 14, 38);
-
         const filas = lote.detalles.map(d => {
             const med = medicamentos.find(m => m.id === d.medicamentoId);
             return [med?.nombre || 'S/N', d.cantidad];
@@ -192,13 +190,11 @@ export default function Lotes() {
             startY: 45,
             head: [['Medicamento', 'Cantidad']],
             body: filas,
-            theme: 'striped',
-            headStyles: { fillColor: [37, 99, 235] }
+            theme: 'striped'
         });
         doc.save(`Lote_${lote.factura}.pdf`);
     };
 
-    // --- Funciones del selector visual de ubicación ---
     const openLocationSelector = (index) => {
         setCurrentDetailIndex(index);
         setLocationSelectorOpen(true);
@@ -208,13 +204,7 @@ export default function Lotes() {
             if (rack) {
                 setSelectedRackForSelector(rack);
                 loadUbicacionesForRack(rack.id);
-            } else {
-                setSelectedRackForSelector(null);
-                setUbicacionesForSelector([]);
             }
-        } else {
-            setSelectedRackForSelector(null);
-            setUbicacionesForSelector([]);
         }
     };
 
@@ -224,7 +214,7 @@ export default function Lotes() {
             const res = await listarUbicacionesPorRack(rackId);
             setUbicacionesForSelector(res.data || []);
         } catch (error) {
-            console.error('Error cargando ubicaciones', error);
+            console.error(error);
         } finally {
             setLoadingUbicaciones(false);
         }
@@ -236,20 +226,14 @@ export default function Lotes() {
     };
 
     const handleSelectCelda = (nivel, columna, profundidadIndex) => {
-        if (currentDetailIndex !== null) {
-            const newDetalles = [...formData.detalles];
-            newDetalles[currentDetailIndex] = {
-                ...newDetalles[currentDetailIndex],
-                rackId: selectedRackForSelector.id,
-                nivel,
-                columna,
-                profundidadIndex
-            };
-            setFormData({ ...formData, detalles: newDetalles });
-            setLocationSelectorOpen(false);
-            setSelectedRackForSelector(null);
-            setCurrentDetailIndex(null);
-        }
+        const newDetalles = [...formData.detalles];
+        newDetalles[currentDetailIndex] = {
+            ...newDetalles[currentDetailIndex],
+            rackId: selectedRackForSelector.id,
+            nivel, columna, profundidadIndex
+        };
+        setFormData({ ...formData, detalles: newDetalles });
+        closeLocationSelector();
     };
 
     const closeLocationSelector = () => {
@@ -273,7 +257,7 @@ export default function Lotes() {
                     </div>
                     <div className="search-box">
                         <span className="search-icon">🔍</span>
-                        <input type="text" placeholder="Buscar factura, proveedor o producto..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <input type="text" placeholder="Buscar factura..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
                     {isAdmin && <button className="btn-primary-compact" onClick={handleNuevo}>＋ Registrar Entrada</button>}
                 </div>
@@ -290,13 +274,21 @@ export default function Lotes() {
                 <div className="table-responsive">
                     <table className="custom-table">
                         <thead>
-                        早<th>Factura Ref.</th><th>Proveedor</th><th>Medicamentos</th><th>Vencimiento</th><th>Estado</th><th className="text-center">Acciones</th> </thead>
+                        <tr>
+                            <th>Imagen</th>
+                            <th>Factura Ref.</th>
+                            <th>Proveedor</th>
+                            <th>Medicamentos</th>
+                            <th>Vencimiento</th>
+                            <th>Estado</th>
+                            <th className="text-center">Acciones</th>
+                        </tr>
+                        </thead>
                         <tbody>
                         {loading ? (
-                            Array.from({ length: rowsPerPage }).map((_, idx) => (
+                            Array.from({ length: 5 }).map((_, idx) => (
                                 <tr key={idx} className="skeleton-row">
-                                    <td><div className="skeleton-cell" /></td><td><div className="skeleton-cell" /></td><td><div className="skeleton-cell" /></td>
-                                    <td><div className="skeleton-cell" /></td><td><div className="skeleton-cell" /></td><td><div className="skeleton-cell" /></td>
+                                    {Array.from({ length: 7 }).map((_, i) => <td key={i}><div className="skeleton-cell" /></td>)}
                                 </tr>
                             ))
                         ) : (
@@ -304,26 +296,55 @@ export default function Lotes() {
                                 const totalStock = l.detalles?.reduce((acc, d) => acc + (d.cantidad || 0), 0) || 0;
                                 const tieneStock = totalStock > 0;
                                 const vencido = new Date(l.fechaVencimiento) < new Date();
+
                                 return (
                                     <tr key={l.id} className={`fade-in-row ${!l.activo ? 'row-inactive' : ''}`} style={{ animationDelay: `${idx * 0.05}s` }}>
+                                        {/* Columna de Imagen (Primer item) */}
+                                        <td>
+                                            {(() => {
+                                                const med = medicamentos.find(m => m.id === l.detalles?.[0]?.medicamentoId);
+                                                return med?.imagen ? (
+                                                    <img
+                                                        src={`http://localhost:8080/${med.imagen.replace(/\\/g, "/")}`}
+                                                        alt="med"
+                                                        style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px' }}
+                                                    />
+                                                ) : '—';
+                                            })()}
+                                        </td>
                                         <td className="font-bold">{l.factura}</td>
                                         <td>{proveedores.find(p => p.id === l.proveedorId)?.nombre || '—'}</td>
+                                        {/* Columna de Medicamentos (Opción PRO) */}
                                         <td>
                                             <div className="items-chip-container">
-                                                {l.detalles?.map((det, i) => (
-                                                    <span key={i} className="med-chip">
-                                                            {medicamentos.find(m => m.id === det.medicamentoId)?.nombre || 'S/N'}
-                                                        <small>x{det.cantidad}</small>
-                                                        </span>
-                                                ))}
+                                                {l.detalles?.map((det, i) => {
+                                                    const med = medicamentos.find(m => m.id === det.medicamentoId);
+                                                    return (
+                                                        <div key={i} className="med-chip-with-img">
+                                                            {med?.imagen && (
+                                                                <img src={`http://localhost:8080/${med.imagen.replace(/\\/g, "/")}`} alt="thumb" />
+                                                            )}
+                                                            <span>{med?.nombre || 'S/N'} <small>x{det.cantidad}</small></span>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </td>
-                                        <td><span className="vencimiento-wrapper">{l.fechaVencimiento}{vencido && <span className="vencido-badge">Vencido</span>}</span></td>
-                                        <td><span className={`status-pill ${l.activo ? (tieneStock ? 'active' : 'agotado') : 'inactive'}`}>{l.activo ? (tieneStock ? 'En Stock' : 'Agotado') : 'Inactivo'}</span></td>
+                                        <td>
+                                            <span className="vencimiento-wrapper">
+                                                {l.fechaVencimiento}
+                                                {vencido && <span className="vencido-badge">Vencido</span>}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span className={`status-pill ${l.activo ? (tieneStock ? 'active' : 'agotado') : 'inactive'}`}>
+                                                {l.activo ? (tieneStock ? 'En Stock' : 'Agotado') : 'Inactivo'}
+                                            </span>
+                                        </td>
                                         <td className="text-center">
                                             <div className="action-buttons-group">
                                                 <button className="btn-edit-icon" title="Imprimir" onClick={() => imprimirLote(l)}>📄</button>
-                                                {isAdmin && l.activo && <button className="btn-delete-icon" title="Desactivar" onClick={() => handleDesactivar(l.id)}>🗑️</button>}
+                                                {isAdmin && l.activo && <button className="btn-delete-icon" onClick={() => handleDesactivar(l.id)}>🗑️</button>}
                                             </div>
                                         </td>
                                     </tr>
@@ -332,7 +353,6 @@ export default function Lotes() {
                         )}
                         </tbody>
                     </table>
-                    {!loading && lotesFiltrados.length === 0 && <div className="empty-state">No se encontraron lotes que coincidan con los criterios.</div>}
                 </div>
                 {!loading && lotesFiltrados.length > 0 && (
                     <div className="pagination-container">
@@ -410,18 +430,9 @@ export default function Lotes() {
                                         ×
                                     </button>
 
-                                    {/* Botón selector de ubicación */}
                                     <div className="location-selector-button">
-                                        <button
-                                            type="button"
-                                            className="btn-select-location"
-                                            onClick={() => openLocationSelector(index)}
-                                        >
-                                            {det.rackId ? (
-                                                `📍 ${racks.find(r => r.id === det.rackId)?.nombre || '?'} N${det.nivel+1} C${det.columna+1} P${det.profundidadIndex+1}`
-                                            ) : (
-                                                '📌 Seleccionar ubicación'
-                                            )}
+                                        <button type="button" className="btn-select-location" onClick={() => openLocationSelector(index)}>
+                                            {det.rackId ? `📍 ${racks.find(r => r.id === det.rackId)?.nombre || '?'} N${det.nivel+1} C${det.columna+1}` : '📌 Ubicación'}
                                         </button>
                                     </div>
                                 </div>
@@ -453,7 +464,7 @@ export default function Lotes() {
                 <div className="drawer-overlay" onClick={closeLocationSelector}>
                     <div className="location-selector-modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3>Seleccionar ubicación para el producto</h3>
+                            <h3>Seleccionar ubicación</h3>
                             <button className="close-btn" onClick={closeLocationSelector}>×</button>
                         </div>
                         <div className="modal-body">
@@ -462,7 +473,7 @@ export default function Lotes() {
                                     {racks.map(rack => (
                                         <div key={rack.id} className="rack-card-modal" onClick={() => handleSelectRack(rack)}>
                                             <strong>{rack.nombre}</strong>
-                                            <small>{rack.ancho}x{rack.alto}x{rack.profundidad}</small>
+                                            <small>{rack.ancho}x{rack.alto}</small>
                                         </div>
                                     ))}
                                 </div>
@@ -473,7 +484,7 @@ export default function Lotes() {
                                         <button onClick={() => setSelectedRackForSelector(null)}>Cambiar estante</button>
                                     </div>
                                     {loadingUbicaciones ? (
-                                        <div className="loading-spinner">Cargando ubicaciones...</div>
+                                        <div className="loading-spinner">Cargando...</div>
                                     ) : (
                                         <RackVisualization
                                             rack={selectedRackForSelector}

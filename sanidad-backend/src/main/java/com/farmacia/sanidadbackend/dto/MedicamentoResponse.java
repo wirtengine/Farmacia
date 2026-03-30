@@ -19,6 +19,9 @@ public class MedicamentoResponse {
     private Boolean receta;
     private Boolean activo;
 
+
+    private String imagen;
+
     public static MedicamentoResponse fromEntity(Medicamento m) {
         MedicamentoResponse response = new MedicamentoResponse();
 
@@ -32,6 +35,9 @@ public class MedicamentoResponse {
         response.setPrecioUnitario(m.getPrecioUnitario());
         response.setReceta(m.getReceta());
         response.setActivo(m.getActivo());
+
+
+        response.setImagen(m.getImagen());
 
         return response;
     }

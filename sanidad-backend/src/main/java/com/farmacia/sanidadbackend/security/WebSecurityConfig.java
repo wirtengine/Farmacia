@@ -13,9 +13,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.cors.*;
 
 import java.util.Arrays;
 
@@ -43,11 +41,10 @@ public class WebSecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration authConfig) throws Exception {
-
         return authConfig.getAuthenticationManager();
     }
 
-    // ---------- CONFIGURACIÓN CORS GLOBAL ----------
+    // 🔥 CORS CORREGIDO
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
@@ -60,13 +57,12 @@ public class WebSecurityConfig {
                 "POST",
                 "PUT",
                 "DELETE",
+                "PATCH",
                 "OPTIONS"
         ));
 
-        configuration.setAllowedHeaders(Arrays.asList(
-                "Authorization",
-                "Content-Type"
-        ));
+        // 🔥 IMPORTANTE: permitir TODOS los headers
+        configuration.setAllowedHeaders(Arrays.asList("*"));
 
         configuration.setAllowCredentials(true);
 
@@ -75,7 +71,6 @@ public class WebSecurityConfig {
 
         return source;
     }
-    // ------------------------------------------------
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -92,13 +87,17 @@ public class WebSecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
-                        // 🔥 NECESARIO PARA CORS PREFLIGHT
+
+                        // ✅ CORS preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // endpoints públicos
+                        // ✅ imágenes públicas
+                        .requestMatchers("/imagenes/**").permitAll()
+
+                        // ✅ auth público
                         .requestMatchers("/api/auth/**").permitAll()
 
-                        // resto protegido
+                        // 🔒 TODO lo demás protegido
                         .anyRequest().authenticated()
                 );
 

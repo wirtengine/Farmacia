@@ -8,7 +8,10 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 
 @Service
@@ -84,6 +87,35 @@ public class MedicamentoService {
         if (!Boolean.TRUE.equals(medicamento.getActivo())) {
             medicamento.setActivo(true);
             medicamentoRepository.save(medicamento);
+        }
+    }
+
+    @Transactional
+    public String guardarImagen(Long id, MultipartFile file) {
+
+        Medicamento medicamento = medicamentoRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Medicamento no encontrado"));
+
+        try {
+            String carpeta = System.getProperty("user.dir") + "/imagenes/";
+            File directorio = new File(carpeta);
+
+            if (!directorio.exists()) {
+                directorio.mkdirs();
+            }
+
+            String nombreArchivo = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            String rutaCompleta = carpeta + nombreArchivo;
+
+            file.transferTo(new File(rutaCompleta));
+
+            medicamento.setImagen("imagenes/" + nombreArchivo);
+            medicamentoRepository.save(medicamento);
+
+            return "imagenes/" + nombreArchivo;
+
+        } catch (IOException e) {
+            throw new RuntimeException("Error al guardar la imagen");
         }
     }
 

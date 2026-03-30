@@ -40,4 +40,7 @@ public class Medicamento {
 
     @Column(nullable = false)
     private Boolean activo = true;
+
+    @Column(name = "imagen")
+    private String imagen;
 }
