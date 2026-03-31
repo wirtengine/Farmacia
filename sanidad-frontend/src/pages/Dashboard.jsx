@@ -3,9 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { obtenerResumenDashboard } from '../services/dashboard';
 import { getAlerts } from '../services/alerts';
+// 1. Nueva importación
+import { getPendingRecommendations } from '../services/recommendations';
 import {
-    Bell, RefreshCw, Info, Clock, AlertTriangle
-} from 'lucide-react'; // Importamos iconos para la tarjeta
+    Bell, RefreshCw, Info, Clock, AlertTriangle, Lightbulb
+} from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, LineChart, Line
@@ -36,17 +38,27 @@ export default function Dashboard() {
     const [error, setError] = useState('');
     const [lastUpdated, setLastUpdated] = useState(null);
     const [pendingAlerts, setPendingAlerts] = useState(0);
+    // 2. Nuevo estado para recomendaciones
+    const [pendingRecs, setPendingRecs] = useState(0);
 
     const cargarDatos = async () => {
         setLoading(true);
         try {
-            const [resumenRes, alertsRes] = await Promise.all([
+            // 3. Agregamos la llamada a recomendaciones en el Promise.all
+            const [resumenRes, alertsRes, pendingRecsRes] = await Promise.all([
                 obtenerResumenDashboard(),
-                getAlerts()
+                getAlerts(),
+                getPendingRecommendations()
             ]);
+
             setData(resumenRes.data);
+
             const pending = alertsRes.data.filter(alert => alert.status === 'PENDING').length;
             setPendingAlerts(pending);
+
+            // 4. Seteamos las recomendaciones
+            setPendingRecs(pendingRecsRes.data.length);
+
             setLastUpdated(new Date());
             setError('');
         } catch (err) {
@@ -103,7 +115,6 @@ export default function Dashboard() {
             </header>
 
             <div className="dashboard-content">
-                {/* KPIs con la TARJETA DE ALERTAS MEJORADA */}
                 <div className="kpi-grid">
                     <div className="kpi-card">
                         <h4>Ventas Hoy</h4>
@@ -113,12 +124,26 @@ export default function Dashboard() {
                         <h4>Ventas Mes</h4>
                         <p>{formatCurrency(data?.ventasMesActual || 0)}</p>
                     </div>
+                    {/* Mantengo tu tarjeta original de Facturas */}
                     <div className="kpi-card">
                         <h4>Facturas Hoy</h4>
                         <p>{data?.ventasDelDia.cantidadVentas || 0}</p>
                     </div>
 
-                    {/* Tarjeta de Alertas con Diseño Pro */}
+                    {/* 5. Nueva tarjeta de Recomendaciones integrada en el grid */}
+                    <div className="kpi-card rec-card" onClick={() => navigate('/recommendations')}>
+                        <span className="alert-status-badge" style={{background: '#e0e7ff', color: '#4338ca'}}>Sugerencia</span>
+                        <h4>
+                            <Lightbulb size={14} style={{marginRight: '8px', color: '#4338ca'}} />
+                            Recomendaciones
+                        </h4>
+                        <p className="rec-number" style={{color: '#4338ca'}}>{pendingRecs}</p>
+                        <span className="last-updated">Optimización de stock</span>
+                        <div className="alert-icon" style={{color: '#4338ca', opacity: 0.1}}>
+                            <Lightbulb size={60} />
+                        </div>
+                    </div>
+
                     <div className="kpi-card alert-card" onClick={() => navigate('/alerts')}>
                         <span className="alert-status-badge">Crítico</span>
                         <h4>
@@ -133,7 +158,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* GRÁFICAS */}
+                {/* --- RESTO DEL COMPONENTE (GRÁFICAS Y TABLAS) IGUAL --- */}
                 <div className="charts-grid">
                     <div className="chart-card">
                         <h3>Ventas por Vendedor</h3>

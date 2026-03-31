@@ -14,7 +14,8 @@ import Ventas from './pages/Ventas';
 import Devoluciones from './pages/Devoluciones';
 import DevolucionesProveedor from './pages/DevolucionesProveedor';
 import Ubicaciones from './pages/Ubicaciones';
-import Alerts from './pages/Alerts'; // 👈 IMPORTANTE
+import Alerts from './pages/Alerts';
+import Recommendations from './pages/Recommendations'; // 💡 NUEVO
 
 function AppContent() {
     const { user, loading } = useAuth();
@@ -47,12 +48,22 @@ function AppContent() {
                         }
                     />
 
-                    {/* 🔔 ALERTS (NUEVO) */}
+                    {/* 🔔 Alerts */}
                     <Route
                         path="/alerts"
                         element={
                             <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR']}>
                                 <Alerts />
+                            </PrivateRoute>
+                        }
+                    />
+
+                    {/* 💡 Recommendations (NUEVO) */}
+                    <Route
+                        path="/recommendations"
+                        element={
+                            <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR']}>
+                                <Recommendations />
                             </PrivateRoute>
                         }
                     />

@@ -10,8 +10,11 @@ const MENU_SECTIONS = [
         items: [
             { path: '/dashboard', icon: '🏠', label: 'Dashboard' },
 
-            // 👇 NUEVO ITEM ALERTAS
+            // 🔔 Alertas
             { path: '/alerts', icon: '🔔', label: 'Alertas' },
+
+            // 💡 NUEVO: Recomendaciones
+            { path: '/recommendations', icon: '💡', label: 'Recomendaciones' },
         ],
     },
     {
