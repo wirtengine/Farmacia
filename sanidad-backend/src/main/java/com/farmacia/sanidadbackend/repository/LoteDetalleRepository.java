@@ -22,4 +22,10 @@ public interface LoteDetalleRepository extends JpaRepository<LoteDetalle, Long> 
 
     @Query("SELECT ld.medicamento.id, SUM(ld.cantidad) FROM LoteDetalle ld WHERE ld.lote.activo = true AND ld.lote.fechaVencimiento > :fechaActual GROUP BY ld.medicamento.id")
     List<Object[]> findStockActualPorMedicamento(@Param("fechaActual") LocalDate fechaActual);
+
+    @Query("SELECT ld FROM LoteDetalle ld WHERE ld.medicamento.id = :medicamentoId AND ld.lote.activo = true AND ld.lote.fechaVencimiento > :fechaActual AND ld.cantidad > 0 ORDER BY ld.lote.fechaVencimiento ASC")
+    List<LoteDetalle> findLotesDisponiblesPorMedicamentoOrderByVencimiento(
+            @Param("medicamentoId") Long medicamentoId,
+            @Param("fechaActual") LocalDate fechaActual
+    );
 }

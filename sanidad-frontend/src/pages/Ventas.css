@@ -520,3 +520,209 @@ body {
     animation: loading-shimmer 1.5s infinite;
     border-radius: 4px;
 }
+
+@keyframes loading-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* =========================================
+   INTELIGENCIA DE VENTAS (NUEVO)
+   ========================================= */
+
+/* Contexto del cliente */
+.cliente-contexto {
+    margin-top: 16px;
+    padding: 16px;
+    background: #f8fafc;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s;
+}
+
+.contexto-title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #1e293b;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.subtitle {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 12px 0 8px 0;
+}
+
+.frecuentes-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.chip-sugerencia {
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 24px;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.chip-sugerencia:hover {
+    background: #eef2ff;
+    border-color: #3b82f6;
+    color: #1e40af;
+    transform: translateY(-1px);
+}
+
+.ultimas-compras ul {
+    margin: 4px 0 0 20px;
+    padding-left: 0;
+    list-style: disc;
+    color: #475569;
+    font-size: 0.8rem;
+}
+
+.ultimas-compras li {
+    margin: 4px 0;
+}
+
+/* Sugerencia FIFO */
+.sugerencia-fifo {
+    background: #fef9e8;
+    border-left: 4px solid #f59e0b;
+    border-radius: 12px;
+    padding: 12px;
+    margin: 16px 0;
+}
+
+.sugerencia-title {
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #b45309;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sugerencia-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.sugerencia-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sugerencia-info strong {
+    font-size: 0.9rem;
+    color: #1e293b;
+}
+
+.sugerencia-info small {
+    font-size: 0.7rem;
+    color: #64748b;
+}
+
+.btn-sugerencia {
+    background: #f59e0b;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-sugerencia:hover {
+    background: #d97706;
+    transform: scale(1.02);
+}
+
+/* Productos complementarios */
+.complementarios-section {
+    margin-top: 20px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 16px;
+}
+
+.complementarios-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #1e293b;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.complementarios-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.complementario-card {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 24px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #334155;
+    max-width: 180px;
+}
+
+.complementario-card:hover {
+    background: #e6f0ff;
+    border-color: #3b82f6;
+    transform: translateY(-2px);
+}
+
+.complementario-card small {
+    font-size: 0.65rem;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+/* Ajustes responsive para resultados y drawer */
+@media (min-width: 768px) {
+    .results-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .pos-drawer {
+        width: 100%;
+    }
+    .complementarios-grid {
+        flex-direction: column;
+    }
+    .complementario-card {
+        max-width: 100%;
+    }
+}

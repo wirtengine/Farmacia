@@ -4,6 +4,7 @@ import { listarVentas, crearVenta } from "../services/ventas";
 import { listarClientes } from "../services/clientes";
 import { listarLotes } from "../services/lotes";
 import { listarMedicamentos } from "../services/medicamentos";
+import { getLoteFIFO, getComplementarios, getVentaGuiada } from "../services/ventaInteligencia";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import "./Ventas.css";
@@ -47,12 +48,13 @@ export default function Ventas() {
     const [montoUsarSaldo, setMontoUsarSaldo] = useState(0);
     const [efectivoRecibido, setEfectivoRecibido] = useState(0);
 
+    // --- Inteligencia de ventas ---
+    const [loteRecomendado, setLoteRecomendado] = useState(null);
+    const [complementarios, setComplementarios] = useState([]);
+    const [contextoCliente, setContextoCliente] = useState(null);
+
     // --------------------------------------------------------------
     // Procesar lotes para obtener stock de venta (ubicación + general)
-    // Asumimos que cada detalle de lote tiene:
-    // - cantidad: stock total
-    // - stockUbicacion: stock disponible en ubicaciones (opcional)
-    // Si no viene, se usa cantidad como stockUbicacion para no bloquear
     // --------------------------------------------------------------
     const lotesConStock = useMemo(() => {
         return lotes.map(lote => ({
@@ -213,47 +215,104 @@ export default function Ventas() {
             setDetallesVenta([]);
             setMontoUsarSaldo(0);
             setEfectivoRecibido(0);
+            // Reiniciar inteligencia
+            setLoteRecomendado(null);
+            setComplementarios([]);
+            setContextoCliente(null);
             setDrawerOpen(true);
         } catch (err) { alert("Error al cargar datos"); }
     };
 
-    // Función modificada para usar stockVenta
-    const agregarMedicamento = (med) => {
-        const stockVenta = getStockVenta(med.id);
-        setDetallesVenta(prev => {
-            const existente = prev.find(p => p.loteDetalleId === med.id);
-            let nuevaCantidad = existente ? existente.cantidad + 1 : 1;
+    // Al cambiar cliente, obtener su contexto
+    useEffect(() => {
+        if (!drawerOpen) return;
+        if (tipoVenta === 'cliente' && clienteSeleccionado?.id) {
+            getVentaGuiada(clienteSeleccionado.id, null)
+                .then(res => setContextoCliente(res.data))
+                .catch(err => console.error(err));
+        } else {
+            setContextoCliente(null);
+        }
+    }, [clienteSeleccionado, tipoVenta, drawerOpen]);
 
+    // Búsqueda de medicamento con inteligencia
+    const handleBuscarMedicamento = async (query) => {
+        setBusquedaMedicamento(query);
+        if (!query || query.length < 2) {
+            setLoteRecomendado(null);
+            setComplementarios([]);
+            return;
+        }
+        // Buscar el medicamento que coincida exactamente o contenga
+        const medicamentoEncontrado = medicamentos.find(m =>
+            m.nombre.toLowerCase().includes(query.toLowerCase())
+        );
+        if (medicamentoEncontrado) {
+            try {
+                const [fifoRes, compRes] = await Promise.all([
+                    getLoteFIFO(medicamentoEncontrado.id),
+                    getComplementarios(medicamentoEncontrado.id)
+                ]);
+                setLoteRecomendado(fifoRes.data);
+                setComplementarios(compRes.data || []);
+            } catch (err) {
+                console.error("Error cargando recomendaciones", err);
+            }
+        } else {
+            setLoteRecomendado(null);
+            setComplementarios([]);
+        }
+    };
+
+    // Agregar medicamento (con soporte para lote recomendado)
+    const agregarMedicamento = (med, loteId = med.id) => {
+        const stockVenta = getStockVenta(loteId);
+        if (stockVenta < 1) {
+            alert("Producto sin stock disponible.");
+            return;
+        }
+        setDetallesVenta(prev => {
+            const existente = prev.find(p => p.loteDetalleId === loteId);
+            let nuevaCantidad = existente ? existente.cantidad + 1 : 1;
             if (nuevaCantidad > stockVenta) {
                 alert(`No hay suficiente stock disponible (máximo: ${stockVenta})`);
                 return prev;
             }
-
+            const precio = med.precioUnitario;
             if (existente) {
                 return prev.map(p =>
-                    p.loteDetalleId === med.id
-                        ? {
-                            ...p,
-                            cantidad: nuevaCantidad,
-                            subtotal: nuevaCantidad * med.precioUnitario
-                        }
+                    p.loteDetalleId === loteId
+                        ? { ...p, cantidad: nuevaCantidad, subtotal: nuevaCantidad * precio }
                         : p
                 );
             } else {
-                if (stockVenta < 1) {
-                    alert('Producto sin stock disponible.');
-                    return prev;
-                }
                 return [...prev, {
-                    loteDetalleId: med.id,
-                    medicamentoNombre: med.medicamentoNombre,
-                    precioUnitario: med.precioUnitario,
+                    loteDetalleId: loteId,
+                    medicamentoNombre: med.medicamentoNombre || med.nombre,
+                    precioUnitario: precio,
                     cantidad: 1,
-                    subtotal: med.precioUnitario
+                    subtotal: precio
                 }];
             }
         });
         setBusquedaMedicamento("");
+        setLoteRecomendado(null);
+        setComplementarios([]);
+    };
+
+    // Agregar producto complementario
+    const agregarComplementario = (prod) => {
+        const loteDetalle = lotesConStock
+            .flatMap(l => l.detalles)
+            .find(d => d.medicamentoId === prod.medicamentoId && d.stockVenta > 0);
+        if (loteDetalle) {
+            const med = medicamentos.find(m => m.id === prod.medicamentoId);
+            if (med) {
+                agregarMedicamento({ ...med, medicamentoNombre: med.nombre, precioUnitario: med.precioUnitario }, loteDetalle.id);
+            }
+        } else {
+            alert("Producto sin stock disponible");
+        }
     };
 
     const subtotal = detallesVenta.reduce((acc, d) => acc + d.subtotal, 0);
@@ -398,9 +457,9 @@ export default function Ventas() {
                                                             />
                                                         )}
                                                         <span>
-                                                                {med?.nombre || 'S/N'}
+                                                            {med?.nombre || 'S/N'}
                                                             <small> x{det.cantidad}</small>
-                                                            </span>
+                                                        </span>
                                                     </div>
                                                 );
                                             })}
@@ -427,7 +486,7 @@ export default function Ventas() {
                 )}
             </div>
 
-            {/* DRAWER (POS) */}
+            {/* DRAWER (POS) con inteligencia */}
             {drawerOpen && (
                 <div className="glass-overlay" onClick={() => setDrawerOpen(false)}>
                     <div className="pos-drawer" onClick={e => e.stopPropagation()}>
@@ -456,11 +515,55 @@ export default function Ventas() {
                                             <button className="btn-reset-sm" onClick={() => setClienteSeleccionado(null)}>Cambiar</button>
                                         </div>
                                     )}
+
+                                    {/* Contexto del cliente */}
+                                    {contextoCliente && (
+                                        <div className="cliente-contexto">
+                                            <div className="contexto-title">📊 Historial del cliente</div>
+                                            <div className="frecuentes">
+                                                <div className="subtitle">🔄 Productos más comprados:</div>
+                                                <div className="frecuentes-list">
+                                                    {contextoCliente.productosFrecuentesCliente?.map((p, i) => (
+                                                        <button key={i} className="chip-sugerencia" onClick={() => agregarComplementario(p)}>
+                                                            {p.nombre}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="ultimas-compras">
+                                                <div className="subtitle">📅 Últimas facturas:</div>
+                                                <ul>
+                                                    {contextoCliente.ultimasCompras?.map((compra, i) => <li key={i}>{compra}</li>)}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    )}
                                 </section>
                             )}
 
                             <section className="pos-section">
-                                <input className="pos-input-sm" placeholder="Buscar medicamento..." value={busquedaMedicamento} onChange={e => setBusquedaMedicamento(e.target.value)} />
+                                <input
+                                    className="pos-input-sm"
+                                    placeholder="Buscar medicamento..."
+                                    value={busquedaMedicamento}
+                                    onChange={e => handleBuscarMedicamento(e.target.value)}
+                                />
+                                {loteRecomendado && (
+                                    <div className="sugerencia-fifo">
+                                        <div className="sugerencia-title">⚡ Lote recomendado (más próximo a vencer)</div>
+                                        <div className="sugerencia-card">
+                                            <div className="sugerencia-info">
+                                                <strong>{loteRecomendado.nombre}</strong>
+                                                <small>Vence: {new Date(loteRecomendado.fechaVencimiento).toLocaleDateString()}</small>
+                                                <small>Stock disponible: {loteRecomendado.cantidadSugerida}</small>
+                                            </div>
+                                            <button className="btn-sugerencia" onClick={() => agregarMedicamento(loteRecomendado)}>
+                                                Agregar
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="results-grid">
                                     {lotesConStock.flatMap(l =>
                                         l.detalles.map(d => {
@@ -471,12 +574,14 @@ export default function Ventas() {
                                                 imagen: med?.imagen,
                                                 medicamentoNombre: med?.nombre || d.medicamentoNombre,
                                                 stockVenta: d.stockVenta,
-                                                tieneUbicacion: d.stockUbicacion > 0
+                                                tieneUbicacion: d.stockUbicacion > 0,
+                                                precioUnitario: med?.precioUnitario
                                             };
                                         })
                                     )
                                         .filter(d => d.medicamentoNombre.toLowerCase().includes(busquedaMedicamento.toLowerCase()) && d.stockVenta > 0)
-                                        .slice(0, 4).map(m => (
+                                        .slice(0, 6)
+                                        .map(m => (
                                             <button key={m.id} className="result-card" onClick={() => agregarMedicamento(m)}>
                                                 {m.imagen && (
                                                     <img
@@ -496,6 +601,20 @@ export default function Ventas() {
                                             </button>
                                         ))}
                                 </div>
+
+                                {complementarios.length > 0 && (
+                                    <div className="complementarios-section">
+                                        <div className="complementarios-title">🛒 Productos complementarios</div>
+                                        <div className="complementarios-grid">
+                                            {complementarios.map((prod, idx) => (
+                                                <button key={idx} className="complementario-card" onClick={() => agregarComplementario(prod)}>
+                                                    {prod.nombre}
+                                                    <small>{prod.mensaje}</small>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </section>
 
                             <section className="pos-section">
