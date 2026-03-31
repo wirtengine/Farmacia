@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { obtenerResumenDashboard } from '../services/dashboard';
 import { getAlerts } from '../services/alerts';
-// 1. Nueva importación
 import { getPendingRecommendations } from '../services/recommendations';
 import {
     Bell, RefreshCw, Info, Clock, AlertTriangle, Lightbulb
@@ -33,37 +32,32 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const esAdmin = user?.rol === 'ADMIN';
 
-    const [data, setData] = useState(null);
+    const [data, setData] = useState({}); // ← Inicializamos como objeto vacío
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [lastUpdated, setLastUpdated] = useState(null);
     const [pendingAlerts, setPendingAlerts] = useState(0);
-    // 2. Nuevo estado para recomendaciones
     const [pendingRecs, setPendingRecs] = useState(0);
 
     const cargarDatos = async () => {
         setLoading(true);
         try {
-            // 3. Agregamos la llamada a recomendaciones en el Promise.all
             const [resumenRes, alertsRes, pendingRecsRes] = await Promise.all([
                 obtenerResumenDashboard(),
                 getAlerts(),
                 getPendingRecommendations()
             ]);
 
-            setData(resumenRes.data);
-
-            const pending = alertsRes.data.filter(alert => alert.status === 'PENDING').length;
-            setPendingAlerts(pending);
-
-            // 4. Seteamos las recomendaciones
+            // Si la respuesta es válida, usamos sus datos; si no, dejamos el objeto vacío
+            setData(resumenRes.data || {});
+            setPendingAlerts(alertsRes.data.filter(alert => alert.status === 'PENDING').length);
             setPendingRecs(pendingRecsRes.data.length);
-
             setLastUpdated(new Date());
             setError('');
         } catch (err) {
             console.error(err);
             setError('Error al actualizar datos en tiempo real.');
+            setData({}); // Asegurar que data no sea null
         } finally {
             setLoading(false);
         }
@@ -73,26 +67,29 @@ export default function Dashboard() {
         cargarDatos();
     }, []);
 
-    if (loading && !data) return (
-        <div className="dashboard-loading-state">
-            <div className="spinner"></div>
-            <p>Sincronizando panel de control...</p>
-        </div>
-    );
+    if (loading && Object.keys(data).length === 0) {
+        return (
+            <div className="dashboard-loading-state">
+                <div className="spinner"></div>
+                <p>Sincronizando panel de control...</p>
+            </div>
+        );
+    }
 
-    const ventasPorVendedor = data?.rankingVendedores.map(v => ({
+    // Preparar datos para gráficas con valores por defecto
+    const ventasPorVendedor = (data.rankingVendedores || []).map(v => ({
         name: v.username,
         ventas: v.totalVentas
-    })) || [];
+    }));
 
-    const topProductos = data?.productosMasRentables.slice(0, 5).map(p => ({
+    const topProductos = (data.productosMasRentables || []).slice(0, 5).map(p => ({
         name: p.nombre,
         value: p.ingresos
-    })) || [];
+    }));
 
     const tendenciaMensual = [
-        { name: 'Mes Anterior', ventas: data?.ventasMesAnterior || 0 },
-        { name: 'Mes Actual', ventas: data?.ventasMesActual || 0 }
+        { name: 'Mes Anterior', ventas: data.ventasMesAnterior || 0 },
+        { name: 'Mes Actual', ventas: data.ventasMesActual || 0 }
     ];
 
     const COLORS = ['#10b981', '#3b82f6', '#6366f1', '#f59e0b', '#ef4444'];
@@ -118,19 +115,17 @@ export default function Dashboard() {
                 <div className="kpi-grid">
                     <div className="kpi-card">
                         <h4>Ventas Hoy</h4>
-                        <p>{formatCurrency(data?.ventasDelDia.totalVentas || 0)}</p>
+                        <p>{formatCurrency(data.ventasDelDia?.totalVentas || 0)}</p>
                     </div>
                     <div className="kpi-card">
                         <h4>Ventas Mes</h4>
-                        <p>{formatCurrency(data?.ventasMesActual || 0)}</p>
+                        <p>{formatCurrency(data.ventasMesActual || 0)}</p>
                     </div>
-                    {/* Mantengo tu tarjeta original de Facturas */}
                     <div className="kpi-card">
                         <h4>Facturas Hoy</h4>
-                        <p>{data?.ventasDelDia.cantidadVentas || 0}</p>
+                        <p>{data.ventasDelDia?.cantidadVentas || 0}</p>
                     </div>
 
-                    {/* 5. Nueva tarjeta de Recomendaciones integrada en el grid */}
                     <div className="kpi-card rec-card" onClick={() => navigate('/recommendations')}>
                         <span className="alert-status-badge" style={{background: '#e0e7ff', color: '#4338ca'}}>Sugerencia</span>
                         <h4>
@@ -158,7 +153,6 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* --- RESTO DEL COMPONENTE (GRÁFICAS Y TABLAS) IGUAL --- */}
                 <div className="charts-grid">
                     <div className="chart-card">
                         <h3>Ventas por Vendedor</h3>
@@ -220,12 +214,12 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {esAdmin && (
+                {esAdmin && data && ( // ← Verificamos que data exista
                     <div className="bottom-grid">
                         <div className="table-card">
                             <h3>Ranking de Vendedores</h3>
                             <div className="table-scroll">
-                                <table>
+                                <table className="ranking-table">
                                     <thead>
                                     <tr>
                                         <th>#</th>
@@ -235,7 +229,7 @@ export default function Dashboard() {
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    {data.rankingVendedores.map((v, i) => (
+                                    {data.rankingVendedores?.map((v, i) => (
                                         <tr key={i}>
                                             <td>{i + 1}</td>
                                             <td>{v.username}</td>
@@ -251,7 +245,7 @@ export default function Dashboard() {
                         <div className="table-card">
                             <h3>Stock Crítico</h3>
                             <ul className="stock-list">
-                                {data.productosBajoStock.map((p, i) => (
+                                {data.productosBajoStock?.map((p, i) => (
                                     <li key={i}>
                                         <span className="product-name">{p.nombre}</span>
                                         <span className="stock-qty">{p.stockTotal} uds</span>

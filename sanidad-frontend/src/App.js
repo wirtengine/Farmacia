@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Sidebar from './components/Sidebar';
+import ChatAssistant from './components/ChatAssistant';
 
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -16,7 +17,7 @@ import DevolucionesProveedor from './pages/DevolucionesProveedor';
 import Ubicaciones from './pages/Ubicaciones';
 import Alerts from './pages/Alerts';
 import Recommendations from './pages/Recommendations';
-import Perdidas from './pages/Perdidas'; // 👈 NUEVO
+import Perdidas from './pages/Perdidas';
 
 function AppContent() {
     const { user, loading } = useAuth();
@@ -25,21 +26,21 @@ function AppContent() {
 
     return (
         <div className="app-layout">
+            {/* El Sidebar solo se muestra si el usuario está logueado */}
             {user && <Sidebar />}
 
             <div className={user ? 'main-content with-sidebar' : 'main-content'}>
                 <Routes>
-
-                    {/* Ruta principal */}
+                    {/* Redirección inicial */}
                     <Route path="/" element={<Navigate to="/login" replace />} />
 
-                    {/* Login */}
+                    {/* Autenticación */}
                     <Route
                         path="/login"
                         element={user ? <Navigate to="/dashboard" replace /> : <Login />}
                     />
 
-                    {/* Dashboard */}
+                    {/* Dashboard Principal */}
                     <Route
                         path="/dashboard"
                         element={
@@ -49,7 +50,7 @@ function AppContent() {
                         }
                     />
 
-                    {/* 🔔 Alerts */}
+                    {/* Módulos de Notificaciones e Inteligencia */}
                     <Route
                         path="/alerts"
                         element={
@@ -59,7 +60,6 @@ function AppContent() {
                         }
                     />
 
-                    {/* 💡 Recommendations */}
                     <Route
                         path="/recommendations"
                         element={
@@ -69,27 +69,7 @@ function AppContent() {
                         }
                     />
 
-                    {/* 📉 Control de Pérdidas */}
-                    <Route
-                        path="/perdidas"
-                        element={
-                            <PrivateRoute allowedRoles={['ADMIN']}>
-                                <Perdidas />
-                            </PrivateRoute>
-                        }
-                    />
-
-                    {/* Empleados */}
-                    <Route
-                        path="/empleados"
-                        element={
-                            <PrivateRoute allowedRoles={['ADMIN']}>
-                                <Empleados />
-                            </PrivateRoute>
-                        }
-                    />
-
-                    {/* Medicamentos */}
+                    {/* Gestión de Inventario y Operaciones */}
                     <Route
                         path="/medicamentos"
                         element={
@@ -99,7 +79,6 @@ function AppContent() {
                         }
                     />
 
-                    {/* Lotes */}
                     <Route
                         path="/lotes"
                         element={
@@ -109,27 +88,16 @@ function AppContent() {
                         }
                     />
 
-                    {/* Proveedores */}
                     <Route
-                        path="/proveedores"
+                        path="/perdidas"
                         element={
-                            <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR']}>
-                                <Proveedores />
+                            <PrivateRoute allowedRoles={['ADMIN']}>
+                                <Perdidas />
                             </PrivateRoute>
                         }
                     />
 
-                    {/* Clientes */}
-                    <Route
-                        path="/clientes"
-                        element={
-                            <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR']}>
-                                <Clientes />
-                            </PrivateRoute>
-                        }
-                    />
-
-                    {/* Ventas */}
+                    {/* Ventas y Clientes */}
                     <Route
                         path="/ventas"
                         element={
@@ -139,7 +107,35 @@ function AppContent() {
                         }
                     />
 
-                    {/* Devoluciones */}
+                    <Route
+                        path="/clientes"
+                        element={
+                            <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR']}>
+                                <Clientes />
+                            </PrivateRoute>
+                        }
+                    />
+
+                    {/* Recursos Humanos y Logística */}
+                    <Route
+                        path="/empleados"
+                        element={
+                            <PrivateRoute allowedRoles={['ADMIN']}>
+                                <Empleados />
+                            </PrivateRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/proveedores"
+                        element={
+                            <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR']}>
+                                <Proveedores />
+                            </PrivateRoute>
+                        }
+                    />
+
+                    {/* Devoluciones y Ubicaciones */}
                     <Route
                         path="/devoluciones"
                         element={
@@ -149,7 +145,6 @@ function AppContent() {
                         }
                     />
 
-                    {/* Devoluciones a proveedor */}
                     <Route
                         path="/devoluciones-proveedor"
                         element={
@@ -159,7 +154,6 @@ function AppContent() {
                         }
                     />
 
-                    {/* Ubicaciones */}
                     <Route
                         path="/ubicaciones"
                         element={
@@ -169,11 +163,16 @@ function AppContent() {
                         }
                     />
 
-                    {/* Fallback */}
+                    {/* Fallback de seguridad */}
                     <Route path="*" element={<Navigate to="/login" replace />} />
-
                 </Routes>
             </div>
+
+            {/* El Asistente se renderiza fuera del flujo de las rutas para que sea global.
+               Recuerda que internamente el componente filtrará si debe mostrarse
+               según la URL actual.
+            */}
+            {user && <ChatAssistant />}
         </div>
     );
 }

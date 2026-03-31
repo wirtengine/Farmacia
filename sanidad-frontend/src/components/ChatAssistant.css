@@ -1,0 +1,522 @@
+/* =========================================
+   VARIABLES Y RESET
+========================================= */
+:root {
+    --fs-primary: #10b981;
+    --fs-primary-dark: #059669;
+    --fs-primary-light: #34d399;
+    --fs-primary-bg: #ecfdf5;
+    --fs-bg-main: #ffffff;
+    --fs-bg-sub: #f8fafc;
+    --fs-text-main: #0f172a;
+    --fs-text-muted: #475569;
+    --fs-border-light: #eef2ff;
+    --fs-border: #e2e8f0;
+    --fs-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --fs-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --fs-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --fs-shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --fs-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fs-chat-wrapper {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    user-select: none;
+}
+
+/* =========================================
+   BOTÓN LANZADOR (LAUNCHER)
+========================================= */
+.fs-chat-launcher {
+    width: 60px;
+    height: 60px;
+    border-radius: 30px;
+    background: var(--fs-primary);
+    color: white;
+    border: none;
+    cursor: pointer;
+    box-shadow: var(--fs-shadow-xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--fs-transition);
+    position: relative;
+}
+
+.fs-chat-launcher:hover {
+    transform: scale(1.05) translateY(-2px);
+    background: var(--fs-primary-dark);
+    box-shadow: 0 20px 30px -8px rgba(16, 185, 129, 0.5);
+}
+
+/* Indicador online */
+.fs-online-pulse {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+    background: #10b981;
+    border: 2px solid white;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+/* =========================================
+   TARJETA DE CHAT
+========================================= */
+.fs-chat-card {
+    width: 380px;
+    height: 560px;
+    background: var(--fs-bg-main);
+    border-radius: 28px;
+    box-shadow: var(--fs-shadow-xl);
+    border: 1px solid var(--fs-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: fsSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    backdrop-filter: blur(0px);
+}
+
+@keyframes fsSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* =========================================
+   ENCABEZADO
+========================================= */
+.fs-chat-header {
+    padding: 16px 20px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--fs-border-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.fs-bot-identity {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.fs-avatar-main {
+    width: 42px;
+    height: 42px;
+    background: var(--fs-primary-bg);
+    color: var(--fs-primary);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--fs-transition);
+}
+
+.fs-header-text h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--fs-text-main);
+    letter-spacing: -0.2px;
+}
+
+.fs-header-text p {
+    margin: 0;
+    font-size: 11px;
+    color: var(--fs-primary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.fs-header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.fs-clear-chat,
+.fs-close-icon {
+    background: #f1f5f9;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--fs-transition);
+    color: #64748b;
+}
+
+.fs-clear-chat:hover {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.fs-close-icon:hover {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+/* =========================================
+   CUERPO DEL CHAT (ÁREA DE MENSAJES)
+========================================= */
+.fs-chat-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: linear-gradient(to bottom, #fcfcfd, #ffffff);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Scroll personalizado */
+.fs-chat-body::-webkit-scrollbar {
+    width: 5px;
+}
+.fs-chat-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+.fs-chat-body::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+.fs-chat-body::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Grupos de mensajes */
+.fs-msg-group {
+    display: flex;
+    gap: 12px;
+    max-width: 85%;
+    animation: fsMsgIn 0.25s ease-out;
+}
+
+@keyframes fsMsgIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fs-msg-group.user {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+/* Avatares */
+.fs-msg-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+    background: #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    flex-shrink: 0;
+    font-size: 12px;
+}
+
+.user .fs-msg-avatar {
+    background: var(--fs-primary);
+    color: white;
+}
+
+/* Burbujas */
+.fs-msg-bubble {
+    padding: 12px 16px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    border-radius: 20px;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    max-width: 100%;
+}
+
+.bot .fs-msg-bubble {
+    background: white;
+    color: var(--fs-text-main);
+    border: 1px solid var(--fs-border);
+    border-top-left-radius: 6px;
+    box-shadow: var(--fs-shadow-sm);
+}
+
+.user .fs-msg-bubble {
+    background: var(--fs-primary);
+    color: white;
+    border-top-right-radius: 6px;
+}
+
+/* Mensajes de error */
+.fs-msg-bubble.error {
+    background: #fee2e2;
+    color: #b91c1c;
+    border-color: #fecaca;
+}
+
+/* =========================================
+   MARKDOWN (RESPUESTAS IA)
+========================================= */
+.fs-msg-bubble p {
+    margin: 0 0 8px 0;
+}
+.fs-msg-bubble p:last-child {
+    margin-bottom: 0;
+}
+.fs-msg-bubble ul,
+.fs-msg-bubble ol {
+    margin: 6px 0 8px 18px;
+    padding-left: 0;
+}
+.fs-msg-bubble li {
+    margin-bottom: 4px;
+}
+.fs-msg-bubble strong {
+    font-weight: 700;
+    color: inherit;
+}
+.fs-msg-bubble code {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.85em;
+    color: #0f172a;
+}
+.fs-msg-bubble pre {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 12px;
+    overflow-x: auto;
+    margin: 8px 0;
+    font-size: 12px;
+}
+.fs-msg-bubble a {
+    color: var(--fs-primary);
+    text-decoration: none;
+    border-bottom: 1px dotted currentColor;
+}
+.fs-msg-bubble a:hover {
+    text-decoration: underline;
+}
+
+/* =========================================
+   INDICADOR DE ESCRITURA
+========================================= */
+.fs-typing {
+    display: flex;
+    gap: 6px;
+    padding: 12px 16px;
+    background: white;
+    border: 1px solid var(--fs-border);
+    border-radius: 20px;
+    width: fit-content;
+    border-top-left-radius: 6px;
+}
+
+.fs-typing span {
+    width: 8px;
+    height: 8px;
+    background: #cbd5e1;
+    border-radius: 50%;
+    animation: fsTyping 1.4s infinite ease-in-out;
+}
+.fs-typing span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+.fs-typing span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes fsTyping {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.4;
+    }
+    30% {
+        transform: translateY(-6px);
+        opacity: 1;
+    }
+}
+
+/* =========================================
+   ÁREA INFERIOR (SUGERENCIAS + INPUT)
+========================================= */
+.fs-footer-area {
+    padding: 16px;
+    background: white;
+    border-top: 1px solid var(--fs-border-light);
+}
+
+/* Fila de sugerencias */
+.fs-suggestion-row {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 12px;
+    margin-bottom: 8px;
+    scrollbar-width: none;
+}
+.fs-suggestion-row::-webkit-scrollbar {
+    display: none;
+}
+
+.fs-pill {
+    white-space: nowrap;
+    padding: 8px 14px;
+    background: white;
+    border: 1px solid var(--fs-border);
+    border-radius: 40px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fs-text-main);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: var(--fs-transition);
+    backdrop-filter: blur(4px);
+}
+.fs-pill:hover {
+    border-color: var(--fs-primary);
+    color: var(--fs-primary);
+    background: var(--fs-primary-bg);
+    transform: translateY(-1px);
+}
+
+/* Caja de entrada */
+.fs-input-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    border: 1px solid var(--fs-border);
+    padding: 6px 6px 6px 16px;
+    border-radius: 28px;
+    transition: var(--fs-transition);
+}
+.fs-input-box:focus-within {
+    background: white;
+    border-color: var(--fs-primary);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+.fs-input-box input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    font-size: 14px;
+    color: var(--fs-text-main);
+    outline: none;
+    padding: 8px 0;
+}
+
+.fs-send-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 24px;
+    background: var(--fs-primary);
+    color: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--fs-transition);
+}
+.fs-send-btn:hover:not(:disabled) {
+    background: var(--fs-primary-dark);
+    transform: scale(1.02);
+}
+.fs-send-btn:disabled {
+    background: #cbd5e1;
+    cursor: not-allowed;
+}
+
+/* =========================================
+   RESPONSIVE (MÓVILES)
+========================================= */
+@media (max-width: 640px) {
+    .fs-chat-wrapper {
+        bottom: 16px;
+        right: 16px;
+    }
+    .fs-chat-card {
+        width: calc(100vw - 32px);
+        height: 80vh;
+        max-height: 600px;
+        position: fixed;
+        bottom: 80px;
+        right: 16px;
+        left: auto;
+    }
+    .fs-chat-launcher {
+        width: 52px;
+        height: 52px;
+    }
+    .fs-msg-group {
+        max-width: 90%;
+    }
+}
+
+/* =========================================
+   ANIMACIONES ADICIONALES
+========================================= */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+
+}
+/* Permitir selección de texto en mensajes */
+.fs-msg-bubble {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+}
+
+/* Asegurar que todo el chat permita selección */
+.fs-chat-body {
+    user-select: text;
+}

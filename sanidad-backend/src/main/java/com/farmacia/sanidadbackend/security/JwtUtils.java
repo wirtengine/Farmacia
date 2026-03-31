@@ -1,16 +1,12 @@
 package com.farmacia.sanidadbackend.security;
-import com.farmacia.sanidadbackend.model.Usuario;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
-
 
 import java.security.Key;
 import java.util.Date;
@@ -31,13 +27,9 @@ public class JwtUtils {
     }
 
     public String generateJwtToken(Authentication authentication) {
+        UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
 
-        Usuario userPrincipal = (Usuario) authentication.getPrincipal();
-
-        String rol = userPrincipal.getAuthorities()
-                .iterator()
-                .next()
-                .getAuthority();
+        String rol = userPrincipal.getAuthorities().iterator().next().getAuthority();
 
         return Jwts.builder()
                 .setSubject(userPrincipal.getUsername())
@@ -60,14 +52,11 @@ public class JwtUtils {
 
     public boolean validateJwtToken(String authToken) {
         try {
-
             Jwts.parserBuilder()
                     .setSigningKey(key())
                     .build()
                     .parseClaimsJws(authToken);
-
             return true;
-
         } catch (MalformedJwtException e) {
             logger.error("Token JWT inválido: {}", e.getMessage());
         } catch (ExpiredJwtException e) {
@@ -77,7 +66,6 @@ public class JwtUtils {
         } catch (IllegalArgumentException e) {
             logger.error("JWT vacío: {}", e.getMessage());
         }
-
         return false;
     }
 }

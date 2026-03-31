@@ -1,5 +1,6 @@
 package com.farmacia.sanidadbackend.security;
 
+import com.farmacia.sanidadbackend.model.Usuario;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -11,17 +12,24 @@ public class UserDetailsImpl implements UserDetails {
     private String username;
     private String password;
     private Collection<? extends GrantedAuthority> authorities;
+    private Usuario usuario;  // ← añadido
 
     public UserDetailsImpl(Long id, String username, String password,
-                           Collection<? extends GrantedAuthority> authorities) {
+                           Collection<? extends GrantedAuthority> authorities,
+                           Usuario usuario) {  // ← añadido parámetro
         this.id = id;
         this.username = username;
         this.password = password;
         this.authorities = authorities;
+        this.usuario = usuario;
     }
 
     public Long getId() {
         return id;
+    }
+
+    public Usuario getUsuario() {  // ← nuevo getter
+        return usuario;
     }
 
     @Override

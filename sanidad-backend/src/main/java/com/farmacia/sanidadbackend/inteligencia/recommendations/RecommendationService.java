@@ -255,4 +255,11 @@ public class RecommendationService {
             }
         }
     }
+
+    /**
+     * Obtiene todas las recomendaciones pendientes (para el asistente u otras consultas).
+     */
+    public List<Recommendation> obtenerRecomendacionesPendientes() {
+        return recommendationRepository.findByStatusOrderByPriorityDescCreatedAtDesc(RecommendationStatus.PENDING);
+    }
 }

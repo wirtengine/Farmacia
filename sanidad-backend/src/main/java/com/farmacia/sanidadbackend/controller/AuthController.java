@@ -3,6 +3,7 @@ package com.farmacia.sanidadbackend.controller;
 import com.farmacia.sanidadbackend.dto.LoginRequest;
 import com.farmacia.sanidadbackend.dto.LoginResponse;
 import com.farmacia.sanidadbackend.security.JwtUtils;
+import com.farmacia.sanidadbackend.security.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -13,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "*")  // Permitir peticiones desde el frontend (ajusta en producción)
+@CrossOrigin(origins = "*")
 public class AuthController {
 
     @Autowired
@@ -30,6 +31,9 @@ public class AuthController {
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = jwtUtils.generateJwtToken(authentication);
 
-        return ResponseEntity.ok(new LoginResponse(jwt));
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        String rol = userDetails.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
+
+        return ResponseEntity.ok(new LoginResponse(jwt, userDetails.getId(), userDetails.getUsername(), rol));
     }
 }
