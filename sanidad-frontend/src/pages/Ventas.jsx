@@ -23,7 +23,7 @@ export default function Ventas() {
     // Datos
     const [ventas, setVentas] = useState([]);
     const [clientes, setClientes] = useState([]);
-    const [lotes, setLotes] = useState([]);
+    const [lotes, setLotes] = useState([]);      // datos originales
     const [medicamentos, setMedicamentos] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -46,6 +46,37 @@ export default function Ventas() {
     const [detallesVenta, setDetallesVenta] = useState([]);
     const [montoUsarSaldo, setMontoUsarSaldo] = useState(0);
     const [efectivoRecibido, setEfectivoRecibido] = useState(0);
+
+    // --------------------------------------------------------------
+    // Procesar lotes para obtener stock de venta (ubicación + general)
+    // Asumimos que cada detalle de lote tiene:
+    // - cantidad: stock total
+    // - stockUbicacion: stock disponible en ubicaciones (opcional)
+    // Si no viene, se usa cantidad como stockUbicacion para no bloquear
+    // --------------------------------------------------------------
+    const lotesConStock = useMemo(() => {
+        return lotes.map(lote => ({
+            ...lote,
+            detalles: lote.detalles.map(detalle => {
+                const stockUbicacion = detalle.stockUbicacion ?? detalle.cantidad; // fallback
+                return {
+                    ...detalle,
+                    stockUbicacion: stockUbicacion,
+                    // stockVenta = si hay ubicación, se descuenta de ahí, sino del stock total
+                    stockVenta: stockUbicacion > 0 ? stockUbicacion : detalle.cantidad
+                };
+            })
+        }));
+    }, [lotes]);
+
+    // Función auxiliar para obtener stock de venta de un producto por su id
+    const getStockVenta = (loteDetalleId) => {
+        for (const lote of lotesConStock) {
+            const det = lote.detalles.find(d => d.id === loteDetalleId);
+            if (det) return det.stockVenta;
+        }
+        return 0;
+    };
 
     // Cargar datos iniciales (ventas, medicamentos y lotes)
     useEffect(() => {
@@ -186,26 +217,31 @@ export default function Ventas() {
         } catch (err) { alert("Error al cargar datos"); }
     };
 
+    // Función modificada para usar stockVenta
     const agregarMedicamento = (med) => {
+        const stockVenta = getStockVenta(med.id);
         setDetallesVenta(prev => {
             const existente = prev.find(p => p.loteDetalleId === med.id);
+            let nuevaCantidad = existente ? existente.cantidad + 1 : 1;
+
+            if (nuevaCantidad > stockVenta) {
+                alert(`No hay suficiente stock disponible (máximo: ${stockVenta})`);
+                return prev;
+            }
+
             if (existente) {
-                if (existente.cantidad + 1 > med.cantidad) {
-                    alert('No hay suficiente stock.');
-                    return prev;
-                }
                 return prev.map(p =>
                     p.loteDetalleId === med.id
                         ? {
                             ...p,
-                            cantidad: p.cantidad + 1,
-                            subtotal: (p.cantidad + 1) * med.precioUnitario
+                            cantidad: nuevaCantidad,
+                            subtotal: nuevaCantidad * med.precioUnitario
                         }
                         : p
                 );
             } else {
-                if (med.cantidad < 1) {
-                    alert('Producto sin stock.');
+                if (stockVenta < 1) {
+                    alert('Producto sin stock disponible.');
                     return prev;
                 }
                 return [...prev, {
@@ -226,6 +262,16 @@ export default function Ventas() {
 
     const finalizarVenta = async () => {
         if (detallesVenta.length === 0) return alert("El carrito está vacío");
+
+        // Verificar nuevamente stock antes de enviar (por si hubo cambios en el backend)
+        for (const det of detallesVenta) {
+            const stockVenta = getStockVenta(det.loteDetalleId);
+            if (det.cantidad > stockVenta) {
+                alert(`Stock insuficiente para ${det.medicamentoNombre}. Solo disponible: ${stockVenta}`);
+                return;
+            }
+        }
+
         const data = {
             clienteId: clienteSeleccionado?.id,
             usuarioId,
@@ -238,7 +284,10 @@ export default function Ventas() {
             generarPDF(res.data, detallesVenta);
             setDrawerOpen(false);
             cargarVentas();
-        } catch (e) { alert("Error al procesar la venta"); }
+        } catch (e) {
+            console.error(e);
+            alert("Error al procesar la venta. Verifica el stock o contacta a soporte.");
+        }
     };
 
     const generarPDF = (venta, items) => {
@@ -251,7 +300,6 @@ export default function Ventas() {
             startY: 25,
             head: [["Cant", "Producto", "Sub"]],
             body: items.map(d => {
-                // Buscar nombre real si el detalle solo tiene ID
                 const nombreMed = d.medicamentoNombre || medicamentos.find(m => m.id === d.medicamentoId)?.nombre || "Producto";
                 return [d.cantidad, nombreMed, formatCurrency(d.subtotal || (d.cantidad * d.precioUnitario))];
             }),
@@ -334,18 +382,13 @@ export default function Ventas() {
                                     <td className="bold">#{v.numeroFactura}</td>
                                     <td><span className="user-tag">{v.usuarioUsername}</span></td>
                                     <td>{v.clienteNombre || "Consumidor Final"}</td>
-
-                                    {/* Columna de medicamentos con imágenes */}
                                     <td>
                                         <div className="items-chip-container">
                                             {v.detalles?.map((det, i) => {
-                                                // Buscar el loteDetalle correspondiente
-                                                const loteDet = lotes
+                                                const loteDet = lotesConStock
                                                     .flatMap(l => l.detalles)
                                                     .find(ld => ld.id === det.loteDetalleId);
-
                                                 const med = medicamentos.find(m => m.id === loteDet?.medicamentoId);
-
                                                 return (
                                                     <div key={i} className="med-chip-with-img">
                                                         {med?.imagen && (
@@ -363,7 +406,6 @@ export default function Ventas() {
                                             })}
                                         </div>
                                     </td>
-
                                     <td className="price-text">{formatCurrency(v.total || 0)}</td>
                                     <td><button className="btn-circle-print" onClick={() => generarPDF(v, v.detalles)}>🖨️</button></td>
                                 </tr>
@@ -420,18 +462,20 @@ export default function Ventas() {
                             <section className="pos-section">
                                 <input className="pos-input-sm" placeholder="Buscar medicamento..." value={busquedaMedicamento} onChange={e => setBusquedaMedicamento(e.target.value)} />
                                 <div className="results-grid">
-                                    {lotes.flatMap(l =>
+                                    {lotesConStock.flatMap(l =>
                                         l.detalles.map(d => {
                                             const med = medicamentos.find(m => m.id === d.medicamentoId);
                                             return {
                                                 ...d,
                                                 loteNum: l.numeroLote,
                                                 imagen: med?.imagen,
-                                                medicamentoNombre: med?.nombre || d.medicamentoNombre
+                                                medicamentoNombre: med?.nombre || d.medicamentoNombre,
+                                                stockVenta: d.stockVenta,
+                                                tieneUbicacion: d.stockUbicacion > 0
                                             };
                                         })
                                     )
-                                        .filter(d => d.medicamentoNombre.toLowerCase().includes(busquedaMedicamento.toLowerCase()) && d.cantidad > 0)
+                                        .filter(d => d.medicamentoNombre.toLowerCase().includes(busquedaMedicamento.toLowerCase()) && d.stockVenta > 0)
                                         .slice(0, 4).map(m => (
                                             <button key={m.id} className="result-card" onClick={() => agregarMedicamento(m)}>
                                                 {m.imagen && (
@@ -443,7 +487,10 @@ export default function Ventas() {
                                                 )}
                                                 <div className="card-info">
                                                     <span className="card-title">{m.medicamentoNombre}</span>
-                                                    <span className="card-sub">{m.loteNum} | Stock: {m.cantidad}</span>
+                                                    <span className="card-sub">{m.loteNum} | Stock: {m.stockVenta}</span>
+                                                    {!m.tieneUbicacion && m.cantidad > 0 && (
+                                                        <span className="warning-badge">⚠️ Sin ubicación</span>
+                                                    )}
                                                 </div>
                                                 <div className="card-price">{formatCurrency(m.precioUnitario)}</div>
                                             </button>
@@ -466,9 +513,9 @@ export default function Ventas() {
                                                 value={d.cantidad}
                                                 onChange={e => {
                                                     const v = parseInt(e.target.value) || 1;
-                                                    const medOriginal = lotes.flatMap(l => l.detalles).find(m => m.id === d.loteDetalleId);
-                                                    if (medOriginal && v > medOriginal.cantidad) {
-                                                        alert(`Solo hay ${medOriginal.cantidad} unidades disponibles.`);
+                                                    const stockVenta = getStockVenta(d.loteDetalleId);
+                                                    if (v > stockVenta) {
+                                                        alert(`Solo hay ${stockVenta} unidades disponibles.`);
                                                         return;
                                                     }
                                                     setDetallesVenta(prev => prev.map((p, idx) => idx === i ? { ...p, cantidad: v, subtotal: v * p.precioUnitario } : p));

@@ -8,7 +8,10 @@ const MENU_SECTIONS = [
         title: 'Principal',
         roles: ['ALL'],
         items: [
-            { path: '/dashboard', icon: '🏠', label: 'Dashboard' }
+            { path: '/dashboard', icon: '🏠', label: 'Dashboard' },
+
+            // 👇 NUEVO ITEM ALERTAS
+            { path: '/alerts', icon: '🔔', label: 'Alertas' },
         ],
     },
     {
@@ -18,8 +21,6 @@ const MENU_SECTIONS = [
             { path: '/medicamentos', icon: '💊', label: 'Medicamentos' },
             { path: '/lotes', icon: '📦', label: 'Lotes' },
             { path: '/proveedores', icon: '🚚', label: 'Proveedores' },
-
-            // 👇 NUEVO ITEM
             {
                 path: '/ubicaciones',
                 icon: '📦',

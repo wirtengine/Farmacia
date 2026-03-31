@@ -71,8 +71,12 @@ HEADER (FIJO)
     box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3);
 }
 
-.refresh-icon {
-    font-size: 1.2rem;
+.refresh-icon-svg {
+    transition: transform 0.5s ease;
+}
+
+.btn-refresh:hover .refresh-icon-svg {
+    transform: rotate(180deg);
 }
 
 /* =========================
@@ -94,11 +98,12 @@ CONTENIDO SCROLLABLE
 }
 
 /* =========================
-KPIs
+KPIs (AJUSTADO PARA 5 COLUMNAS)
 ========================= */
 .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    /* Ajuste fluido para que las 5 tarjetas quepan en pantallas grandes */
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 12px;
     margin-bottom: 16px;
 }
@@ -110,6 +115,7 @@ KPIs
     border: 1px solid #e5e7eb;
     box-shadow: 0 2px 5px rgba(0,0,0,0.02);
     transition: all 0.2s;
+    position: relative;
 }
 
 .kpi-card:hover {
@@ -124,6 +130,8 @@ KPIs
     color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
 }
 
 .kpi-card p {
@@ -131,6 +139,58 @@ KPIs
     font-size: 1.5rem;
     font-weight: 800;
     color: #0f172a;
+}
+
+/* ESTILOS DE LA TARJETA DE ALERTAS */
+.kpi-card.alert-card {
+    border-color: #fee2e2;
+    cursor: pointer;
+}
+
+.kpi-card.alert-card:hover {
+    border-color: #ef4444;
+    background: #fffcfc;
+}
+
+.alert-number {
+    color: #ef4444 !important;
+}
+
+.alert-status-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: #fee2e2;
+    color: #ef4444;
+    font-size: 0.6rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.alert-icon-bg {
+    position: absolute;
+    bottom: -8px;
+    right: -8px;
+    opacity: 0.1;
+    color: #ef4444;
+    transform: rotate(-15deg);
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: #ef4444;
+    border-radius: 50%;
+    margin-right: 8px;
+    animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
 /* =========================

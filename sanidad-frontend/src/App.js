@@ -13,7 +13,8 @@ import Clientes from './pages/Clientes';
 import Ventas from './pages/Ventas';
 import Devoluciones from './pages/Devoluciones';
 import DevolucionesProveedor from './pages/DevolucionesProveedor';
-import Ubicaciones from './pages/Ubicaciones'; // 👈 agregado
+import Ubicaciones from './pages/Ubicaciones';
+import Alerts from './pages/Alerts'; // 👈 IMPORTANTE
 
 function AppContent() {
     const { user, loading } = useAuth();
@@ -27,7 +28,7 @@ function AppContent() {
             <div className={user ? 'main-content with-sidebar' : 'main-content'}>
                 <Routes>
 
-                    {/* Ruta principal SIEMPRE al login */}
+                    {/* Ruta principal */}
                     <Route path="/" element={<Navigate to="/login" replace />} />
 
                     {/* Login */}
@@ -42,6 +43,16 @@ function AppContent() {
                         element={
                             <PrivateRoute>
                                 <Dashboard />
+                            </PrivateRoute>
+                        }
+                    />
+
+                    {/* 🔔 ALERTS (NUEVO) */}
+                    <Route
+                        path="/alerts"
+                        element={
+                            <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR']}>
+                                <Alerts />
                             </PrivateRoute>
                         }
                     />
@@ -126,7 +137,7 @@ function AppContent() {
                         }
                     />
 
-                    {/* 👇 NUEVA RUTA Ubicaciones */}
+                    {/* Ubicaciones */}
                     <Route
                         path="/ubicaciones"
                         element={
@@ -136,7 +147,7 @@ function AppContent() {
                         }
                     />
 
-                    {/* Ruta no encontrada */}
+                    {/* Fallback */}
                     <Route path="*" element={<Navigate to="/login" replace />} />
 
                 </Routes>

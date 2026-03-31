@@ -84,9 +84,43 @@ public class VentaService {
                 throw new IllegalStateException("Stock insuficiente");
             }
 
-            loteDetalle.setCantidad(loteDetalle.getCantidad() - detalleReq.getCantidad());
+            List<UbicacionLote> ubicaciones = ubicacionLoteRepository
+                    .findByLoteDetalleIdAndActivoTrueOrderById(loteDetalle.getId());
 
-            descontarDeUbicacion(loteDetalle, detalleReq.getCantidad());
+            int cantidadRestante = detalleReq.getCantidad();
+
+            if (!ubicaciones.isEmpty()) {
+                for (UbicacionLote ubicacion : ubicaciones) {
+                    if (cantidadRestante <= 0) break;
+
+                    int disponible = ubicacion.getCantidad();
+
+                    if (disponible >= cantidadRestante) {
+                        ubicacion.setCantidad(disponible - cantidadRestante);
+                        if (ubicacion.getCantidad() == 0) {
+                            ubicacion.setActivo(false);
+                        }
+                        cantidadRestante = 0;
+                    } else {
+                        ubicacion.setCantidad(0);
+                        ubicacion.setActivo(false);
+                        cantidadRestante -= disponible;
+                    }
+
+                    ubicacionLoteRepository.save(ubicacion);
+                }
+            }
+
+            if (cantidadRestante > 0) {
+                if (loteDetalle.getCantidad() < cantidadRestante) {
+                    throw new IllegalStateException("Stock insuficiente después de descontar ubicaciones");
+                }
+                loteDetalle.setCantidad(loteDetalle.getCantidad() - cantidadRestante);
+            } else {
+                loteDetalle.setCantidad(loteDetalle.getCantidad() - detalleReq.getCantidad());
+            }
+
+            loteDetalleRepository.save(loteDetalle);
 
             BigDecimal precioUnitario = loteDetalle.getMedicamento().getPrecioUnitario();
             BigDecimal cantidad = BigDecimal.valueOf(detalleReq.getCantidad());
@@ -136,33 +170,6 @@ public class VentaService {
 
         Venta saved = ventaRepository.save(venta);
         return mapToResponse(saved);
-    }
-
-    private void descontarDeUbicacion(LoteDetalle loteDetalle, int cantidad) {
-        List<UbicacionLote> ubicaciones = ubicacionLoteRepository
-                .findByLoteDetalleIdAndActivoTrueOrderById(loteDetalle.getId());
-        int restante = cantidad;
-        for (UbicacionLote ubicacion : ubicaciones) {
-            if (restante <= 0) break;
-            int disponible = ubicacion.getCantidad();
-            if (disponible >= restante) {
-                ubicacion.setCantidad(disponible - restante);
-                if (ubicacion.getCantidad() == 0) {
-                    ubicacion.setActivo(false);
-                }
-                restante = 0;
-            } else {
-                ubicacion.setCantidad(0);
-                ubicacion.setActivo(false);
-                restante -= disponible;
-            }
-            ubicacionLoteRepository.save(ubicacion);
-        }
-        if (restante > 0) {
-            throw new IllegalStateException(
-                    "No hay suficientes unidades en las ubicaciones para descontar"
-            );
-        }
     }
 
     public List<VentaResponse> listarVentas() {

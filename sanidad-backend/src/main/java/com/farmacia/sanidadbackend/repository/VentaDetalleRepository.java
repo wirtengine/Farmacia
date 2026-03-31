@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface VentaDetalleRepository extends JpaRepository<VentaDetalle, Long> {
@@ -14,4 +15,7 @@ public interface VentaDetalleRepository extends JpaRepository<VentaDetalle, Long
 
     @Query("SELECT COUNT(vd) > 0 FROM VentaDetalle vd WHERE vd.loteDetalle.lote.id = :loteId")
     boolean existsByLoteId(@Param("loteId") Long loteId);
+
+    @Query("SELECT ld.medicamento.id, SUM(vd.cantidad) FROM VentaDetalle vd JOIN vd.loteDetalle ld WHERE vd.venta.fecha BETWEEN :desde AND :hasta AND vd.venta.activo = true GROUP BY ld.medicamento.id")
+    List<Object[]> sumCantidadByMedicamentoEntreFechas(@Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
 }

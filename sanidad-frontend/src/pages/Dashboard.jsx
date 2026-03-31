@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { obtenerResumenDashboard } from '../services/dashboard';
+import { getAlerts } from '../services/alerts';
+import {
+    Bell, RefreshCw, Info, Clock, AlertTriangle
+} from 'lucide-react'; // Importamos iconos para la tarjeta
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
 import './Dashboard.css';
 
-// Función para formatear montos en Córdobas
 const formatCurrency = (value) => `C$ ${value.toFixed(2)}`;
 
-// Tooltip personalizado (reutilizable)
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         return (
@@ -25,21 +28,30 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function Dashboard() {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const esAdmin = user?.rol === 'ADMIN';
 
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [lastUpdated, setLastUpdated] = useState(null);
+    const [pendingAlerts, setPendingAlerts] = useState(0);
 
     const cargarDatos = async () => {
         setLoading(true);
         try {
-            const res = await obtenerResumenDashboard();
-            setData(res.data);
+            const [resumenRes, alertsRes] = await Promise.all([
+                obtenerResumenDashboard(),
+                getAlerts()
+            ]);
+            setData(resumenRes.data);
+            const pending = alertsRes.data.filter(alert => alert.status === 'PENDING').length;
+            setPendingAlerts(pending);
             setLastUpdated(new Date());
-        } catch {
-            setError('Error al conectar con el servidor.');
+            setError('');
+        } catch (err) {
+            console.error(err);
+            setError('Error al actualizar datos en tiempo real.');
         } finally {
             setLoading(false);
         }
@@ -49,85 +61,84 @@ export default function Dashboard() {
         cargarDatos();
     }, []);
 
-    if (loading) return (
+    if (loading && !data) return (
         <div className="dashboard-loading-state">
             <div className="spinner"></div>
-            <p>Cargando indicadores...</p>
+            <p>Sincronizando panel de control...</p>
         </div>
     );
 
-    if (error) return (
-        <div className="dashboard-error-state">
-            ⚠️ {error}
-        </div>
-    );
-
-    if (!data) return null;
-
-    // Preparación de datos para gráficas
-    const ventasPorVendedor = data.rankingVendedores.map(v => ({
+    const ventasPorVendedor = data?.rankingVendedores.map(v => ({
         name: v.username,
         ventas: v.totalVentas
-    }));
+    })) || [];
 
-    const topProductos = data.productosMasRentables.slice(0, 5).map(p => ({
+    const topProductos = data?.productosMasRentables.slice(0, 5).map(p => ({
         name: p.nombre,
         value: p.ingresos
-    }));
+    })) || [];
 
     const tendenciaMensual = [
-        { name: 'Mes Anterior', ventas: data.ventasMesAnterior },
-        { name: 'Mes Actual', ventas: data.ventasMesActual }
+        { name: 'Mes Anterior', ventas: data?.ventasMesAnterior || 0 },
+        { name: 'Mes Actual', ventas: data?.ventasMesActual || 0 }
     ];
 
     const COLORS = ['#10b981', '#3b82f6', '#6366f1', '#f59e0b', '#ef4444'];
 
     return (
         <div className="module-container dashboard-pro">
-            {/* HEADER */}
             <header className="dashboard-header">
                 <div className="header-left">
                     <h1>Dashboard {esAdmin ? 'Ejecutivo' : 'Personal'}</h1>
                     <span className="user-badge">{user?.username} ({user?.rol})</span>
                     {lastUpdated && (
                         <span className="last-updated">
-                            Última actualización: {lastUpdated.toLocaleTimeString()}
+                            Sincronizado: {lastUpdated.toLocaleTimeString()}
                         </span>
                     )}
                 </div>
                 <button className="btn-refresh" onClick={cargarDatos}>
-                    <span className="refresh-icon">↻</span> Actualizar
+                    <RefreshCw size={16} className="refresh-icon-svg" /> Actualizar
                 </button>
             </header>
 
             <div className="dashboard-content">
-                {/* KPIs */}
+                {/* KPIs con la TARJETA DE ALERTAS MEJORADA */}
                 <div className="kpi-grid">
                     <div className="kpi-card">
                         <h4>Ventas Hoy</h4>
-                        <p>{formatCurrency(data.ventasDelDia.totalVentas)}</p>
+                        <p>{formatCurrency(data?.ventasDelDia.totalVentas || 0)}</p>
                     </div>
                     <div className="kpi-card">
                         <h4>Ventas Mes</h4>
-                        <p>{formatCurrency(data.ventasMesActual)}</p>
+                        <p>{formatCurrency(data?.ventasMesActual || 0)}</p>
                     </div>
                     <div className="kpi-card">
                         <h4>Facturas Hoy</h4>
-                        <p>{data.ventasDelDia.cantidadVentas}</p>
+                        <p>{data?.ventasDelDia.cantidadVentas || 0}</p>
                     </div>
-                    <div className="kpi-card">
-                        <h4>Stock Bajo</h4>
-                        <p>{data.productosBajoStock.length}</p>
+
+                    {/* Tarjeta de Alertas con Diseño Pro */}
+                    <div className="kpi-card alert-card" onClick={() => navigate('/alerts')}>
+                        <span className="alert-status-badge">Crítico</span>
+                        <h4>
+                            <span className="pulse-indicator"></span>
+                            Alertas Pendientes
+                        </h4>
+                        <p className="alert-number">{pendingAlerts}</p>
+                        <span className="last-updated">Revisar centro de control</span>
+                        <div className="alert-icon">
+                            <Bell size={60} />
+                        </div>
                     </div>
                 </div>
 
                 {/* GRÁFICAS */}
                 <div className="charts-grid">
-                    {/* Gráfico de Barras */}
                     <div className="chart-card">
                         <h3>Ventas por Vendedor</h3>
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={ventasPorVendedor} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+                            <BarChart data={ventasPorVendedor}>
                                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                                 <YAxis tickFormatter={(value) => `C$${value}`} width={60} />
                                 <Tooltip content={<CustomTooltip />} />
@@ -136,7 +147,6 @@ export default function Dashboard() {
                         </ResponsiveContainer>
                     </div>
 
-                    {/* Gráfico de Pastel con Leyenda Personalizada */}
                     <div className="chart-card pie-card">
                         <h3>Productos Más Rentables</h3>
                         <div className="pie-content">
@@ -146,13 +156,12 @@ export default function Dashboard() {
                                         <Pie
                                             data={topProductos}
                                             dataKey="value"
-                                            nameKey="name"
+                                            innerRadius="45%"
                                             outerRadius="80%"
-                                            innerRadius="40%"
-                                            paddingAngle={2}
+                                            paddingAngle={4}
                                         >
-                                            {topProductos.map((entry, index) => (
-                                                <Cell key={index} fill={COLORS[index % COLORS.length]} stroke="none" />
+                                            {topProductos.map((_, index) => (
+                                                <Cell key={index} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
                                         <Tooltip content={<CustomTooltip />} />
@@ -173,21 +182,19 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    {/* Gráfico de Línea (Tendencia) */}
                     <div className="chart-card full">
-                        <h3>Tendencia de Ventas</h3>
+                        <h3>Tendencia de Ventas (Comparativa Mensual)</h3>
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={tendenciaMensual} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+                            <LineChart data={tendenciaMensual}>
                                 <XAxis dataKey="name" />
                                 <YAxis tickFormatter={(value) => `C$${value}`} width={60} />
                                 <Tooltip content={<CustomTooltip />} />
-                                <Line type="monotone" dataKey="ventas" stroke="#10b981" strokeWidth={3} dot={{ r: 6 }} />
+                                <Line type="monotone" dataKey="ventas" stroke="#10b981" strokeWidth={4} dot={{ r: 6, fill: '#10b981' }} />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
-                {/* TABLAS ADICIONALES (solo admin) */}
                 {esAdmin && (
                     <div className="bottom-grid">
                         <div className="table-card">
@@ -217,7 +224,7 @@ export default function Dashboard() {
                         </div>
 
                         <div className="table-card">
-                            <h3>Productos con Stock Bajo</h3>
+                            <h3>Stock Crítico</h3>
                             <ul className="stock-list">
                                 {data.productosBajoStock.map((p, i) => (
                                     <li key={i}>

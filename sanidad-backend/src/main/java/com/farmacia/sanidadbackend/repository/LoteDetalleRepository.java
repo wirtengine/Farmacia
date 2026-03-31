@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import jakarta.persistence.LockModeType;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,4 +19,7 @@ public interface LoteDetalleRepository extends JpaRepository<LoteDetalle, Long> 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select ld from LoteDetalle ld where ld.id = :id")
     Optional<LoteDetalle> findByIdWithLock(@Param("id") Long id);
+
+    @Query("SELECT ld.medicamento.id, SUM(ld.cantidad) FROM LoteDetalle ld WHERE ld.lote.activo = true AND ld.lote.fechaVencimiento > :fechaActual GROUP BY ld.medicamento.id")
+    List<Object[]> findStockActualPorMedicamento(@Param("fechaActual") LocalDate fechaActual);
 }
