@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { listarVentas, crearVenta } from "../services/ventas";
 import { listarClientes } from "../services/clientes";
 import { listarLotes } from "../services/lotes";
-import { listarMedicamentos } from "../services/medicamentos"; // 🔥 NUEVO
+import { listarMedicamentos } from "../services/medicamentos";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import "./Ventas.css";
@@ -24,7 +24,7 @@ export default function Ventas() {
     const [ventas, setVentas] = useState([]);
     const [clientes, setClientes] = useState([]);
     const [lotes, setLotes] = useState([]);
-    const [medicamentos, setMedicamentos] = useState([]); // 🔥 NUEVO: Estado para medicinas
+    const [medicamentos, setMedicamentos] = useState([]);
     const [loading, setLoading] = useState(false);
 
     // Filtros
@@ -47,18 +47,20 @@ export default function Ventas() {
     const [montoUsarSaldo, setMontoUsarSaldo] = useState(0);
     const [efectivoRecibido, setEfectivoRecibido] = useState(0);
 
-    // 🔥 MODIFICADO: Cargar medicamentos al inicio para usarlos en la tabla principal
+    // Cargar datos iniciales (ventas, medicamentos y lotes)
     useEffect(() => {
         const cargarDatosIniciales = async () => {
             setLoading(true);
             try {
-                const [resV, resM] = await Promise.all([
+                const [resV, resM, resL] = await Promise.all([
                     listarVentas(),
-                    listarMedicamentos()
+                    listarMedicamentos(),
+                    listarLotes()
                 ]);
                 const sorted = (resV.data || []).sort((a, b) => b.id - a.id);
                 setVentas(sorted);
                 setMedicamentos(resM.data || []);
+                setLotes(resL.data || []);
             } catch (e) {
                 console.error("Error cargando datos iniciales", e);
             } finally {
@@ -309,7 +311,7 @@ export default function Ventas() {
                             <th>Factura</th>
                             <th>Vendedor</th>
                             <th>Cliente</th>
-                            <th>Medicamentos</th> {/* 🔥 COLUMNA NUEVA */}
+                            <th>Medicamentos</th>
                             <th>Total</th>
                             <th>Acción</th>
                         </tr>
@@ -333,23 +335,29 @@ export default function Ventas() {
                                     <td><span className="user-tag">{v.usuarioUsername}</span></td>
                                     <td>{v.clienteNombre || "Consumidor Final"}</td>
 
-                                    {/* 🔥 CONTENIDO NUEVO: Chips con imágenes */}
+                                    {/* Columna de medicamentos con imágenes */}
                                     <td>
                                         <div className="items-chip-container">
                                             {v.detalles?.map((det, i) => {
-                                                const med = medicamentos.find(m => m.id === det.medicamentoId);
+                                                // Buscar el loteDetalle correspondiente
+                                                const loteDet = lotes
+                                                    .flatMap(l => l.detalles)
+                                                    .find(ld => ld.id === det.loteDetalleId);
+
+                                                const med = medicamentos.find(m => m.id === loteDet?.medicamentoId);
+
                                                 return (
                                                     <div key={i} className="med-chip-with-img">
                                                         {med?.imagen && (
                                                             <img
-                                                                src={`http://localhost:8080/${med.imagen}`}
+                                                                src={`http://localhost:8080/${med.imagen.replace(/\\/g, "/")}`}
                                                                 alt="med"
                                                             />
                                                         )}
                                                         <span>
-                                                            {med?.nombre || det.medicamentoNombre || 'S/N'}
+                                                                {med?.nombre || 'S/N'}
                                                             <small> x{det.cantidad}</small>
-                                                        </span>
+                                                            </span>
                                                     </div>
                                                 );
                                             })}
@@ -428,7 +436,7 @@ export default function Ventas() {
                                             <button key={m.id} className="result-card" onClick={() => agregarMedicamento(m)}>
                                                 {m.imagen && (
                                                     <img
-                                                        src={`http://localhost:8080/${m.imagen}`}
+                                                        src={`http://localhost:8080/${m.imagen.replace(/\\/g, "/")}`}
                                                         alt="med"
                                                         style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '6px', marginRight: '10px' }}
                                                     />

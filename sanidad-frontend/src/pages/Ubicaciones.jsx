@@ -272,22 +272,43 @@ export default function Ubicaciones() {
         setMessage({ text: 'Movimiento cancelado', type: 'info' });
     };
 
+    // 🔥 FUNCIÓN PRINCIPAL QUE MANEJA EL CLICK EN LA CELDA (CORREGIDA)
     const handleCeldaClick = async (nivel, columna, profundidadIndex) => {
-        const ocupada = ubicaciones.some(u => u.nivel === nivel && u.columna === columna && u.profundidadIndex === profundidadIndex && u.activo !== false);
-        const ubicacionEnCelda = ubicaciones.find(u => u.nivel === nivel && u.columna === columna && u.profundidadIndex === profundidadIndex);
-
         // MODO MOVIMIENTO: intentar mover
         if (modoMovimiento && origenMovimiento) {
+            // Si es la misma celda, cancelar
             if (origenMovimiento.nivel === nivel && origenMovimiento.columna === columna && origenMovimiento.profundidadIndex === profundidadIndex) {
                 cancelarMovimiento();
                 return;
             }
-            if (ocupada) {
-                setMessage({ text: 'La celda destino está ocupada. Movimiento cancelado.', type: 'error' });
+
+            if (!rackSeleccionado) {
                 cancelarMovimiento();
                 return;
             }
+
             try {
+                // 1. Obtener ubicaciones actualizadas desde el servidor
+                const freshUbicRes = await listarUbicacionesPorRack(rackSeleccionado.id);
+                const freshUbicaciones = freshUbicRes.data;
+
+                // 2. Verificar si la celda destino está ocupada
+                const ocupadaDestino = freshUbicaciones.some(u =>
+                    u.nivel === nivel && u.columna === columna && u.profundidadIndex === profundidadIndex && u.activo !== false
+                );
+
+                if (ocupadaDestino) {
+                    setMessage({ text: 'La celda destino está ocupada. Movimiento cancelado.', type: 'error' });
+                    cancelarMovimiento();
+                    return;
+                }
+
+                setLoading(true);
+
+                // 3. Eliminar la ubicación origen PRIMERO
+                await eliminarUbicacion(origenMovimiento.ubicacionId);
+
+                // 4. Asignar la nueva ubicación
                 await asignarUbicacion({
                     loteDetalleId: origenMovimiento.loteDetalleId,
                     rackId: rackSeleccionado.id,
@@ -296,27 +317,25 @@ export default function Ubicaciones() {
                     profundidadIndex,
                     cantidad: origenMovimiento.cantidad
                 });
-                await eliminarUbicacion(origenMovimiento.ubicacionId);
+
+                // 5. Recargar datos y actualizar el estado
                 await cargarDatosBase();
-                const resUbic = await listarUbicacionesPorRack(rackSeleccionado.id);
-                setUbicaciones(resUbic.data);
+                const finalUbicRes = await listarUbicacionesPorRack(rackSeleccionado.id);
+                setUbicaciones(finalUbicRes.data);
                 setMessage({ text: 'Producto movido con éxito', type: 'success' });
             } catch (err) {
                 console.error(err);
-                setMessage({ text: 'Error al mover el producto', type: 'error' });
+                setMessage({ text: err.response?.data?.message || 'Error al mover el producto', type: 'error' });
             } finally {
                 cancelarMovimiento();
+                setLoading(false);
             }
             return;
         }
 
-        // MODO NORMAL
+        // MODO NORMAL: seleccionar celda y abrir drawer
         setCeldaSeleccionada({ nivel, columna, profundidadIndex });
-        if (!ocupada) {
-            setDrawerAsignarOpen(true);
-        } else {
-            setDrawerAsignarOpen(true);
-        }
+        setDrawerAsignarOpen(true);
     };
 
     // --- INFO CELDA ---
@@ -432,6 +451,8 @@ export default function Ubicaciones() {
                             <RackVisualization
                                 rack={rackSeleccionado}
                                 ubicaciones={ubicaciones}
+                                lotes={lotes}
+                                medicamentos={medicamentos}
                                 onSeleccionarCelda={handleCeldaClick}
                                 seleccionActual={celdaSeleccionada}
                                 modoMovimiento={modoMovimiento}

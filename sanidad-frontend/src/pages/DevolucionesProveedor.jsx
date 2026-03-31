@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { listarDevolucionesProveedor, solicitarDevolucionProveedor, aprobarDevolucionProveedor } from '../services/devolucionesProveedor';
 import { listarLotes, obtenerLote } from '../services/lotes';
 import { listarProveedores } from '../services/proveedores';
+import { listarMedicamentos } from '../services/medicamentos'; // 🔥 NUEVO
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import './DevolucionesProveedor.css';
@@ -13,11 +14,13 @@ export default function DevolucionesProveedor() {
     const usuarioId = user?.id;
 
     const [devoluciones, setDevoluciones] = useState([]);
+    const [medicamentos, setMedicamentos] = useState([]); // 🔥 NUEVO
     const [loading, setLoading] = useState(false);
-    const [proveedores, setProveedores] = useState([]); // Para obtener teléfono
+    const [proveedores, setProveedores] = useState([]);
 
     // Estados para filtro y paginación
     const [searchTerm, setSearchTerm] = useState('');
+    const [estadoFiltro, setEstadoFiltro] = useState('TODOS'); // 🔥 NUEVO
     const [currentPage, setCurrentPage] = useState(1);
     const rowsPerPage = 15;
 
@@ -29,19 +32,30 @@ export default function DevolucionesProveedor() {
     const [motivo, setMotivo] = useState('');
     const [busquedaLote, setBusquedaLote] = useState('');
 
+    // Cargar datos iniciales: devoluciones, medicamentos, proveedores y lotes
     useEffect(() => {
-        cargarDevoluciones();
-        cargarProveedores(); // Cargamos proveedores para tener los teléfonos
+        const cargarDatosIniciales = async () => {
+            setLoading(true);
+            try {
+                const [resDev, resMed, resProv, resLot] = await Promise.all([
+                    listarDevolucionesProveedor(),
+                    listarMedicamentos(),
+                    listarProveedores(),
+                    listarLotes()
+                ]);
+                const sorted = (resDev.data || []).sort((a, b) => b.id - a.id);
+                setDevoluciones(sorted);
+                setMedicamentos(resMed.data || []);
+                setProveedores(resProv.data || []);
+                setLotes(resLot.data || []);
+            } catch (error) {
+                console.error(error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        cargarDatosIniciales();
     }, []);
-
-    const cargarProveedores = async () => {
-        try {
-            const res = await listarProveedores();
-            setProveedores(res.data || []);
-        } catch (error) {
-            console.error('Error al cargar proveedores', error);
-        }
-    };
 
     const cargarDevoluciones = async () => {
         setLoading(true);
@@ -56,21 +70,27 @@ export default function DevolucionesProveedor() {
         }
     };
 
-    // Filtrado
+    // Filtrado combinado (texto + estado)
     const devolucionesFiltradas = useMemo(() => {
+        let filtradas = devoluciones;
         const term = searchTerm.toLowerCase().trim();
-        return devoluciones.filter(d =>
-            !term ||
-            (d.numeroDevolucion && d.numeroDevolucion.toLowerCase().includes(term)) ||
-            (d.numeroFacturaLote && d.numeroFacturaLote.toLowerCase().includes(term)) ||
-            (d.proveedorNombre && d.proveedorNombre.toLowerCase().includes(term))
-        );
-    }, [devoluciones, searchTerm]);
+        if (term) {
+            filtradas = filtradas.filter(d =>
+                (d.numeroDevolucion && d.numeroDevolucion.toLowerCase().includes(term)) ||
+                (d.numeroFacturaLote && d.numeroFacturaLote.toLowerCase().includes(term)) ||
+                (d.proveedorNombre && d.proveedorNombre.toLowerCase().includes(term))
+            );
+        }
+        if (estadoFiltro !== 'TODOS') {
+            filtradas = filtradas.filter(d => d.estado === estadoFiltro);
+        }
+        return filtradas;
+    }, [devoluciones, searchTerm, estadoFiltro]);
 
     // Paginación
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm]);
+    }, [searchTerm, estadoFiltro]);
 
     const totalPages = Math.ceil(devolucionesFiltradas.length / rowsPerPage);
     const paginatedDevoluciones = useMemo(() => {
@@ -133,7 +153,12 @@ export default function DevolucionesProveedor() {
         return pages;
     };
 
-    // Función para imprimir (PDF) de una devolución existente
+    // Función para obtener el medicamento a partir de un detalle de devolución
+    const obtenerMedicamentoDesdeDetalle = (det) => {
+        return medicamentos.find(m => m.id === det.medicamentoId);
+    };
+
+    // 📄 Función para imprimir PDF de una devolución existente (con imágenes)
     const imprimirDevolucion = (devolucion) => {
         const doc = new jsPDF();
         const margin = 14;
@@ -157,13 +182,40 @@ export default function DevolucionesProveedor() {
         doc.text(`N° Solicitud: ${devolucion.numeroDevolucion || 'Pendiente'}`, margin, 62);
         doc.text(`Estado: ${devolucion.estado}`, margin, 68);
 
-        const productos = devolucion.detalles?.map(d => [d.medicamentoNombre, d.cantidadDevuelta]) || [];
+        // Preparar datos para autoTable con imágenes
+        const tableData = devolucion.detalles?.map(det => {
+            const med = obtenerMedicamentoDesdeDetalle(det);
+            return {
+                nombre: med?.nombre || det.medicamentoNombre || 'S/N',
+                cantidad: det.cantidadDevuelta,
+                imagenUrl: med?.imagen ? `http://localhost:8080/${med.imagen.replace(/\\/g, '/')}` : null
+            };
+        }) || [];
+
+        // Usar autoTable con didDrawCell para dibujar imágenes
         autoTable(doc, {
             startY: 75,
             head: [['Medicamento', 'Cantidad Devuelta']],
-            body: productos,
+            body: tableData.map(item => [item.nombre, item.cantidad]),
             headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
             alternateRowStyles: { fillColor: [248, 250, 252] },
+            didDrawCell: (data) => {
+                // Dibujar imagen en la columna 0 (medicamento) si existe
+                if (data.column.index === 0 && tableData[data.row.index]?.imagenUrl) {
+                    const imgUrl = tableData[data.row.index].imagenUrl;
+                    const img = new Image();
+                    img.src = imgUrl;
+                    img.onload = () => {
+                        // Posición dentro de la celda: x + 2, y + 2, ancho 20, alto 20
+                        doc.addImage(img, 'JPEG', data.cell.x + 2, data.cell.y + 2, 20, 20);
+                        // Ajustar el texto para que no se superponga (opcional)
+                        const textX = data.cell.x + 24;
+                        const textY = data.cell.y + data.cell.height / 2;
+                        doc.setFontSize(10);
+                        doc.text(tableData[data.row.index].nombre, textX, textY);
+                    };
+                }
+            }
         });
 
         const finalY = doc.lastAutoTable.finalY + 15;
@@ -178,15 +230,16 @@ export default function DevolucionesProveedor() {
 
     // Función para enviar por WhatsApp (genera PDF y abre WhatsApp)
     const enviarWhatsApp = (devolucion) => {
-        // Buscar el proveedor para obtener el teléfono
         const proveedor = proveedores.find(p => p.nombre === devolucion.proveedorNombre);
-        const telefono = proveedor?.telefono || ''; // Si no hay teléfono, se puede omitir o usar un placeholder
+        const telefono = proveedor?.telefono || '';
 
-        // Generar PDF (se descarga automáticamente)
         imprimirDevolucion(devolucion);
 
-        // Construir mensaje
-        const productosTexto = devolucion.detalles?.map(d => `- ${d.medicamentoNombre}: ${d.cantidadDevuelta}`).join('\n') || '';
+        const productosTexto = devolucion.detalles?.map(det => {
+            const med = obtenerMedicamentoDesdeDetalle(det);
+            return `- ${med?.nombre || det.medicamentoNombre}: ${det.cantidadDevuelta}`;
+        }).join('\n') || '';
+
         const mensaje = `*HOLA, REPORTE DE DEVOLUCIÓN*\n\n` +
             `*N° Solicitud:* ${devolucion.numeroDevolucion || 'Pendiente'}\n` +
             `*Factura Lote:* ${devolucion.numeroFacturaLote}\n` +
@@ -196,7 +249,6 @@ export default function DevolucionesProveedor() {
             `*Productos devueltos:*\n${productosTexto}\n\n` +
             `_Se ha generado un PDF con los detalles completos._`;
 
-        // Abrir WhatsApp (si hay teléfono)
         if (telefono) {
             const url = `https://wa.me/+505${telefono}?text=${encodeURIComponent(mensaje)}`;
             window.open(url, '_blank');
@@ -213,7 +265,7 @@ export default function DevolucionesProveedor() {
         try {
             const [resLotes, resProv] = await Promise.all([listarLotes(), listarProveedores()]);
             setLotes(resLotes.data);
-            setProveedores(resProv.data); // Actualizamos proveedores
+            setProveedores(resProv.data);
             setDrawerOpen(true);
         } catch (error) {
             alert('Error al cargar datos');
@@ -223,12 +275,16 @@ export default function DevolucionesProveedor() {
     const handleSeleccionarLote = async (lote) => {
         try {
             const res = await obtenerLote(lote.id);
-            const detalles = res.data.detalles.map(d => ({
-                loteDetalleId: d.id,
-                medicamentoNombre: d.medicamentoNombre,
-                cantidadDisponible: d.cantidad,
-                cantidadDevuelta: 0,
-            }));
+            const detalles = res.data.detalles.map(d => {
+                const med = medicamentos.find(m => m.id === d.medicamentoId);
+                return {
+                    loteDetalleId: d.id,
+                    medicamentoNombre: med?.nombre || d.medicamentoNombre,
+                    cantidadDisponible: d.cantidad,
+                    cantidadDevuelta: 0,
+                    imagen: med?.imagen
+                };
+            });
             setItemsDevolucion(detalles);
             setLoteSeleccionado(lote);
         } catch (error) {
@@ -242,6 +298,7 @@ export default function DevolucionesProveedor() {
         ));
     };
 
+    // 📄 Generar PDF para la nueva solicitud (con imágenes)
     const generarPDF = (datos) => {
         const doc = new jsPDF();
         const margin = 14;
@@ -263,12 +320,33 @@ export default function DevolucionesProveedor() {
         doc.text(`Proveedor: ${datos.proveedor}`, margin, 50);
         doc.text(`Factura Referencia: ${datos.factura}`, margin, 56);
 
+        // Preparar datos para la tabla con imágenes
+        const tableData = datos.productos.map(p => ({
+            nombre: p.nombre,
+            cantidad: p.cantidad,
+            imagenUrl: p.imagenUrl
+        }));
+
         autoTable(doc, {
             startY: 65,
             head: [['Medicamento', 'Cantidad a Devolver']],
-            body: datos.productos.map(p => [p.nombre, p.cantidad]),
+            body: tableData.map(item => [item.nombre, item.cantidad]),
             headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
             alternateRowStyles: { fillColor: [248, 250, 252] },
+            didDrawCell: (data) => {
+                if (data.column.index === 0 && tableData[data.row.index]?.imagenUrl) {
+                    const imgUrl = tableData[data.row.index].imagenUrl;
+                    const img = new Image();
+                    img.src = imgUrl;
+                    img.onload = () => {
+                        doc.addImage(img, 'JPEG', data.cell.x + 2, data.cell.y + 2, 20, 20);
+                        const textX = data.cell.x + 24;
+                        const textY = data.cell.y + data.cell.height / 2;
+                        doc.setFontSize(10);
+                        doc.text(tableData[data.row.index].nombre, textX, textY);
+                    };
+                }
+            }
         });
 
         const finalY = doc.lastAutoTable.finalY + 15;
@@ -303,7 +381,11 @@ export default function DevolucionesProveedor() {
             const datosExport = {
                 proveedor: provObj?.nombre,
                 factura: loteSeleccionado.factura,
-                productos: productosParaDevolver.map(p => ({ nombre: p.medicamentoNombre, cantidad: p.cantidadDevuelta })),
+                productos: productosParaDevolver.map(p => ({
+                    nombre: p.medicamentoNombre,
+                    cantidad: p.cantidadDevuelta,
+                    imagenUrl: p.imagen ? `http://localhost:8080/${p.imagen.replace(/\\/g, '/')}` : null
+                })),
                 motivo: motivo
             };
 
@@ -348,7 +430,6 @@ export default function DevolucionesProveedor() {
 
     return (
         <div className="module-container">
-            {/* HEADER DE DOS FILAS */}
             <header className="module-header">
                 <div className="header-title">
                     <h1>Devoluciones a Proveedores</h1>
@@ -365,6 +446,35 @@ export default function DevolucionesProveedor() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
+
+                    {/* 🔥 Filtro por estado */}
+                    <div className="status-filter-group">
+                        <button
+                            className={`status-filter-btn ${estadoFiltro === 'TODOS' ? 'active' : ''}`}
+                            onClick={() => setEstadoFiltro('TODOS')}
+                        >
+                            Todos
+                        </button>
+                        <button
+                            className={`status-filter-btn ${estadoFiltro === 'PENDIENTE' ? 'active' : ''}`}
+                            onClick={() => setEstadoFiltro('PENDIENTE')}
+                        >
+                            Pendientes
+                        </button>
+                        <button
+                            className={`status-filter-btn ${estadoFiltro === 'APROBADA' ? 'active' : ''}`}
+                            onClick={() => setEstadoFiltro('APROBADA')}
+                        >
+                            Aprobadas
+                        </button>
+                        <button
+                            className={`status-filter-btn ${estadoFiltro === 'RECHAZADA' ? 'active' : ''}`}
+                            onClick={() => setEstadoFiltro('RECHAZADA')}
+                        >
+                            Rechazadas
+                        </button>
+                    </div>
+
                     <button className="btn-add-venta" onClick={handleNuevaDevolucion}>
                         ＋ Nueva Solicitud
                     </button>
@@ -379,15 +489,16 @@ export default function DevolucionesProveedor() {
                             <th>N° Solicitud</th>
                             <th>Factura Lote</th>
                             <th>Proveedor</th>
+                            <th>Productos</th> {/* 🔥 NUEVA COLUMNA */}
                             <th>Estado</th>
                             <th className="text-center">Acciones</th>
                         </tr>
                         </thead>
                         <tbody>
                         {loading ? (
-                            // Skeleton loader
                             Array.from({ length: rowsPerPage }).map((_, idx) => (
                                 <tr key={idx} className="skeleton-row">
+                                    <td><div className="skeleton-cell" /></td>
                                     <td><div className="skeleton-cell" /></td>
                                     <td><div className="skeleton-cell" /></td>
                                     <td><div className="skeleton-cell" /></td>
@@ -401,10 +512,32 @@ export default function DevolucionesProveedor() {
                                     <td className="font-bold">{d.numeroDevolucion || 'Pendiente'}</td>
                                     <td>{d.numeroFacturaLote}</td>
                                     <td><span className="user-tag">{d.proveedorNombre}</span></td>
+                                    {/* 🔥 COLUMNA DE PRODUCTOS CON IMÁGENES */}
                                     <td>
-                                        <span className={`status-pill ${d.estado.toLowerCase()}`}>
-                                            {d.estado}
-                                        </span>
+                                        <div className="items-chip-container">
+                                            {d.detalles?.map((det, i) => {
+                                                const med = obtenerMedicamentoDesdeDetalle(det);
+                                                return (
+                                                    <div key={i} className="med-chip-with-img">
+                                                        {med?.imagen && (
+                                                            <img
+                                                                src={`http://localhost:8080/${med.imagen.replace(/\\/g, '/')}`}
+                                                                alt="med"
+                                                            />
+                                                        )}
+                                                        <span>
+                                                                {med?.nombre || det.medicamentoNombre || 'S/N'}
+                                                            <small> x{det.cantidadDevuelta}</small>
+                                                            </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </td>
+                                    <td>
+                                            <span className={`status-pill ${d.estado.toLowerCase()}`}>
+                                                {d.estado}
+                                            </span>
                                     </td>
                                     <td className="text-center">
                                         <div className="action-buttons-group">
@@ -499,6 +632,13 @@ export default function DevolucionesProveedor() {
                                     <h4 className="section-divider">Cantidades a Devolver</h4>
                                     {itemsDevolucion.map(item => (
                                         <div key={item.loteDetalleId} className="cart-row-sm">
+                                            {item.imagen && (
+                                                <img
+                                                    src={`http://localhost:8080/${item.imagen.replace(/\\/g, '/')}`}
+                                                    alt="med"
+                                                    style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', marginRight: '10px' }}
+                                                />
+                                            )}
                                             <div className="cart-info-sm">
                                                 <strong>{item.medicamentoNombre}</strong>
                                                 <small>Stock: {item.cantidadDisponible}</small>

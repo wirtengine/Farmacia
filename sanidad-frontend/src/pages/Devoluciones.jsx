@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { listarDevoluciones, solicitarDevolucion, aprobarDevolucion } from '../services/devoluciones';
 import { listarVentas, obtenerVenta } from '../services/ventas';
+import { listarMedicamentos } from '../services/medicamentos';
+import { listarLotes } from '../services/lotes'; // 🔥 NUEVO: para obtener los lotes
 import './Devoluciones.css';
 
 export default function Devoluciones() {
@@ -9,24 +11,24 @@ export default function Devoluciones() {
     const esAdmin = user?.rol === 'ADMIN';
     const usuarioId = user?.id;
 
-    // Función auxiliar para redondear a 2 decimales
     const round2 = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
-
-    // Formato de moneda en Córdobas
     const formatCurrency = (value) => `C$ ${value.toFixed(2)}`;
 
     // Datos
     const [devoluciones, setDevoluciones] = useState([]);
+    const [medicamentos, setMedicamentos] = useState([]);
+    const [lotes, setLotes] = useState([]); // 🔥 NUEVO
     const [loading, setLoading] = useState(false);
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
+    const [estadoFiltro, setEstadoFiltro] = useState('TODOS');
 
     // Paginación
     const [currentPage, setCurrentPage] = useState(1);
     const rowsPerPage = 15;
 
-    // Estados del Drawer
+    // Drawer
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [ventas, setVentas] = useState([]);
     const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
@@ -34,36 +36,64 @@ export default function Devoluciones() {
     const [motivo, setMotivo] = useState('');
     const [busquedaVenta, setBusquedaVenta] = useState('');
 
-    // Estado para la Factura de Impresión
+    // Ticket de impresión
     const [ticketPrint, setTicketPrint] = useState(null);
 
-    useEffect(() => { cargarDevoluciones(); }, []);
+    // Cargar devoluciones, medicamentos y lotes al inicio
+    useEffect(() => {
+        const cargarDatosIniciales = async () => {
+            setLoading(true);
+            try {
+                const [resDev, resMed, resLot] = await Promise.all([
+                    listarDevoluciones(),
+                    listarMedicamentos(),
+                    listarLotes()
+                ]);
+                const sorted = (resDev.data || []).sort((a, b) => b.id - a.id);
+                setDevoluciones(sorted);
+                setMedicamentos(resMed.data || []);
+                setLotes(resLot.data || []);
+            } catch (error) {
+                console.error(error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        cargarDatosIniciales();
+    }, []);
 
     const cargarDevoluciones = async () => {
         setLoading(true);
         try {
             const res = await listarDevoluciones();
-            // Ordenar por ID descendente (último registrado primero)
             const sorted = (res.data || []).sort((a, b) => b.id - a.id);
             setDevoluciones(sorted);
-        } catch (error) { console.error(error); }
-        finally { setLoading(false); }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // Filtrado por número de devolución o factura
+    // Filtrado combinado (texto + estado)
     const devolucionesFiltradas = useMemo(() => {
+        let filtradas = devoluciones;
         const term = searchTerm.toLowerCase().trim();
-        return devoluciones.filter(d =>
-            !term ||
-            (d.numeroDevolucion && d.numeroDevolucion.toLowerCase().includes(term)) ||
-            (d.numeroFactura && d.numeroFactura.toLowerCase().includes(term))
-        );
-    }, [devoluciones, searchTerm]);
+        if (term) {
+            filtradas = filtradas.filter(d =>
+                (d.numeroDevolucion && d.numeroDevolucion.toLowerCase().includes(term)) ||
+                (d.numeroFactura && d.numeroFactura.toLowerCase().includes(term))
+            );
+        }
+        if (estadoFiltro !== 'TODOS') {
+            filtradas = filtradas.filter(d => d.estado === estadoFiltro);
+        }
+        return filtradas;
+    }, [devoluciones, searchTerm, estadoFiltro]);
 
-    // Resetear página al cambiar filtro
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm]);
+    }, [searchTerm, estadoFiltro]);
 
     // Paginación
     const totalPages = Math.ceil(devolucionesFiltradas.length / rowsPerPage);
@@ -164,13 +194,18 @@ export default function Devoluciones() {
     const handleSeleccionarVenta = async (venta) => {
         try {
             const res = await obtenerVenta(venta.id);
-            const inicial = res.data.detalles.map(d => ({
-                ventaDetalleId: d.id,
-                producto: d.medicamentoNombre,
-                cantidadMax: d.cantidad,
-                cantidadDevuelta: 0,
-                precioUnitario: d.precioUnitario
-            }));
+            // Enriquecer detalles con la imagen del medicamento
+            const inicial = res.data.detalles.map(d => {
+                const med = medicamentos.find(m => m.id === d.medicamentoId);
+                return {
+                    ventaDetalleId: d.id,
+                    producto: d.medicamentoNombre,
+                    cantidadMax: d.cantidad,
+                    cantidadDevuelta: 0,
+                    precioUnitario: d.precioUnitario,
+                    imagen: med?.imagen
+                };
+            });
             setItemsDevolucion(inicial);
             setVentaSeleccionada(res.data);
         } catch (error) { alert('Error al cargar detalles'); }
@@ -199,9 +234,24 @@ export default function Devoluciones() {
         return ventas.filter(v => v.numeroFactura.toLowerCase().includes(busquedaVenta.toLowerCase()));
     }, [ventas, busquedaVenta]);
 
+    // 🔥 Función auxiliar para obtener el medicamento desde un detalle de devolución
+    const obtenerMedicamentoDesdeDetalle = (det) => {
+        // Prioridad: usar loteDetalleId si existe
+        if (det.loteDetalleId) {
+            const loteDet = lotes.flatMap(l => l.detalles).find(ld => ld.id === det.loteDetalleId);
+            if (loteDet) {
+                return medicamentos.find(m => m.id === loteDet.medicamentoId);
+            }
+        }
+        // Si no, usar medicamentoId directamente
+        if (det.medicamentoId) {
+            return medicamentos.find(m => m.id === det.medicamentoId);
+        }
+        return null;
+    };
+
     return (
         <div className="module-container">
-            {/* HEADER DE DOS FILAS */}
             <header className="module-header">
                 <div className="header-title">
                     <h1>Devoluciones</h1>
@@ -218,6 +268,32 @@ export default function Devoluciones() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
+                    <div className="status-filter-group">
+                        <button
+                            className={`status-filter-btn ${estadoFiltro === 'TODOS' ? 'active' : ''}`}
+                            onClick={() => setEstadoFiltro('TODOS')}
+                        >
+                            Todos
+                        </button>
+                        <button
+                            className={`status-filter-btn ${estadoFiltro === 'PENDIENTE' ? 'active' : ''}`}
+                            onClick={() => setEstadoFiltro('PENDIENTE')}
+                        >
+                            Pendientes
+                        </button>
+                        <button
+                            className={`status-filter-btn ${estadoFiltro === 'APROBADA' ? 'active' : ''}`}
+                            onClick={() => setEstadoFiltro('APROBADA')}
+                        >
+                            Aprobadas
+                        </button>
+                        <button
+                            className={`status-filter-btn ${estadoFiltro === 'RECHAZADA' ? 'active' : ''}`}
+                            onClick={() => setEstadoFiltro('RECHAZADA')}
+                        >
+                            Rechazadas
+                        </button>
+                    </div>
                     <button className="btn-add-venta" onClick={handleNuevaDevolucion}>
                         ＋ Nueva Solicitud
                     </button>
@@ -232,6 +308,7 @@ export default function Devoluciones() {
                             <th>N° Devolución</th>
                             <th>Factura Original</th>
                             <th>Solicitante</th>
+                            <th>Productos</th>
                             <th>Estado</th>
                             <th>Total Reembolso</th>
                             <th>Acciones</th>
@@ -239,9 +316,9 @@ export default function Devoluciones() {
                         </thead>
                         <tbody>
                         {loading ? (
-                            // Skeleton loader
                             Array.from({ length: rowsPerPage }).map((_, idx) => (
                                 <tr key={idx} className="skeleton-row">
+                                    <td><div className="skeleton-cell" /></td>
                                     <td><div className="skeleton-cell" /></td>
                                     <td><div className="skeleton-cell" /></td>
                                     <td><div className="skeleton-cell" /></td>
@@ -256,6 +333,29 @@ export default function Devoluciones() {
                                     <td className="bold">{d.numeroDevolucion || '---'}</td>
                                     <td>{d.numeroFactura}</td>
                                     <td><span className="user-tag">{d.usuarioSolicitanteNombre}</span></td>
+                                    <td>
+                                        <div className="items-chip-container">
+                                            {d.detalles?.map((det, i) => {
+                                                const med = obtenerMedicamentoDesdeDetalle(det);
+                                                // Depuración temporal: ver qué viene en el detalle
+                                                if (i === 0) console.log('Detalle devolución:', det);
+                                                return (
+                                                    <div key={i} className="med-chip-with-img">
+                                                        {med?.imagen && (
+                                                            <img
+                                                                src={`http://localhost:8080/${med.imagen.replace(/\\/g, '/')}`}
+                                                                alt="med"
+                                                            />
+                                                        )}
+                                                        <span>
+                                                                {med?.nombre || det.productoNombre || 'S/N'}
+                                                            <small> x{det.cantidadDevuelta}</small>
+                                                            </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </td>
                                     <td><span className={`status-pill ${d.estado.toLowerCase()}`}>{d.estado}</span></td>
                                     <td className="price-text">{formatCurrency(d.totalDevuelto || 0)}</td>
                                     <td className="actions-cell">
@@ -277,7 +377,6 @@ export default function Devoluciones() {
                     )}
                 </div>
 
-                {/* Paginación */}
                 {!loading && devolucionesFiltradas.length > 0 && (
                     <div className="pagination-container">
                         <button
@@ -287,9 +386,7 @@ export default function Devoluciones() {
                         >
                             ← Anterior
                         </button>
-                        <div className="pagination-pages">
-                            {renderPageNumbers()}
-                        </div>
+                        <div className="pagination-pages">{renderPageNumbers()}</div>
                         <button
                             className="pagination-btn"
                             onClick={() => goToPage(currentPage + 1)}
@@ -301,7 +398,7 @@ export default function Devoluciones() {
                 )}
             </div>
 
-            {/* DRAWER (Nueva Devolución) */}
+            {/* DRAWER (Nueva Devolución) - sin cambios */}
             {drawerOpen && (
                 <div className="glass-overlay" onClick={() => setDrawerOpen(false)}>
                     <div className="pos-drawer" onClick={e => e.stopPropagation()}>
@@ -339,7 +436,14 @@ export default function Devoluciones() {
                                         <label className="section-label">Productos disponibles para retorno</label>
                                         {itemsDevolucion.map(item => (
                                             <div key={item.ventaDetalleId} className="cart-row-sm">
-                                                <div>
+                                                {item.imagen && (
+                                                    <img
+                                                        src={`http://localhost:8080/${item.imagen.replace(/\\/g, '/')}`}
+                                                        alt="med"
+                                                        style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', marginRight: '10px' }}
+                                                    />
+                                                )}
+                                                <div style={{ flex: 1 }}>
                                                     <p><strong>{item.producto}</strong></p>
                                                     <small>Original: {item.cantidadMax} unidades</small>
                                                 </div>
@@ -350,6 +454,7 @@ export default function Devoluciones() {
                                                     onChange={e => actualizarCantidad(item.ventaDetalleId, parseInt(e.target.value) || 0)}
                                                     min="0"
                                                     max={item.cantidadMax}
+                                                    style={{ width: '70px' }}
                                                 />
                                             </div>
                                         ))}
@@ -378,7 +483,7 @@ export default function Devoluciones() {
                 </div>
             )}
 
-            {/* Ticket de impresión (oculto en pantalla) */}
+            {/* Ticket de impresión */}
             {ticketPrint && (
                 <div id="ticket-devolucion" className="print-invoice-container">
                     <div className="ticket-header">
@@ -394,7 +499,9 @@ export default function Devoluciones() {
                     </div>
                     <div className="ticket-divider">--------------------------------</div>
                     <table className="ticket-table">
-                        <thead><tr><th>Prod.</th><th>Cant.</th><th>Total</th></tr></thead>
+                        <thead>
+                        <tr><th>Prod.</th><th>Cant.</th><th>Total</th></tr>
+                        </thead>
                         <tbody>
                         {ticketPrint.detalles?.map((det, i) => (
                             <tr key={i}>

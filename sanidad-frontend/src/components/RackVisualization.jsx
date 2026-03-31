@@ -4,6 +4,8 @@ import './RackVisualization.css';
 export default function RackVisualization({
                                               rack,
                                               ubicaciones,
+                                              lotes = [],
+                                              medicamentos = [],
                                               onSeleccionarCelda,
                                               seleccionActual,
                                               modoMovimiento,
@@ -14,7 +16,6 @@ export default function RackVisualization({
 
     const { ancho, alto, profundidad } = rack;
 
-    // Mapa de ocupación (todas las profundidades)
     const ocupadasMap = new Map();
     if (Array.isArray(ubicaciones)) {
         ubicaciones.forEach(ubic => {
@@ -23,9 +24,22 @@ export default function RackVisualization({
         });
     }
 
+    const obtenerMedicamentoPorLoteDetalleId = (loteDetalleId) => {
+        if (!loteDetalleId) return null;
+        for (const lote of lotes) {
+            const detalle = lote.detalles?.find(d => d.id === loteDetalleId);
+            if (detalle) {
+                return medicamentos.find(m => m.id === detalle.medicamentoId);
+            }
+        }
+        return null;
+    };
+
     const getTooltip = (ocupada, profIdx) => {
         if (!ocupada) return `Posición libre – fondo ${profIdx + 1}`;
-        return `💊 ${ocupada.medicamentoNombre || 'Producto'}\n📦 Lote: ${ocupada.loteDetalleId}\n🔢 Cantidad: ${ocupada.cantidad}\n📌 Fondo: ${profIdx + 1}`;
+        const med = obtenerMedicamentoPorLoteDetalleId(ocupada.loteDetalleId);
+        const nombre = med?.nombre || ocupada.medicamentoNombre || 'Producto';
+        return `💊 ${nombre}\n📦 Lote: ${ocupada.loteDetalleId}\n🔢 Cantidad: ${ocupada.cantidad}\n📌 Fondo: ${profIdx + 1}`;
     };
 
     const handleClick = (nivel, columna, profIdx, ocupada, data) => {
@@ -59,7 +73,6 @@ export default function RackVisualization({
                 </div>
             </div>
 
-            {/* Indicador visual de profundidad (solo informativo) */}
             {profundidad > 1 && (
                 <div className="depth-reference">
                     <span className="depth-label">Profundidades:</span>
@@ -76,7 +89,7 @@ export default function RackVisualization({
             <div className="rack-viewport">
                 <div className="shelf-container">
                     {Array.from({ length: alto }).map((_, nIdx) => {
-                        const nivelReal = alto - nIdx; // visual: 1 abajo
+                        const nivelReal = alto - nIdx;
                         const nivel = nIdx;
                         return (
                             <div key={nivelReal} className="shelf-level-row">
@@ -97,6 +110,14 @@ export default function RackVisualization({
                                                         origenMovimiento.columna === col &&
                                                         origenMovimiento.profundidadIndex === prof;
 
+                                                    let imagenUrl = null;
+                                                    if (ocupada?.loteDetalleId) {
+                                                        const med = obtenerMedicamentoPorLoteDetalleId(ocupada.loteDetalleId);
+                                                        if (med?.imagen) {
+                                                            imagenUrl = `http://localhost:8080/${med.imagen.replace(/\\/g, '/')}`;
+                                                        }
+                                                    }
+
                                                     return (
                                                         <div
                                                             key={prof}
@@ -106,14 +127,22 @@ export default function RackVisualization({
                                                                 ${esOrigen ? 'is-moving-source' : ''}`}
                                                             style={{
                                                                 '--p-offset': `${prof * 5}px`,
-                                                                zIndex: prof
+                                                                zIndex: prof,
+                                                                ...(imagenUrl ? { backgroundImage: `url(${imagenUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {})
                                                             }}
                                                             onClick={() => handleClick(nivel, col, prof, ocupada, ocupada)}
                                                             title={getTooltip(ocupada, prof)}
                                                         >
                                                             <span className="depth-number">{prof + 1}</span>
                                                             {esSeleccionada && <div className="selection-ping"></div>}
-                                                            {ocupada && !esOrigen && <div className="box-icon">💊</div>}
+                                                            {ocupada && !esOrigen && (
+                                                                imagenUrl ? (
+                                                                    // Si hay imagen, no mostramos emoji (ya está como fondo)
+                                                                    null
+                                                                ) : (
+                                                                    <div className="box-icon">💊</div>
+                                                                )
+                                                            )}
                                                             {esOrigen && <div className="move-icon">🖱️</div>}
                                                         </div>
                                                     );
@@ -136,7 +165,7 @@ export default function RackVisualization({
                     {modoMovimiento && <div className="legend-item"><span className="swatch moving"></span> Origen movimiento</div>}
                 </div>
                 <div className="legend-tip">
-                    💡 Números indican la profundidad (fondo). Haz clic en celda libre para asignar.
+                    💡 Números indican la profundidad (fondo). Haz clic en celda libre para asignar, o en una ocupada para mover.
                 </div>
             </div>
         </div>
