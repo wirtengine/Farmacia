@@ -17,10 +17,15 @@ public interface UbicacionLoteRepository extends JpaRepository<UbicacionLote, Lo
     List<UbicacionLote> findByLoteDetalleIdAndActivoTrueOrderById(Long loteDetalleId);
 
     @Query("SELECT u FROM UbicacionLote u WHERE u.rack.id = :rackId AND u.nivel = :nivel AND u.columna = :columna AND u.profundidadIndex = :profundidadIndex AND u.activo = true")
-    Optional<UbicacionLote> findByCoordenadas(@Param("rackId") Long rackId,
-                                              @Param("nivel") Integer nivel,
-                                              @Param("columna") Integer columna,
-                                              @Param("profundidadIndex") Integer profundidadIndex);
+    Optional<UbicacionLote> findByCoordenadas(
+            @Param("rackId") Long rackId,
+            @Param("nivel") Integer nivel,
+            @Param("columna") Integer columna,
+            @Param("profundidadIndex") Integer profundidadIndex
+    );
 
     List<UbicacionLote> findByActivoTrue();
+
+    @Query("SELECT u.loteDetalle.id, SUM(u.cantidad) FROM UbicacionLote u WHERE u.activo = true GROUP BY u.loteDetalle.id")
+    List<Object[]> sumCantidadPorLoteDetalle();
 }

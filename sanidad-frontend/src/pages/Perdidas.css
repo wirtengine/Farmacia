@@ -1,0 +1,188 @@
+/* =========================================
+   ENCAPSULAMIENTO DE PÉRDIDAS (Evita choques con Dashboard)
+========================================= */
+.perdidas-section {
+    /* Ajuste de espacio para el Sidebar */
+    margin-left: var(--sidebar-width-expanded);
+    padding: 24px;
+    background: #f8fafc;
+    min-height: 100vh;
+    transition: margin-left 0.3s ease;
+}
+
+/* Ajuste automático cuando el sidebar se colapsa */
+body:has(.pharmacy-sidebar.collapsed) .perdidas-section {
+    margin-left: var(--sidebar-width-collapsed);
+}
+
+/* =========================================
+   HEADER ESPECÍFICO
+========================================= */
+.perdidas-section .perdidas-header {
+    margin-bottom: 24px;
+}
+
+.perdidas-section .perdidas-header h1 {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.perdidas-section .perdidas-header p {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+/* =========================================
+   KPIs DE PÉRDIDAS (Nombres únicos)
+========================================= */
+.perdidas-section .p-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.perdidas-section .p-kpi-card {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: transform 0.2s;
+}
+
+.perdidas-section .p-kpi-icon {
+    width: 54px;
+    height: 54px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Colores específicos para iconos */
+.perdidas-section .icon-vencido { background: #fff1f2; color: #ef4444; }
+.perdidas-section .icon-inmovil { background: #f1f5f9; color: #64748b; }
+.perdidas-section .icon-stock { background: #fffbeb; color: #d97706; }
+
+.perdidas-section .p-kpi-info h3 {
+    font-size: 0.75rem;
+    color: #64748b;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.perdidas-section .p-kpi-value {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 2px 0;
+}
+
+/* =========================================
+   CHIPS DE NAVEGACIÓN (TABS)
+========================================= */
+.perdidas-section .p-tabs-container {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    background: #f1f5f9;
+    padding: 6px;
+    border-radius: 50px;
+    width: fit-content;
+}
+
+.perdidas-section .p-tab-btn {
+    border: none;
+    background: transparent;
+    padding: 8px 20px;
+    border-radius: 40px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.perdidas-section .p-tab-btn.active {
+    background: white;
+    color: #10b981;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+/* =========================================
+   TABLA MODERNA
+========================================= */
+.perdidas-section .p-table-wrapper {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.01);
+}
+
+.perdidas-section .p-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.perdidas-section .p-table th {
+    background: #fcfcfd;
+    text-align: left;
+    padding: 14px 20px;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.perdidas-section .p-table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.9rem;
+    color: #334155;
+}
+
+.perdidas-section .p-table tr:hover td {
+    background: #fcfcfd;
+}
+
+/* =========================================
+   ESTADOS DE CARGA / VACÍO
+========================================= */
+.perdidas-section .p-loading-container {
+    height: 60vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+}
+
+.perdidas-section .p-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #e2e8f0;
+    border-top: 3px solid #10b981;
+    border-radius: 50%;
+    animation: p-spin 1s linear infinite;
+    margin-bottom: 12px;
+}
+
+@keyframes p-spin { to { transform: rotate(360deg); } }
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+@media (max-width: 1024px) {
+    .perdidas-section {
+        margin-left: 0;
+        padding-top: 80px; /* Para evitar el botón móvil del sidebar */
+    }
+}

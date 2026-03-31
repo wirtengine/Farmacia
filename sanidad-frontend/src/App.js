@@ -15,7 +15,8 @@ import Devoluciones from './pages/Devoluciones';
 import DevolucionesProveedor from './pages/DevolucionesProveedor';
 import Ubicaciones from './pages/Ubicaciones';
 import Alerts from './pages/Alerts';
-import Recommendations from './pages/Recommendations'; // 💡 NUEVO
+import Recommendations from './pages/Recommendations';
+import Perdidas from './pages/Perdidas'; // 👈 NUEVO
 
 function AppContent() {
     const { user, loading } = useAuth();
@@ -58,12 +59,22 @@ function AppContent() {
                         }
                     />
 
-                    {/* 💡 Recommendations (NUEVO) */}
+                    {/* 💡 Recommendations */}
                     <Route
                         path="/recommendations"
                         element={
                             <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR']}>
                                 <Recommendations />
+                            </PrivateRoute>
+                        }
+                    />
+
+                    {/* 📉 Control de Pérdidas */}
+                    <Route
+                        path="/perdidas"
+                        element={
+                            <PrivateRoute allowedRoles={['ADMIN']}>
+                                <Perdidas />
                             </PrivateRoute>
                         }
                     />

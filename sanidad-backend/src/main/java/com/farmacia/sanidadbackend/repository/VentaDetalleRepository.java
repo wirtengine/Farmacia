@@ -33,4 +33,7 @@ public interface VentaDetalleRepository extends JpaRepository<VentaDetalle, Long
             "GROUP BY ld2.medicamento.id, ld2.medicamento.nombre " +
             "ORDER BY freq DESC")
     List<Object[]> findComplementaryProducts(@Param("medicamentoId") Long medicamentoId);
+
+    @Query("SELECT ld.medicamento.id, SUM(vd.cantidad) FROM VentaDetalle vd JOIN vd.loteDetalle ld WHERE vd.venta.fecha >= :fechaInicio AND vd.venta.activo = true GROUP BY ld.medicamento.id")
+    List<Object[]> sumVentasPorMedicamentoDesde(@Param("fechaInicio") LocalDateTime fechaInicio);
 }
