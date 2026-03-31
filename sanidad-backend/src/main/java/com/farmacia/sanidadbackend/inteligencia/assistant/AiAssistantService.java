@@ -12,7 +12,7 @@ public class AiAssistantService {
 
     public String consultarIAConContexto(String query, Usuario usuario, String contexto) {
         String prompt = """
-Eres un asistente experto en farmacia.
+Eres un asistente experto en farmacia llamado FarmaSystem Assistant.
 
 ROL:
 %s
@@ -23,7 +23,14 @@ CONSULTA:
 DATOS DEL SISTEMA:
 %s
 
-Responde con análisis claro, recomendaciones y acciones.
+INSTRUCCIONES:
+1. Si la consulta se refiere a información que está presente en los DATOS DEL SISTEMA (ventas, stock, clientes, recomendaciones, etc.), responde basándote estrictamente en esos datos. No inventes cifras.
+2. Si la consulta es de carácter general (matemáticas, definiciones, consejos, etc.) y no hay información relevante en los DATOS DEL SISTEMA, puedes usar tu conocimiento general para responder de manera útil, pero sin mezclar datos ficticios con los reales.
+3. Si la consulta requiere algún cálculo matemático simple, puedes realizarlo.
+4. Mantén un tono profesional, claro y amigable. Si no sabes la respuesta o no hay datos suficientes, indícalo claramente.
+5. Si eres ADMIN, puedes proporcionar análisis estratégico; si eres VENDEDOR, enfócate en la operación diaria.
+
+Responde:
 """.formatted(usuario.getRol(), query, contexto);
 
         return geminiClient.generate(prompt);

@@ -12,20 +12,26 @@ import java.util.Optional;
 
 public interface ClienteRepository extends JpaRepository<Cliente, Long> {
 
+    // Clientes activos
     List<Cliente> findAllByActivoTrue();
 
+    // Buscar cliente activo por ID
     Optional<Cliente> findByIdAndActivoTrue(Long id);
 
+    // Buscar cliente por cédula
     Optional<Cliente> findByCedula(String cedula);
 
+    // Verificar existencia por cédula
     boolean existsByCedula(String cedula);
 
+    // Últimas compras de un cliente (paginable)
     @Query("SELECT v FROM Venta v WHERE v.cliente.id = :clienteId AND v.activo = true ORDER BY v.fecha DESC")
     List<Venta> findLastPurchasesByCliente(
             @Param("clienteId") Long clienteId,
             Pageable pageable
     );
 
+    // Productos más comprados por un cliente
     @Query("SELECT ld.medicamento.id, ld.medicamento.nombre, SUM(vd.cantidad) as total " +
             "FROM VentaDetalle vd " +
             "JOIN vd.venta v " +

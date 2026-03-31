@@ -20,6 +20,9 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
 
     boolean existsByNumeroFactura(String numeroFactura);
 
+    // 🔥 Método para obtener las últimas 5 ventas activas (usado en el asistente)
+    List<Venta> findTop5ByActivoTrueOrderByFechaDesc();
+
     @Query("SELECT COUNT(v), COALESCE(SUM(v.total), 0) FROM Venta v WHERE v.fecha BETWEEN :inicio AND :fin AND v.activo = true")
     List<Object[]> findVentasDelDia(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
 
