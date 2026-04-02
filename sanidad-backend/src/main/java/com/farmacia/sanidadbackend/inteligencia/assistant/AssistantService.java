@@ -12,7 +12,6 @@ import com.farmacia.sanidadbackend.service.PrediccionService;
 import com.farmacia.sanidadbackend.service.ReporteService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,121 +40,31 @@ public class AssistantService {
     private final DevolucionRepository devolucionRepository;
     private final DevolucionDetalleRepository devolucionDetalleRepository;
     private final RackRepository rackRepository;
-
-    // Nuevos servicios para reportes y predicciones
     private final ReporteService reporteService;
     private final PrediccionService prediccionService;
 
-    @Autowired
-    private AiAssistantService aiAssistantService;
+    // ================== MÉTODOS PARA CONSTRUIR CONTEXTO (usado por AiAssistantService) ==================
 
-    private List<Intent> intents;
-
-    @PostConstruct
-    public void init() {
-        intents = new ArrayList<>();
-
-        intents.add(new Intent(
-                List.of("ventas", "dia"),
-                List.of("hoy", "ingresos"),
-                false,
-                u -> obtenerVentasDelDia(u)
-        ));
-
-        intents.add(new Intent(
-                List.of("bajo", "stock"),
-                List.of("poco", "escaso"),
-                false,
-                u -> obtenerProductosBajoStock()
-        ));
-
-        intents.add(new Intent(
-                List.of("recomendaciones"),
-                List.of("sugerencias"),
-                true,
-                u -> obtenerRecomendaciones()
-        ));
-
-        intents.add(new Intent(
-                List.of("ultimo", "producto", "vendido"),
-                List.of("último", "producto"),
-                false,
-                u -> obtenerUltimoProductoVendido()
-        ));
-
-        intents.add(new Intent(
-                List.of("cliente", "mayor", "saldo"),
-                List.of("cliente", "saldo"),
-                true,
-                u -> obtenerClienteMayorSaldo()
-        ));
-    }
-
-    private record Intent(List<String> keywords, List<String> synonyms, boolean onlyAdmin,
-                          Function<Usuario, AssistantResponse> action) {}
-
-    private String normalizar(String texto) {
-        return texto.toLowerCase();
-    }
-
-    private int calcularScore(Intent intent, String query) {
-        int score = 0;
-        for (String kw : intent.keywords) {
-            if (query.contains(kw)) score += 3;
-        }
-        for (String syn : intent.synonyms) {
-            if (query.contains(syn)) score += 1;
-        }
-        return score;
-    }
-
-    @Transactional
-    public AssistantResponse procesarConsulta(String query, Usuario usuario) {
-        String queryOriginal = query;
-        query = normalizar(query);
-
+    public String construirContexto(Usuario usuario) {
+        StringBuilder contexto = new StringBuilder();
         boolean isAdmin = "ADMIN".equals(usuario.getRol());
 
-        Intent bestIntent = null;
-        int bestScore = 0;
-
-        for (Intent intent : intents) {
-            if (intent.onlyAdmin && !isAdmin) continue;
-
-            int score = calcularScore(intent, query);
-            if (score > bestScore) {
-                bestScore = score;
-                bestIntent = intent;
-            }
-        }
-
-        // ========== CONSTRUIR CONTEXTO GENERAL CON DATOS REALES ==========
-        StringBuilder contexto = new StringBuilder();
-
-        // 1. Ventas del día
         contexto.append("VENTAS DEL DÍA:\n");
         contexto.append(obtenerVentasDelDiaTexto(usuario)).append("\n\n");
 
-        // 2. Ventas del mes
         contexto.append("VENTAS DEL MES:\n");
         contexto.append(obtenerVentasDelMesTexto(usuario)).append("\n\n");
 
-        // 3. Últimos 5 productos vendidos
-        contexto.append("ÚLTIMOS 5 PRODUCTOS VENDIDOS (con fecha y hora):\n");
+        contexto.append("ÚLTIMOS 5 PRODUCTOS VENDIDOS:\n");
         contexto.append(obtenerUltimosProductosVendidosTexto()).append("\n\n");
 
-        // 4. Productos bajo stock
         contexto.append("PRODUCTOS BAJO STOCK (menos de 10 unidades):\n");
         contexto.append(obtenerProductosBajoStockTexto()).append("\n\n");
 
-        // 5. Recomendaciones (solo admin)
         if (isAdmin) {
             contexto.append("RECOMENDACIONES PENDIENTES:\n");
             contexto.append(obtenerRecomendacionesTexto()).append("\n\n");
-        }
 
-        // 6. Resumen de pérdidas (solo admin)
-        if (isAdmin) {
             ResumenPerdidasDTO resumen = perdidasService.obtenerResumenPerdidas();
             contexto.append("RESUMEN DE PÉRDIDAS:\n");
             contexto.append("  - Productos vencidos: ").append(resumen.getCantidadProductosVencidos())
@@ -163,64 +72,33 @@ public class AssistantService {
             contexto.append("  - Productos inmovilizados: ").append(resumen.getCantidadProductosInmoviles())
                     .append(" (valor inmovilizado: C$ ").append(resumen.getTotalInmovilizado()).append(")\n");
             contexto.append("  - Inconsistencias de stock: ").append(resumen.getCantidadInconsistencias()).append("\n\n");
-        }
 
-        // 7. Cliente con mayor saldo (solo admin)
-        if (isAdmin) {
             contexto.append("CLIENTE CON MAYOR SALDO:\n");
             contexto.append(obtenerClienteMayorSaldoTexto()).append("\n\n");
-        }
 
-        // 8. Empleados y vendedores
-        contexto.append("EMPLEADOS:\n");
-        contexto.append(obtenerEmpleadosTexto()).append("\n\n");
-
-        // 9. Últimas devoluciones aprobadas
-        contexto.append("ÚLTIMAS 5 DEVOLUCIONES APROBADAS (más recientes):\n");
-        contexto.append(obtenerUltimasDevolucionesTexto()).append("\n\n");
-
-        // 10. Ranking de vendedores por ventas (solo admin)
-        if (isAdmin) {
             contexto.append("RANKING DE VENDEDORES POR VENTAS (total histórico):\n");
             contexto.append(obtenerRankingVendedoresTexto()).append("\n\n");
-        }
 
-        // 11. Producto con más devoluciones (solo admin)
-        if (isAdmin) {
             contexto.append("PRODUCTO CON MÁS DEVOLUCIONES (histórico):\n");
             contexto.append(obtenerProductoMasDevueltoTexto()).append("\n\n");
-        }
 
-        // 12. Cantidad de estantes
-        contexto.append("CANTIDAD DE ESTANTES (racks activos):\n");
-        contexto.append(obtenerCantidadEstantesTexto()).append("\n\n");
-
-        // 13. Producto con mayor crecimiento de ventas (últimos 30 días vs período anterior)
-        if (isAdmin) {
-            contexto.append("PRODUCTO CON MAYOR CRECIMIENTO DE VENTAS (últimos 30 días vs 30 días anteriores):\n");
+            contexto.append("PRODUCTO CON MAYOR CRECIMIENTO DE VENTAS (últimos 30 días vs período anterior):\n");
             contexto.append(obtenerProductoMayorCrecimientoTexto()).append("\n\n");
         }
 
-        // 14. Respuesta específica si hay intent de alta confianza
-        if (bestIntent != null && bestScore >= 2) {
-            AssistantResponse intentResponse = bestIntent.action.apply(usuario);
-            contexto.append("RESPUESTA ESPECÍFICA A TU CONSULTA:\n");
-            contexto.append(intentResponse.getAnswer()).append("\n\n");
-        }
+        contexto.append("EMPLEADOS:\n");
+        contexto.append(obtenerEmpleadosTexto()).append("\n\n");
 
-        // Llamada a la IA con el contexto completo
-        String aiAnswer = aiAssistantService.consultarIAConContexto(
-                queryOriginal,
-                usuario,
-                contexto.toString()
-        );
+        contexto.append("ÚLTIMAS 5 DEVOLUCIONES APROBADAS:\n");
+        contexto.append(obtenerUltimasDevolucionesTexto()).append("\n\n");
 
-        return AssistantResponse.builder()
-                .answer(aiAnswer)
-                .build();
+        contexto.append("CANTIDAD DE ESTANTES (racks activos):\n");
+        contexto.append(obtenerCantidadEstantesTexto()).append("\n\n");
+
+        return contexto.toString();
     }
 
-    // ================== MÉTODOS CON DATOS REALES ==================
+    // ================== MÉTODOS PRIVADOS DE OBTENCIÓN DE TEXTO ==================
 
     private String obtenerVentasDelDiaTexto(Usuario usuario) {
         LocalDateTime inicioDia = LocalDate.now().atStartOfDay();
@@ -330,7 +208,6 @@ public class AssistantService {
         long totalEmpleados = usuarioRepository.count();
         long vendedores = usuarioRepository.countByRol(Rol.VENDEDOR);
         long administradores = usuarioRepository.countByRol(Rol.ADMIN);
-
         return String.format("Total empleados: %d\n  - Vendedores: %d\n  - Administradores: %d",
                 totalEmpleados, vendedores, administradores);
     }
@@ -405,7 +282,6 @@ public class AssistantService {
                 .collect(Collectors.toMap(row -> ((Number) row[0]).longValue(),
                         row -> ((Number) row[1]).intValue()));
 
-        // Calcular crecimiento
         Map<Long, Double> crecimiento = new HashMap<>();
         for (Map.Entry<Long, Integer> entry : actualMap.entrySet()) {
             Long medId = entry.getKey();
@@ -414,11 +290,10 @@ public class AssistantService {
             if (anterior > 0) {
                 crecimiento.put(medId, (double) actual / anterior);
             } else if (actual > 0) {
-                crecimiento.put(medId, Double.MAX_VALUE); // nuevo producto con ventas
+                crecimiento.put(medId, Double.MAX_VALUE);
             }
         }
 
-        // Obtener el de mayor crecimiento
         Long topMedId = crecimiento.entrySet().stream()
                 .max(Map.Entry.comparingByValue())
                 .map(Map.Entry::getKey)
@@ -437,58 +312,13 @@ public class AssistantService {
                 med.get().getNombre(), actual, anterior, factor);
     }
 
-    // ================== MÉTODOS PARA INTENTS ==================
-    private AssistantResponse obtenerVentasDelDia(Usuario usuario) {
-        return AssistantResponse.builder()
-                .answer(obtenerVentasDelDiaTexto(usuario))
-                .build();
-    }
+    // ================== MÉTODOS PÚBLICOS PARA FUNCIONES (FUNCTION CALLING) ==================
 
-    private AssistantResponse obtenerProductosBajoStock() {
-        return AssistantResponse.builder()
-                .answer(obtenerProductosBajoStockTexto())
-                .build();
-    }
-
-    private AssistantResponse obtenerRecomendaciones() {
-        return AssistantResponse.builder()
-                .answer(obtenerRecomendacionesTexto())
-                .build();
-    }
-
-    private AssistantResponse obtenerUltimoProductoVendido() {
-        String ultimos = obtenerUltimosProductosVendidosTexto();
-        if (ultimos.contains("No hay ventas")) {
-            return AssistantResponse.builder().answer(ultimos).build();
-        }
-        // Extraer el primer producto de la primera venta
-        String[] lineas = ultimos.split("\n");
-        for (String linea : lineas) {
-            if (linea.trim().startsWith("-")) {
-                return AssistantResponse.builder().answer(linea.trim()).build();
-            }
-        }
-        return AssistantResponse.builder().answer("No se pudo determinar el último producto vendido.").build();
-    }
-
-    private AssistantResponse obtenerClienteMayorSaldo() {
-        return AssistantResponse.builder()
-                .answer(obtenerClienteMayorSaldoTexto())
-                .build();
-    }
-
-    // ================== MÉTODOS PARA FUNCIONES (FUNCTION CALLING) ==================
-    // Estos métodos son públicos y serán invocados desde FunctionExecutor
-
-    /**
-     * Obtiene el total de ventas y cantidad de ventas en un período.
-     */
     public Map<String, Object> obtenerVentasPorPeriodo(Map<String, Object> args, Usuario usuario) {
         LocalDate inicio = LocalDate.parse((String) args.get("fechaInicio"));
         LocalDate fin = LocalDate.parse((String) args.get("fechaFin"));
         Integer idVendedor = args.containsKey("idUsuario") ? ((Number) args.get("idUsuario")).intValue() : null;
 
-        // Validar permisos
         if (idVendedor != null && !"ADMIN".equals(usuario.getRol())) {
             if (!idVendedor.equals(usuario.getId())) {
                 return Map.of("error", "No tienes permiso para ver ventas de otro vendedor.");
@@ -516,23 +346,14 @@ public class AssistantService {
         return Map.of("totalVentas", total, "cantidadVentas", cantidad);
     }
 
-    /**
-     * Lista productos con stock por debajo de un umbral.
-     */
     public List<Map<String, Object>> obtenerProductosBajoStock(Map<String, Object> args, Usuario usuario) {
         int umbral = args.containsKey("umbral") ? ((Number) args.get("umbral")).intValue() : 10;
         List<Object[]> productos = loteDetalleRepository.findProductosBajoStockConUmbral(umbral);
         return productos.stream()
-                .map(row -> Map.of(
-                        "nombre", row[0],
-                        "stock", row[1]
-                ))
+                .map(row -> Map.of("nombre", row[0], "stock", row[1]))
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Obtiene detalles de un cliente por ID o cédula.
-     */
     public Map<String, Object> obtenerDetallesCliente(Map<String, Object> args, Usuario usuario) {
         Optional<Cliente> clienteOpt = Optional.empty();
         if (args.containsKey("id")) {
@@ -561,9 +382,6 @@ public class AssistantService {
         );
     }
 
-    /**
-     * Obtiene el stock actual de un medicamento por ID o nombre.
-     */
     public Map<String, Object> obtenerStockActual(Map<String, Object> args, Usuario usuario) {
         Optional<Medicamento> medOpt = Optional.empty();
         if (args.containsKey("id")) {
@@ -587,14 +405,9 @@ public class AssistantService {
         result.put("nombre", m.getNombre());
         result.put("stockTotal", stockTotal);
         result.put("presentacion", m.getPresentacion());
-        // Nota: la entidad Medicamento no tiene campo 'laboratorio', así que lo omitimos.
         return result;
     }
 
-    /**
-     * Sugiere productos que deberían reordenarse basado en stock y ventas.
-     * Esta es una implementación simplificada; puedes mejorarla con cálculos más complejos.
-     */
     public List<Map<String, Object>> sugerirReorden(Map<String, Object> args, Usuario usuario) {
         int umbralDias = args.containsKey("umbralDias") ? ((Number) args.get("umbralDias")).intValue() : 30;
         LocalDate hoy = LocalDate.now();
@@ -622,9 +435,6 @@ public class AssistantService {
         return sugerencias;
     }
 
-    /**
-     * Obtiene el ranking de vendedores por ventas. Solo ADMIN.
-     */
     public List<Map<String, Object>> obtenerRankingVendedores(Map<String, Object> args, Usuario usuario) {
         if (!"ADMIN".equals(usuario.getRol())) {
             return List.of(Map.of("error", "No tienes permiso para ver el ranking de vendedores."));
@@ -646,19 +456,10 @@ public class AssistantService {
         }
 
         return ranking.stream()
-                .map(row -> Map.of(
-                        "usuario", row[0],
-                        "cantidadVentas", row[1],
-                        "totalVentas", row[2]
-                ))
+                .map(row -> Map.of("usuario", row[0], "cantidadVentas", row[1], "totalVentas", row[2]))
                 .collect(Collectors.toList());
     }
 
-    // ================== NUEVOS MÉTODOS: REPORTES Y PREDICCIONES ==================
-
-    /**
-     * Genera un reporte de ventas en PDF o Excel.
-     */
     public Map<String, Object> generarReporteVentas(Map<String, Object> args, Usuario usuario) {
         if (!"ADMIN".equals(usuario.getRol())) {
             return Map.of("error", "Solo administradores pueden generar reportes.");
@@ -686,9 +487,6 @@ public class AssistantService {
         }
     }
 
-    /**
-     * Predice las ventas futuras de un medicamento.
-     */
     public Map<String, Object> predecirVentasMedicamento(Map<String, Object> args, Usuario usuario) {
         if (!"ADMIN".equals(usuario.getRol())) {
             return Map.of("error", "Solo administradores pueden acceder a predicciones.");

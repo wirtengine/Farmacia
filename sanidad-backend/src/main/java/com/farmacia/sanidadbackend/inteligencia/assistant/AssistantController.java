@@ -15,7 +15,8 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AssistantController {
 
-    private final AssistantService assistantService;
+    // ✅ Inyectamos el orquestador de IA (AiAssistantService), no AssistantService
+    private final AiAssistantService aiAssistantService;
 
     @PostMapping("/ask")
     public ResponseEntity<AssistantResponse> ask(
@@ -39,10 +40,12 @@ public class AssistantController {
         }
 
         Usuario usuario = userDetails.getUsuario();
-        AssistantResponse response = assistantService.procesarConsulta(
-                request.getQuery(),
-                usuario
-        );
+        // ✅ Usamos el método procesarConsulta de AiAssistantService (que ya construye contexto y maneja tools)
+        String respuestaTexto = aiAssistantService.procesarConsulta(request.getQuery(), usuario);
+
+        AssistantResponse response = AssistantResponse.builder()
+                .answer(respuestaTexto)
+                .build();
 
         return ResponseEntity.ok(response);
     }

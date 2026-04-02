@@ -16,48 +16,57 @@ public class AiAssistantService {
     private final GeminiClient geminiClient;
     private final FunctionExecutor functionExecutor;
     private final ToolDefinitions toolDefinitions;
+    private final AssistantService assistantService;
 
-    /**
-     * Procesa una consulta del usuario, manejando el ciclo de llamadas a funciones.
-     * @param consulta Texto de la consulta
-     * @param usuario Usuario que realiza la consulta
-     * @return Respuesta final en texto
-     */
     public String procesarConsulta(String consulta, Usuario usuario) {
-        // Construir historial de conversación. Podríamos mantener sesiones más adelante.
+        // Construir contexto general
+        String contexto = assistantService.construirContexto(usuario);
+
         List<Map<String, Object>> contents = new ArrayList<>();
 
-        // Mensaje de sistema para dar contexto de rol y capacidades
-        String systemPrompt = "Eres un asistente experto en farmacia llamado FarmaSystem Assistant. " +
-                "Rol del usuario: " + usuario.getRol() + ". " +
-                "Puedes usar las herramientas disponibles para obtener información actualizada del sistema. " +
-                "Si no tienes suficientes datos para responder, indícalo claramente. " +
-                "Sé conciso, profesional y amigable.";
+        // Prompt del sistema: indicamos explícitamente el rol y las herramientas
+        String systemPrompt = String.format("""
+            Eres un asistente experto en farmacia llamado FarmaSystem Assistant.
+            
+            ROL DEL USUARIO ACTUAL: %s
+            IMPORTANTE: Este usuario tiene el rol '%s'. Si es ADMIN, tiene todos los permisos.
+            
+            HERRAMIENTAS DISPONIBLES:
+            - generar_reporte_ventas: Para generar archivos PDF o Excel con detalles de ventas.
+            - predecir_ventas: Para predicciones de ventas.
+            - obtener_sugerencias_negocio: Para recomendaciones de mejora.
+            - obtener_ventas_por_periodo, obtener_productos_bajo_stock, etc.
+            
+            INSTRUCCIONES OBLIGATORIAS:
+            1. Cuando el usuario pida "generar un reporte", "PDF", "Excel", "exportar ventas", DEBES llamar a la función 'generar_reporte_ventas' con los parámetros adecuados.
+            2. No digas que no tienes permiso si el rol es ADMIN. El sistema ya validará permisos en la ejecución de la función.
+            3. Usa el contexto solo para respuestas generales; para datos específicos o archivos, usa las herramientas.
+            
+            CONTEXTO ACTUAL DEL SISTEMA:
+            %s
+            
+            Responde de forma útil y profesional.
+            """, usuario.getRol(), usuario.getRol(), contexto);
 
         contents.add(Map.of("role", "user", "parts", List.of(Map.of("text", systemPrompt))));
-        contents.add(Map.of("role", "model", "parts", List.of(Map.of("text", "Entendido. Estoy listo para ayudarte."))));
+        contents.add(Map.of("role", "model", "parts", List.of(Map.of("text", "Entendido. Usaré las herramientas cuando sea necesario."))));
         contents.add(Map.of("role", "user", "parts", List.of(Map.of("text", consulta))));
 
-        // Obtener herramientas según rol
         List<Map<String, Object>> tools = toolDefinitions.getToolsForUser(usuario);
 
-        // Bucle de llamadas a funciones (máximo 5 iteraciones para evitar ciclos)
         int maxIterations = 5;
         for (int i = 0; i < maxIterations; i++) {
             GeminiResponse response = geminiClient.generateWithTools(contents, tools);
-
             if (response.isText()) {
                 return response.getText();
             } else if (response.isFunctionCall()) {
-                // Ejecutar la función
                 Object result;
                 try {
                     result = functionExecutor.execute(response.getFunctionName(), response.getFunctionArgs(), usuario);
                 } catch (Exception e) {
                     log.error("Error ejecutando función " + response.getFunctionName(), e);
-                    result = Map.of("error", "Error interno al ejecutar la función: " + e.getMessage());
+                    result = Map.of("error", "Error interno: " + e.getMessage());
                 }
-                // Agregar la respuesta de la función al historial
                 Map<String, Object> functionResponsePart = Map.of(
                         "functionResponse", Map.of(
                                 "name", response.getFunctionName(),
@@ -66,18 +75,9 @@ public class AiAssistantService {
                 );
                 contents.add(Map.of("role", "function", "parts", List.of(functionResponsePart)));
             } else {
-                // No debería ocurrir
-                return "No se pudo procesar la respuesta del asistente.";
+                return "No se pudo procesar la respuesta.";
             }
         }
-        return "Se excedió el número máximo de llamadas a funciones.";
-    }
-
-    /**
-     * Método de compatibilidad con la interfaz anterior (si se usa en otros lugares)
-     */
-    public String consultarIAConContexto(String query, Usuario usuario, String contexto) {
-        // Ignoramos el contexto, ahora usamos herramientas
-        return procesarConsulta(query, usuario);
+        return "Se excedió el número máximo de llamadas.";
     }
 }
