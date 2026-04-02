@@ -8,12 +8,15 @@ import com.farmacia.sanidadbackend.inteligencia.recommendations.RecommendationPr
 import com.farmacia.sanidadbackend.inteligencia.recommendations.RecommendationService;
 import com.farmacia.sanidadbackend.model.*;
 import com.farmacia.sanidadbackend.repository.*;
+import com.farmacia.sanidadbackend.service.PrediccionService;
+import com.farmacia.sanidadbackend.service.ReporteService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,8 +39,12 @@ public class AssistantService {
     private final ClienteRepository clienteRepository;
     private final UsuarioRepository usuarioRepository;
     private final DevolucionRepository devolucionRepository;
-    private final DevolucionDetalleRepository devolucionDetalleRepository; // 🔥 nuevo
-    private final RackRepository rackRepository; // 🔥 nuevo
+    private final DevolucionDetalleRepository devolucionDetalleRepository;
+    private final RackRepository rackRepository;
+
+    // Nuevos servicios para reportes y predicciones
+    private final ReporteService reporteService;
+    private final PrediccionService prediccionService;
 
     @Autowired
     private AiAssistantService aiAssistantService;
@@ -468,5 +475,240 @@ public class AssistantService {
         return AssistantResponse.builder()
                 .answer(obtenerClienteMayorSaldoTexto())
                 .build();
+    }
+
+    // ================== MÉTODOS PARA FUNCIONES (FUNCTION CALLING) ==================
+    // Estos métodos son públicos y serán invocados desde FunctionExecutor
+
+    /**
+     * Obtiene el total de ventas y cantidad de ventas en un período.
+     */
+    public Map<String, Object> obtenerVentasPorPeriodo(Map<String, Object> args, Usuario usuario) {
+        LocalDate inicio = LocalDate.parse((String) args.get("fechaInicio"));
+        LocalDate fin = LocalDate.parse((String) args.get("fechaFin"));
+        Integer idVendedor = args.containsKey("idUsuario") ? ((Number) args.get("idUsuario")).intValue() : null;
+
+        // Validar permisos
+        if (idVendedor != null && !"ADMIN".equals(usuario.getRol())) {
+            if (!idVendedor.equals(usuario.getId())) {
+                return Map.of("error", "No tienes permiso para ver ventas de otro vendedor.");
+            }
+        }
+
+        LocalDateTime start = inicio.atStartOfDay();
+        LocalDateTime end = fin.atTime(LocalTime.MAX);
+
+        List<Object[]> ventas;
+        if (idVendedor != null) {
+            Long idVendedorLong = idVendedor.longValue();
+            ventas = ventaRepository.findVentasByPeriodoAndUsuario(start, end, idVendedorLong);
+        } else {
+            ventas = ventaRepository.findVentasByPeriodo(start, end);
+        }
+
+        if (ventas.isEmpty() || ventas.get(0) == null) {
+            return Map.of("totalVentas", BigDecimal.ZERO, "cantidadVentas", 0);
+        }
+
+        Object[] row = ventas.get(0);
+        long cantidad = ((Number) row[0]).longValue();
+        BigDecimal total = (BigDecimal) row[1];
+        return Map.of("totalVentas", total, "cantidadVentas", cantidad);
+    }
+
+    /**
+     * Lista productos con stock por debajo de un umbral.
+     */
+    public List<Map<String, Object>> obtenerProductosBajoStock(Map<String, Object> args, Usuario usuario) {
+        int umbral = args.containsKey("umbral") ? ((Number) args.get("umbral")).intValue() : 10;
+        List<Object[]> productos = loteDetalleRepository.findProductosBajoStockConUmbral(umbral);
+        return productos.stream()
+                .map(row -> Map.of(
+                        "nombre", row[0],
+                        "stock", row[1]
+                ))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Obtiene detalles de un cliente por ID o cédula.
+     */
+    public Map<String, Object> obtenerDetallesCliente(Map<String, Object> args, Usuario usuario) {
+        Optional<Cliente> clienteOpt = Optional.empty();
+        if (args.containsKey("id")) {
+            Long id = ((Number) args.get("id")).longValue();
+            clienteOpt = clienteRepository.findById(id);
+        } else if (args.containsKey("cedula")) {
+            String cedula = (String) args.get("cedula");
+            clienteOpt = clienteRepository.findByCedula(cedula);
+        } else {
+            return Map.of("error", "Debe proporcionar id o cédula del cliente.");
+        }
+
+        if (clienteOpt.isEmpty()) {
+            return Map.of("error", "Cliente no encontrado.");
+        }
+
+        Cliente c = clienteOpt.get();
+        return Map.of(
+                "id", c.getId(),
+                "nombre", c.getNombre(),
+                "cedula", c.getCedula(),
+                "telefono", c.getTelefono(),
+                "email", c.getEmail(),
+                "saldo", c.getSaldo(),
+                "activo", c.getActivo()
+        );
+    }
+
+    /**
+     * Obtiene el stock actual de un medicamento por ID o nombre.
+     */
+    public Map<String, Object> obtenerStockActual(Map<String, Object> args, Usuario usuario) {
+        Optional<Medicamento> medOpt = Optional.empty();
+        if (args.containsKey("id")) {
+            Long id = ((Number) args.get("id")).longValue();
+            medOpt = medicamentoRepository.findById(id);
+        } else if (args.containsKey("nombre")) {
+            String nombre = (String) args.get("nombre");
+            medOpt = medicamentoRepository.findByNombreIgnoreCaseAndActivoTrue(nombre);
+        } else {
+            return Map.of("error", "Debe proporcionar id o nombre del medicamento.");
+        }
+
+        if (medOpt.isEmpty()) {
+            return Map.of("error", "Medicamento no encontrado.");
+        }
+
+        Medicamento m = medOpt.get();
+        int stockTotal = loteDetalleRepository.sumStockByMedicamento(m.getId());
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", m.getId());
+        result.put("nombre", m.getNombre());
+        result.put("stockTotal", stockTotal);
+        result.put("presentacion", m.getPresentacion());
+        // Nota: la entidad Medicamento no tiene campo 'laboratorio', así que lo omitimos.
+        return result;
+    }
+
+    /**
+     * Sugiere productos que deberían reordenarse basado en stock y ventas.
+     * Esta es una implementación simplificada; puedes mejorarla con cálculos más complejos.
+     */
+    public List<Map<String, Object>> sugerirReorden(Map<String, Object> args, Usuario usuario) {
+        int umbralDias = args.containsKey("umbralDias") ? ((Number) args.get("umbralDias")).intValue() : 30;
+        LocalDate hoy = LocalDate.now();
+        LocalDate inicio = hoy.minusDays(umbralDias);
+        LocalDateTime inicioDia = inicio.atStartOfDay();
+        LocalDateTime finDia = hoy.atTime(LocalTime.MAX);
+
+        List<Object[]> resultados = loteDetalleRepository.sugerirReorden(inicioDia, finDia);
+        List<Map<String, Object>> sugerencias = new ArrayList<>();
+        for (Object[] row : resultados) {
+            String nombre = (String) row[1];
+            int stock = ((Number) row[2]).intValue();
+            int ventas = ((Number) row[3]).intValue();
+            double diasInventario = ventas == 0 ? Double.POSITIVE_INFINITY : (double) stock / (ventas / (double) umbralDias);
+            if (diasInventario < 15) {
+                Map<String, Object> sug = new HashMap<>();
+                sug.put("nombre", nombre);
+                sug.put("stock", stock);
+                sug.put("ventasUltimosDias", ventas);
+                sug.put("diasInventarioEstimados", diasInventario);
+                sug.put("sugerencia", "Reordenar urgentemente, stock bajo para la demanda.");
+                sugerencias.add(sug);
+            }
+        }
+        return sugerencias;
+    }
+
+    /**
+     * Obtiene el ranking de vendedores por ventas. Solo ADMIN.
+     */
+    public List<Map<String, Object>> obtenerRankingVendedores(Map<String, Object> args, Usuario usuario) {
+        if (!"ADMIN".equals(usuario.getRol())) {
+            return List.of(Map.of("error", "No tienes permiso para ver el ranking de vendedores."));
+        }
+
+        String periodo = args.containsKey("periodo") ? (String) args.get("periodo") : "historico";
+        LocalDateTime inicio = null;
+        if ("mensual".equals(periodo)) {
+            inicio = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+        } else if ("anual".equals(periodo)) {
+            inicio = LocalDate.now().withDayOfYear(1).atStartOfDay();
+        }
+
+        List<Object[]> ranking;
+        if (inicio != null) {
+            ranking = ventaRepository.findRankingVendedoresPorPeriodo(inicio, LocalDateTime.now());
+        } else {
+            ranking = ventaRepository.findRankingVendedores();
+        }
+
+        return ranking.stream()
+                .map(row -> Map.of(
+                        "usuario", row[0],
+                        "cantidadVentas", row[1],
+                        "totalVentas", row[2]
+                ))
+                .collect(Collectors.toList());
+    }
+
+    // ================== NUEVOS MÉTODOS: REPORTES Y PREDICCIONES ==================
+
+    /**
+     * Genera un reporte de ventas en PDF o Excel.
+     */
+    public Map<String, Object> generarReporteVentas(Map<String, Object> args, Usuario usuario) {
+        if (!"ADMIN".equals(usuario.getRol())) {
+            return Map.of("error", "Solo administradores pueden generar reportes.");
+        }
+
+        LocalDate inicio = LocalDate.parse((String) args.get("fechaInicio"));
+        LocalDate fin = LocalDate.parse((String) args.get("fechaFin"));
+        String formato = ((String) args.get("formato")).toUpperCase();
+
+        LocalDateTime inicioDT = inicio.atStartOfDay();
+        LocalDateTime finDT = fin.atTime(LocalTime.MAX);
+
+        try {
+            String ruta;
+            if (formato.equals("EXCEL")) {
+                ruta = reporteService.generarExcelVentas(inicioDT, finDT);
+            } else if (formato.equals("PDF")) {
+                ruta = reporteService.generarPdfVentas(inicioDT, finDT);
+            } else {
+                return Map.of("error", "Formato no soportado. Use PDF o EXCEL.");
+            }
+            return Map.of("mensaje", "Reporte generado exitosamente", "archivo", ruta);
+        } catch (IOException e) {
+            return Map.of("error", "Error al generar reporte: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Predice las ventas futuras de un medicamento.
+     */
+    public Map<String, Object> predecirVentasMedicamento(Map<String, Object> args, Usuario usuario) {
+        if (!"ADMIN".equals(usuario.getRol())) {
+            return Map.of("error", "Solo administradores pueden acceder a predicciones.");
+        }
+
+        Long medicamentoId;
+        if (args.containsKey("medicamentoId")) {
+            medicamentoId = ((Number) args.get("medicamentoId")).longValue();
+        } else if (args.containsKey("nombre")) {
+            String nombre = (String) args.get("nombre");
+            Optional<Medicamento> med = medicamentoRepository.findByNombreIgnoreCaseAndActivoTrue(nombre);
+            if (med.isEmpty()) {
+                return Map.of("error", "Medicamento no encontrado.");
+            }
+            medicamentoId = med.get().getId();
+        } else {
+            return Map.of("error", "Debe proporcionar medicamentoId o nombre.");
+        }
+
+        int diasHorizonte = args.containsKey("dias") ? ((Number) args.get("dias")).intValue() : 7;
+        return prediccionService.predecirVentas(medicamentoId, diasHorizonte);
     }
 }

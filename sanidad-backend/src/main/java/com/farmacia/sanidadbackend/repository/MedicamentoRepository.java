@@ -23,4 +23,11 @@ public interface MedicamentoRepository extends JpaRepository<Medicamento, Long> 
 
     @Query("SELECT m FROM Medicamento m WHERE m.activo = true AND m.id NOT IN (SELECT DISTINCT ld.medicamento.id FROM LoteDetalle ld JOIN ld.lote l WHERE l.activo = true AND ld IN (SELECT vd.loteDetalle FROM VentaDetalle vd WHERE vd.venta.fecha >= :limite AND vd.venta.activo = true))")
     List<Medicamento> findSinMovimientoDesde(@Param("limite") LocalDateTime limite);
+
+    // ================== NUEVO MÉTODO PARA FUNCTION CALLING ==================
+
+    /**
+     * Busca un medicamento por nombre exacto ignorando mayúsculas/minúsculas.
+     */
+    Optional<Medicamento> findByNombreIgnoreCaseAndActivoTrue(String nombre);
 }

@@ -20,7 +20,10 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
 
     boolean existsByNumeroFactura(String numeroFactura);
 
-    // 🔥 Método para obtener las últimas 5 ventas activas (usado en el asistente)
+    // 🔥 NUEVO: buscar ventas por rango de fechas (solo activas)
+    List<Venta> findByFechaBetweenAndActivoTrue(LocalDateTime inicio, LocalDateTime fin);
+
+    // 🔥 Método para obtener las últimas 5 ventas activas
     List<Venta> findTop5ByActivoTrueOrderByFechaDesc();
 
     @Query("SELECT COUNT(v), COALESCE(SUM(v.total), 0) FROM Venta v WHERE v.fecha BETWEEN :inicio AND :fin AND v.activo = true")
@@ -43,4 +46,25 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
 
     @Query("SELECT v.usuario.username, COUNT(v), COALESCE(SUM(v.total), 0) FROM Venta v WHERE v.activo = true GROUP BY v.usuario.username ORDER BY SUM(v.total) DESC")
     List<Object[]> findRankingVendedores();
+
+    // ================== MÉTODOS INTELIGENTES ==================
+
+    @Query("SELECT COUNT(v), COALESCE(SUM(v.total), 0) FROM Venta v WHERE v.fecha BETWEEN :inicio AND :fin AND v.activo = true AND (:idUsuario IS NULL OR v.usuario.id = :idUsuario)")
+    List<Object[]> findVentasByPeriodoAndUsuario(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin,
+            @Param("idUsuario") Long idUsuario
+    );
+
+    @Query("SELECT COUNT(v), COALESCE(SUM(v.total), 0) FROM Venta v WHERE v.fecha BETWEEN :inicio AND :fin AND v.activo = true")
+    List<Object[]> findVentasByPeriodo(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin
+    );
+
+    @Query("SELECT v.usuario.username, COUNT(v), COALESCE(SUM(v.total), 0) FROM Venta v WHERE v.fecha BETWEEN :inicio AND :fin AND v.activo = true GROUP BY v.usuario.username ORDER BY SUM(v.total) DESC")
+    List<Object[]> findRankingVendedoresPorPeriodo(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin
+    );
 }

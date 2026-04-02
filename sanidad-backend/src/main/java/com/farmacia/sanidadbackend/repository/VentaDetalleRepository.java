@@ -36,4 +36,18 @@ public interface VentaDetalleRepository extends JpaRepository<VentaDetalle, Long
 
     @Query("SELECT ld.medicamento.id, SUM(vd.cantidad) FROM VentaDetalle vd JOIN vd.loteDetalle ld WHERE vd.venta.fecha >= :fechaInicio AND vd.venta.activo = true GROUP BY ld.medicamento.id")
     List<Object[]> sumVentasPorMedicamentoDesde(@Param("fechaInicio") LocalDateTime fechaInicio);
+
+    // 🔥 NUEVO: ventas diarias por medicamento (para predicción / gráficos)
+    @Query("SELECT CAST(vd.venta.fecha AS date), SUM(vd.cantidad) " +
+            "FROM VentaDetalle vd " +
+            "WHERE vd.loteDetalle.medicamento.id = :medicamentoId " +
+            "AND vd.venta.fecha BETWEEN :inicio AND :fin " +
+            "AND vd.venta.activo = true " +
+            "GROUP BY CAST(vd.venta.fecha AS date) " +
+            "ORDER BY CAST(vd.venta.fecha AS date)")
+    List<Object[]> sumCantidadDiariaPorMedicamento(
+            @Param("medicamentoId") Long medicamentoId,
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin
+    );
 }
