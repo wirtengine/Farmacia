@@ -2,6 +2,7 @@ package com.farmacia.sanidadbackend.service;
 
 import com.farmacia.sanidadbackend.dto.MedicamentoRequest;
 import com.farmacia.sanidadbackend.dto.MedicamentoResponse;
+import com.farmacia.sanidadbackend.dto.StockMedicamentoDTO; // ← SOLO ESTO SE AGREGA
 import com.farmacia.sanidadbackend.model.Medicamento;
 import com.farmacia.sanidadbackend.repository.MedicamentoRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -117,6 +118,12 @@ public class MedicamentoService {
         } catch (IOException e) {
             throw new RuntimeException("Error al guardar la imagen");
         }
+    }
+
+    // ========= SOLO ESTO AGREGASTE =========
+    @Transactional(readOnly = true)
+    public StockMedicamentoDTO obtenerStockMedicamento(Long medicamentoId) {
+        return medicamentoRepository.obtenerStockMedicamento(medicamentoId);
     }
 
     private Medicamento mapToEntity(Medicamento medicamento, MedicamentoRequest request) {
