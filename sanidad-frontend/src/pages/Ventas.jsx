@@ -4,6 +4,7 @@ import { listarVentas, crearVenta } from "../services/ventas";
 import { listarClientes } from "../services/clientes";
 import { listarLotes } from "../services/lotes";
 import { listarMedicamentos } from "../services/medicamentos";
+import { listarRecetasDisponibles } from "../services/recetas";
 import { getLoteFIFO, getComplementarios, getVentaGuiada } from "../services/ventaInteligencia";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -20,6 +21,12 @@ export default function Ventas() {
 
     // Formato de moneda en Córdobas
     const formatCurrency = (value) => `C$ ${value.toFixed(2)}`;
+
+    // Formato de fecha
+    const formatearFecha = (fecha) => {
+        if (!fecha) return "";
+        return new Date(fecha).toLocaleDateString();
+    };
 
     // Datos
     const [ventas, setVentas] = useState([]);
@@ -47,6 +54,8 @@ export default function Ventas() {
     const [detallesVenta, setDetallesVenta] = useState([]);
     const [montoUsarSaldo, setMontoUsarSaldo] = useState(0);
     const [efectivoRecibido, setEfectivoRecibido] = useState(0);
+    const [recetasDisponibles, setRecetasDisponibles] = useState([]);
+    const [recetaSeleccionada, setRecetaSeleccionada] = useState(null);
 
     // --- Inteligencia de ventas ---
     const [loteRecomendado, setLoteRecomendado] = useState(null);
@@ -201,14 +210,17 @@ export default function Ventas() {
 
     const iniciarVenta = async () => {
         try {
-            const [resL, resC, resM] = await Promise.all([
+            const [resL, resC, resM, recetasRes] = await Promise.all([
                 listarLotes(),
                 listarClientes(),
-                listarMedicamentos()
+                listarMedicamentos(),
+                listarRecetasDisponibles()
             ]);
             setLotes(resL.data || []);
             setClientes(resC.data || []);
             setMedicamentos(resM.data || []);
+            setRecetasDisponibles(recetasRes.data || []);
+            setRecetaSeleccionada(null);
 
             setTipoVenta("rapida");
             setClienteSeleccionado(resC.data?.find(c => c.nombre.toLowerCase().includes("consumidor")));
@@ -220,7 +232,9 @@ export default function Ventas() {
             setComplementarios([]);
             setContextoCliente(null);
             setDrawerOpen(true);
-        } catch (err) { alert("Error al cargar datos"); }
+        } catch (err) {
+            alert("Error al cargar datos");
+        }
     };
 
     // Al cambiar cliente, obtener su contexto
@@ -319,8 +333,22 @@ export default function Ventas() {
     const total = round2(subtotal * 1.15);
     const cambio = round2(Math.max((parseFloat(efectivoRecibido) + parseFloat(montoUsarSaldo)) - total, 0));
 
+    const requiereReceta = useMemo(() => {
+        return detallesVenta.some(detalle => {
+            const loteDet = lotesConStock.flatMap(l => l.detalles).find(d => d.id === detalle.loteDetalleId);
+            if (!loteDet) return false;
+            const med = medicamentos.find(m => m.id === loteDet.medicamentoId);
+            return med?.receta === true;
+        });
+    }, [detallesVenta, lotesConStock, medicamentos]);
+
     const finalizarVenta = async () => {
         if (detallesVenta.length === 0) return alert("El carrito está vacío");
+
+        if (requiereReceta && !recetaSeleccionada) {
+            alert("Debe seleccionar una receta validada para esta venta.");
+            return;
+        }
 
         // Verificar nuevamente stock antes de enviar (por si hubo cambios en el backend)
         for (const det of detallesVenta) {
@@ -336,7 +364,8 @@ export default function Ventas() {
             usuarioId,
             detalles: detallesVenta.map(d => ({ loteDetalleId: d.loteDetalleId, cantidad: d.cantidad })),
             montoUsadoSaldo: montoUsarSaldo,
-            montoEfectivo: efectivoRecibido
+            montoEfectivo: efectivoRecibido,
+            recetaId: recetaSeleccionada?.id || null
         };
         try {
             const res = await crearVenta(data);
@@ -616,6 +645,34 @@ export default function Ventas() {
                                     </div>
                                 )}
                             </section>
+
+                            {requiereReceta && (
+                                <section className="pos-section receta-section">
+                                    <label className="receta-label">
+                                        ⚠️ Esta venta requiere receta validada
+                                    </label>
+                                    {recetasDisponibles.length === 0 ? (
+                                        <p className="warning-text">No hay recetas validadas disponibles.</p>
+                                    ) : (
+                                        <select
+                                            className="receta-select"
+                                            value={recetaSeleccionada?.id || ""}
+                                            onChange={(e) => {
+                                                const id = parseInt(e.target.value);
+                                                const rec = recetasDisponibles.find(r => r.id === id);
+                                                setRecetaSeleccionada(rec || null);
+                                            }}
+                                        >
+                                            <option value="">-- Seleccionar receta --</option>
+                                            {recetasDisponibles.map(rec => (
+                                                <option key={rec.id} value={rec.id}>
+                                                    Receta #{rec.id} - Subida por {rec.farmaceuticoUsername} ({formatearFecha(rec.fechaSubida)})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </section>
+                            )}
 
                             <section className="pos-section">
                                 {detallesVenta.map((d, i) => (

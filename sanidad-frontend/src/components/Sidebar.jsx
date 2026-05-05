@@ -41,8 +41,11 @@ const MENU_SECTIONS = [
             { path: '/devoluciones-proveedor', icon: '📦', label: 'Devoluciones a Proveedores', roles: ['ADMIN'] },
             { path: '/clientes', icon: '👤', label: 'Clientes' },
 
-            // ✅ NUEVO: Control de pérdidas
+            // ✅ Control de pérdidas
             { path: '/perdidas', icon: '📉', label: 'Control de Pérdidas' },
+
+            // 🆕 NUEVO: Recetas (solo FARMACEUTICO y ADMIN)
+            { path: '/recetas', icon: '📄', label: 'Recetas', roles: ['FARMACEUTICO', 'ADMIN'] },
         ],
     },
     {

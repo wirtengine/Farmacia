@@ -21,13 +21,13 @@ public class ClienteController {
     private final ClienteService clienteService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR','FARMACEUTICO')")  // ← se agregó FARMACEUTICO
     public ResponseEntity<List<ClienteResponse>> listarClientes() {
         return ResponseEntity.ok(clienteService.listarClientes());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR','FARMACEUTICO')")  // ← se agregó FARMACEUTICO
     public ResponseEntity<ClienteResponse> obtenerCliente(@PathVariable Long id) {
         return ResponseEntity.ok(clienteService.obtenerCliente(id));
     }
@@ -44,7 +44,6 @@ public class ClienteController {
     public ResponseEntity<ClienteResponse> actualizarCliente(
             @PathVariable Long id,
             @Valid @RequestBody ClienteRequest request) {
-
         return ResponseEntity.ok(clienteService.actualizarCliente(id, request));
     }
 
@@ -60,7 +59,6 @@ public class ClienteController {
     public ResponseEntity<ClienteResponse> abonarSaldo(
             @PathVariable Long id,
             @RequestParam BigDecimal monto) {
-
         return ResponseEntity.ok(clienteService.abonarSaldo(id, monto));
     }
 }

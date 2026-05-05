@@ -21,13 +21,13 @@ public class LoteController {
     private final LoteService loteService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR','FARMACEUTICO')")  // ← se agregó FARMACEUTICO
     public ResponseEntity<List<LoteResponse>> listarLotes() {
         return ResponseEntity.ok(loteService.listarLotes());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR','FARMACEUTICO')")  // ← se agregó FARMACEUTICO
     public ResponseEntity<LoteResponse> obtenerLote(@PathVariable Long id) {
         return ResponseEntity.ok(loteService.obtenerLote(id));
     }
@@ -43,8 +43,7 @@ public class LoteController {
     @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR')")
     public ResponseEntity<LoteResponse> actualizarLote(
             @PathVariable Long id,
-            @Valid @RequestBody LoteRequest request
-    ) {
+            @Valid @RequestBody LoteRequest request) {
         return ResponseEntity.ok(loteService.actualizarLote(id, request));
     }
 

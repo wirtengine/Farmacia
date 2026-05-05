@@ -44,7 +44,7 @@ public class WebSecurityConfig {
         return authConfig.getAuthenticationManager();
     }
 
-    // 🔥 CORS CORREGIDO
+    // 🔥 CORS
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
@@ -53,17 +53,10 @@ public class WebSecurityConfig {
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
 
         configuration.setAllowedMethods(Arrays.asList(
-                "GET",
-                "POST",
-                "PUT",
-                "DELETE",
-                "PATCH",
-                "OPTIONS"
+                "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
         ));
 
-        // 🔥 IMPORTANTE: permitir TODOS los headers
         configuration.setAllowedHeaders(Arrays.asList("*"));
-
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -94,10 +87,13 @@ public class WebSecurityConfig {
                         // ✅ imágenes públicas
                         .requestMatchers("/imagenes/**").permitAll()
 
-                        // ✅ auth público
+                        // ✅ autenticación pública
                         .requestMatchers("/api/auth/**").permitAll()
 
-                        // 🔒 TODO lo demás protegido
+                        // 🔥 NUEVO: rutas de recetas
+                        .requestMatchers("/api/recetas/**").authenticated()
+
+                        // 🔒 todo lo demás protegido
                         .anyRequest().authenticated()
                 );
 

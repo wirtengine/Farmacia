@@ -19,6 +19,9 @@ import Alerts from './pages/Alerts';
 import Recommendations from './pages/Recommendations';
 import Perdidas from './pages/Perdidas';
 
+// 🆕 NUEVO
+import Recetas from './pages/Recetas';
+
 function AppContent() {
     const { user, loading } = useAuth();
 
@@ -26,7 +29,6 @@ function AppContent() {
 
     return (
         <div className="app-layout">
-            {/* El Sidebar solo se muestra si el usuario está logueado */}
             {user && <Sidebar />}
 
             <div className={user ? 'main-content with-sidebar' : 'main-content'}>
@@ -34,13 +36,13 @@ function AppContent() {
                     {/* Redirección inicial */}
                     <Route path="/" element={<Navigate to="/login" replace />} />
 
-                    {/* Autenticación */}
+                    {/* Login */}
                     <Route
                         path="/login"
                         element={user ? <Navigate to="/dashboard" replace /> : <Login />}
                     />
 
-                    {/* Dashboard Principal */}
+                    {/* Dashboard */}
                     <Route
                         path="/dashboard"
                         element={
@@ -50,7 +52,7 @@ function AppContent() {
                         }
                     />
 
-                    {/* Módulos de Notificaciones e Inteligencia */}
+                    {/* Alertas */}
                     <Route
                         path="/alerts"
                         element={
@@ -60,6 +62,7 @@ function AppContent() {
                         }
                     />
 
+                    {/* Recomendaciones */}
                     <Route
                         path="/recommendations"
                         element={
@@ -69,7 +72,7 @@ function AppContent() {
                         }
                     />
 
-                    {/* Gestión de Inventario y Operaciones */}
+                    {/* Inventario */}
                     <Route
                         path="/medicamentos"
                         element={
@@ -97,26 +100,37 @@ function AppContent() {
                         }
                     />
 
-                    {/* Ventas y Clientes */}
+                    {/* 🆕 RECETAS */}
+                    <Route
+                        path="/recetas"
+                        element={
+                            <PrivateRoute allowedRoles={['ADMIN', 'FARMACEUTICO']}>
+                                <Recetas />
+                            </PrivateRoute>
+                        }
+                    />
+
+                    {/* Ventas */}
                     <Route
                         path="/ventas"
                         element={
-                            <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR']}>
+                            <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR', 'FARMACEUTICO']}>
                                 <Ventas />
                             </PrivateRoute>
                         }
                     />
 
+                    {/* Clientes */}
                     <Route
                         path="/clientes"
                         element={
-                            <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR']}>
+                            <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR', 'FARMACEUTICO']}>
                                 <Clientes />
                             </PrivateRoute>
                         }
                     />
 
-                    {/* Recursos Humanos y Logística */}
+                    {/* Empleados */}
                     <Route
                         path="/empleados"
                         element={
@@ -126,6 +140,7 @@ function AppContent() {
                         }
                     />
 
+                    {/* Proveedores */}
                     <Route
                         path="/proveedores"
                         element={
@@ -135,16 +150,17 @@ function AppContent() {
                         }
                     />
 
-                    {/* Devoluciones y Ubicaciones */}
+                    {/* Devoluciones */}
                     <Route
                         path="/devoluciones"
                         element={
-                            <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR']}>
+                            <PrivateRoute allowedRoles={['ADMIN', 'VENDEDOR', 'FARMACEUTICO']}>
                                 <Devoluciones />
                             </PrivateRoute>
                         }
                     />
 
+                    {/* Devoluciones proveedor */}
                     <Route
                         path="/devoluciones-proveedor"
                         element={
@@ -154,6 +170,7 @@ function AppContent() {
                         }
                     />
 
+                    {/* Ubicaciones */}
                     <Route
                         path="/ubicaciones"
                         element={
@@ -163,15 +180,11 @@ function AppContent() {
                         }
                     />
 
-                    {/* Fallback de seguridad */}
+                    {/* Fallback */}
                     <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>
             </div>
 
-            {/* El Asistente se renderiza fuera del flujo de las rutas para que sea global.
-               Recuerda que internamente el componente filtrará si debe mostrarse
-               según la URL actual.
-            */}
             {user && <ChatAssistant />}
         </div>
     );

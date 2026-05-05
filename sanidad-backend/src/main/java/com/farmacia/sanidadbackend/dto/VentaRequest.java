@@ -21,6 +21,9 @@ public class VentaRequest {
     @NotEmpty
     private List<VentaDetalleRequest> detalles;
 
+    // Nuevo campo: receta médica (opcional, pero obligatorio si hay medicamentos con receta)
+    private Long recetaId;
+
     // Nuevos campos para manejo de pagos
     private BigDecimal montoUsadoSaldo; // si es null se asume 0
     private BigDecimal montoEfectivo;   // si es null se asume pago completo según corresponda

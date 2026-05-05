@@ -2,7 +2,7 @@ package com.farmacia.sanidadbackend.controller;
 
 import com.farmacia.sanidadbackend.dto.MedicamentoRequest;
 import com.farmacia.sanidadbackend.dto.MedicamentoResponse;
-import com.farmacia.sanidadbackend.dto.StockMedicamentoDTO; // ← SOLO ESTO SE AGREGA
+import com.farmacia.sanidadbackend.dto.StockMedicamentoDTO;
 import com.farmacia.sanidadbackend.service.MedicamentoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +32,7 @@ public class MedicamentoController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR','FARMACEUTICO')")  // ← Se agregó FARMACEUTICO
     public ResponseEntity<List<MedicamentoResponse>> listarMedicamentos() {
 
         List<MedicamentoResponse> medicamentos = medicamentoService.listarActivos();
@@ -40,7 +40,7 @@ public class MedicamentoController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR','FARMACEUTICO')")  // ← Se agregó FARMACEUTICO
     public ResponseEntity<MedicamentoResponse> obtenerMedicamento(@PathVariable Long id) {
 
         MedicamentoResponse response = medicamentoService.obtenerPorId(id);
@@ -83,9 +83,8 @@ public class MedicamentoController {
         return ResponseEntity.ok(ruta);
     }
 
-    // ========= SOLO ESTO AGREGASTE =========
     @GetMapping("/{id}/stock")
-    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR','FARMACEUTICO')")  // ← Se agregó FARMACEUTICO
     public ResponseEntity<StockMedicamentoDTO> getStock(@PathVariable Long id) {
 
         StockMedicamentoDTO stock = medicamentoService.obtenerStockMedicamento(id);

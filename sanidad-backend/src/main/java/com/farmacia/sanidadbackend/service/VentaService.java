@@ -27,6 +27,9 @@ public class VentaService {
     private final ClienteService clienteService;
     private final UbicacionLoteRepository ubicacionLoteRepository;
 
+    // 🔥 servicio de recetas
+    private final RecetaService recetaService;
+
     private static final BigDecimal IVA_PORCENTAJE = new BigDecimal("0.15");
 
     private String generarNumeroFactura() {
@@ -55,6 +58,47 @@ public class VentaService {
                     .orElseThrow(() -> new EntityNotFoundException("Cliente no encontrado"));
             tipo = TipoVenta.CLIENTE;
         }
+
+        // -------- VALIDACIÓN DE RECETA --------
+        boolean necesitaReceta = false;
+
+        for (VentaDetalleRequest detalleReq : request.getDetalles()) {
+            LoteDetalle loteDetalle = loteDetalleRepository.findById(detalleReq.getLoteDetalleId())
+                    .orElseThrow(() -> new EntityNotFoundException("LoteDetalle no encontrado"));
+
+            if (loteDetalle.getMedicamento().getReceta() != null &&
+                    loteDetalle.getMedicamento().getReceta()) {
+                necesitaReceta = true;
+                break;
+            }
+        }
+
+        // 🔥 VALIDACIÓN DE ROL (NUEVO)
+        if (necesitaReceta &&
+                usuario.getRol() != Rol.FARMACEUTICO &&
+                usuario.getRol() != Rol.ADMIN) {
+
+            throw new SecurityException(
+                    "Solo un farmacéutico puede dispensar medicamentos que requieren receta"
+            );
+        }
+
+        if (necesitaReceta) {
+            if (request.getRecetaId() == null) {
+                throw new IllegalArgumentException(
+                        "Esta venta incluye medicamentos que requieren receta. Debe proporcionar un ID de receta válida."
+                );
+            }
+
+            RecetaResponse receta = recetaService.obtenerReceta(request.getRecetaId());
+
+            if (!"VALIDADA".equals(receta.getEstado())) {
+                throw new IllegalStateException(
+                        "La receta no ha sido validada por el farmacéutico"
+                );
+            }
+        }
+        // --------------------------------------
 
         Venta venta = new Venta();
         venta.setNumeroFactura(generarNumeroFactura());
@@ -169,6 +213,12 @@ public class VentaService {
         venta.setMontoEfectivo(montoEfectivo);
 
         Venta saved = ventaRepository.save(venta);
+
+        // 🔥 asociar receta
+        if (necesitaReceta) {
+            recetaService.asociarVenta(request.getRecetaId(), saved);
+        }
+
         return mapToResponse(saved);
     }
 

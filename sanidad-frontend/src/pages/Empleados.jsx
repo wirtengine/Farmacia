@@ -316,7 +316,8 @@ export default function Empleados() {
                             <div className="field-group">
                                 <label>Rol Asignado</label>
                                 <div className="role-selector">
-                                    {['VENDEDOR', 'ADMIN'].map(role => (
+                                    {/* 👇 CAMBIO: Se agregó FARMACEUTICO a la lista */}
+                                    {['VENDEDOR', 'FARMACEUTICO', 'ADMIN'].map(role => (
                                         <button
                                             key={role}
                                             type="button"

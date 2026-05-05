@@ -21,24 +21,23 @@ public class VentaController {
     private final VentaService ventaService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR','FARMACEUTICO')")
     public ResponseEntity<List<VentaResponse>> listarVentas() {
         return ResponseEntity.ok(ventaService.listarVentas());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR','FARMACEUTICO')")
     public ResponseEntity<VentaResponse> obtenerVenta(@PathVariable Long id) {
         return ResponseEntity.ok(ventaService.obtenerVenta(id));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR','FARMACEUTICO')")
     public ResponseEntity<VentaResponse> crearVenta(@Valid @RequestBody VentaRequest request) {
         return new ResponseEntity<>(ventaService.crearVenta(request), HttpStatus.CREATED);
     }
 
-    // Anular venta (borrado lógico) solo admin
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> anularVenta(@PathVariable Long id) {

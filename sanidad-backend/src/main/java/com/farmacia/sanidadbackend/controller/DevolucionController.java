@@ -22,7 +22,7 @@ public class DevolucionController {
     private final DevolucionService devolucionService;
 
     @PostMapping("/solicitar")
-    @PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR','FARMACEUTICO')")
     public ResponseEntity<DevolucionResponse> solicitarDevolucion(@Valid @RequestBody DevolucionRequest request) {
         return new ResponseEntity<>(devolucionService.solicitarDevolucion(request), HttpStatus.CREATED);
     }
@@ -34,13 +34,13 @@ public class DevolucionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR','FARMACEUTICO')")
     public ResponseEntity<List<DevolucionResponse>> listarDevoluciones() {
         return ResponseEntity.ok(devolucionService.listarDevoluciones());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR','FARMACEUTICO')")
     public ResponseEntity<DevolucionResponse> obtenerDevolucion(@PathVariable Long id) {
         return ResponseEntity.ok(devolucionService.obtenerDevolucion(id));
     }

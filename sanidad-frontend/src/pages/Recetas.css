@@ -1,0 +1,337 @@
+/* =========================================
+   CONTENEDOR GENERAL
+========================================= */
+.receta-upload-card,
+.receta-list-card {
+    background: white;
+    border-radius: 18px;
+    border: 1px solid #eef2f7;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.05);
+    padding: 22px;
+    margin-bottom: 22px;
+    transition: 0.25s;
+}
+
+.receta-upload-card:hover,
+.receta-list-card:hover {
+    box-shadow: 0 14px 35px rgba(0, 0, 0, 0.08);
+}
+
+/* =========================================
+   HEADER LISTA (MEJORADO)
+========================================= */
+.list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.list-header h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+/* botón toggle historial */
+.btn-toggle-historial {
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-toggle-historial:hover {
+    background: #eef4ff;
+    border-color: #3b82f6;
+    color: #1d4ed8;
+}
+
+/* =========================================
+   UPLOAD SECTION
+========================================= */
+.upload-header {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 16px;
+}
+
+.upload-header h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.upload-sub {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+/* fila upload */
+.upload-body {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* input file estilo PRO */
+.file-input-wrapper {
+    flex: 1;
+    position: relative;
+    border: 2px dashed #cbd5e1;
+    padding: 14px;
+    border-radius: 14px;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #475569;
+}
+
+.file-input-wrapper:hover {
+    border-color: #3b82f6;
+    background: #eef4ff;
+    transform: translateY(-1px);
+}
+
+.file-input-wrapper input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* botón subir */
+.btn-upload {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-upload:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(59, 130, 246, 0.35);
+}
+
+.btn-upload:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* =========================================
+   GRID DE RECETAS
+========================================= */
+.recetas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 18px;
+}
+
+/* =========================================
+   CARD RECETA
+========================================= */
+.receta-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.25s;
+    position: relative;
+}
+
+.receta-card:hover {
+    transform: translateY(-4px);
+    border-color: #3b82f6;
+    box-shadow: 0 12px 25px rgba(0, 0, 0, 0.08);
+}
+
+/* =========================================
+   IMAGEN
+========================================= */
+.receta-img-wrapper {
+    position: relative;
+    width: 100%;
+    height: 170px;
+    overflow: hidden;
+    background: #e2e8f0;
+}
+
+.receta-img-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: 0.35s;
+}
+
+.receta-img-wrapper img:hover {
+    transform: scale(1.08);
+}
+
+/* =========================================
+   BADGE ESTADO (MEJORADO)
+========================================= */
+.estado-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: white;
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+/* colores */
+.estado-badge.pendiente {
+    background: #f59e0b;
+}
+
+.estado-badge.aprobada {
+    background: #22c55e;
+}
+
+.estado-badge.rechazada {
+    background: #ef4444;
+}
+
+/* =========================================
+   INFO
+========================================= */
+.receta-info {
+    padding: 14px;
+    font-size: 0.8rem;
+    color: #334155;
+}
+
+.receta-info p {
+    margin: 5px 0;
+}
+
+.receta-info strong {
+    color: #1e293b;
+}
+
+/* vinculada */
+.vinculada {
+    margin-top: 6px;
+    font-size: 0.75rem;
+    color: #3b82f6;
+    font-weight: 700;
+}
+
+/* =========================================
+   ACCIONES
+========================================= */
+.receta-actions {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.btn-aprobar {
+    flex: 1;
+    background: #22c55e;
+    border: none;
+    color: white;
+    padding: 9px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-aprobar:hover {
+    background: #16a34a;
+    transform: scale(1.02);
+}
+
+.btn-rechazar {
+    flex: 1;
+    background: #ef4444;
+    border: none;
+    color: white;
+    padding: 9px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-rechazar:hover {
+    background: #dc2626;
+    transform: scale(1.02);
+}
+
+/* =========================================
+   LOADING Y EMPTY
+========================================= */
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid #e2e8f0;
+    border-top: 3px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 10px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 25px;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+@media (max-width: 640px) {
+    .upload-body {
+        flex-direction: column;
+    }
+
+    .btn-upload {
+        width: 100%;
+    }
+
+    .recetas-grid {
+        grid-template-columns: 1fr;
+    }
+}
