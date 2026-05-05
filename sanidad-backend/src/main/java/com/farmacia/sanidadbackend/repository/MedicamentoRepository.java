@@ -1,5 +1,6 @@
 package com.farmacia.sanidadbackend.repository;
 
+import com.farmacia.sanidadbackend.dto.LotesMedicamentoDTO;
 import com.farmacia.sanidadbackend.dto.StockMedicamentoDTO;
 import com.farmacia.sanidadbackend.model.Medicamento;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -33,4 +34,15 @@ public interface MedicamentoRepository extends JpaRepository<Medicamento, Long> 
     // ========= SOLO ESTO AGREGASTE =========
     @Query(value = "SELECT * FROM obtener_stock_medicamento(:medicamentoId)", nativeQuery = true)
     StockMedicamentoDTO obtenerStockMedicamento(@Param("medicamentoId") Long medicamentoId);
+
+
+    /********//// ********/
+
+
+    @Query(
+            value = "SELECT * FROM obtener_lotes_medicamento(:medicamentoId)",
+            nativeQuery = true
+    )
+    LotesMedicamentoDTO obtenerLotesMedicamento(
+            @Param("medicamentoId") Long medicamentoId);
 }

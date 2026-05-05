@@ -1,5 +1,6 @@
 package com.farmacia.sanidadbackend.service;
 
+import com.farmacia.sanidadbackend.dto.LotesMedicamentoDTO;
 import com.farmacia.sanidadbackend.dto.MedicamentoRequest;
 import com.farmacia.sanidadbackend.dto.MedicamentoResponse;
 import com.farmacia.sanidadbackend.dto.StockMedicamentoDTO; // ← SOLO ESTO SE AGREGA
@@ -124,6 +125,14 @@ public class MedicamentoService {
     @Transactional(readOnly = true)
     public StockMedicamentoDTO obtenerStockMedicamento(Long medicamentoId) {
         return medicamentoRepository.obtenerStockMedicamento(medicamentoId);
+    }
+
+    /*******    /****/
+
+
+    @Transactional(readOnly = true)
+    public LotesMedicamentoDTO obtenerLotesMedicamento(Long medicamentoId) {
+        return medicamentoRepository.obtenerLotesMedicamento(medicamentoId);
     }
 
     private Medicamento mapToEntity(Medicamento medicamento, MedicamentoRequest request) {

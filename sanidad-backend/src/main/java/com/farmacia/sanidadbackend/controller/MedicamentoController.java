@@ -1,5 +1,6 @@
 package com.farmacia.sanidadbackend.controller;
 
+import com.farmacia.sanidadbackend.dto.LotesMedicamentoDTO;
 import com.farmacia.sanidadbackend.dto.MedicamentoRequest;
 import com.farmacia.sanidadbackend.dto.MedicamentoResponse;
 import com.farmacia.sanidadbackend.dto.StockMedicamentoDTO;
@@ -89,5 +90,17 @@ public class MedicamentoController {
 
         StockMedicamentoDTO stock = medicamentoService.obtenerStockMedicamento(id);
         return ResponseEntity.ok(stock);
+
+    }
+/********/
+
+
+    @GetMapping("/{id}/lotes")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDEDOR')")
+    public ResponseEntity<LotesMedicamentoDTO> getLotes(@PathVariable Long id) {
+
+        return ResponseEntity.ok(
+                medicamentoService.obtenerLotesMedicamento(id)
+        );
     }
 }
