@@ -7,4 +7,5 @@ import lombok.Data;
 public class RecetaRequest {
     @NotNull
     private Long farmaceuticoId;
+    private String codigoMinsa;
 }

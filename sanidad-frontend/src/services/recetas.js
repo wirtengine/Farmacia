@@ -13,10 +13,11 @@ const authHeaders = () => ({
 // =========================================
 // SUBIR RECETA (multipart/form-data)
 // =========================================
-export const uploadReceta = (file, farmaceuticoId) => {
+export const uploadReceta = (file, farmaceuticoId, codigoMinsa) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('farmaceuticoId', farmaceuticoId);
+    formData.append('codigoMinsa', codigoMinsa);
 
     return axios.post(`${API_URL}/upload`, formData, {
         headers: {

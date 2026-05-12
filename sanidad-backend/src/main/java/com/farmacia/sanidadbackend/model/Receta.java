@@ -38,4 +38,9 @@ public class Receta {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "venta_id")
     private Venta venta;
+
+    // Codigo Minsa
+    @Column(nullable = false)
+    @JoinColumn(name="codigo_minsa")
+    private String codigoMinsa;
 }

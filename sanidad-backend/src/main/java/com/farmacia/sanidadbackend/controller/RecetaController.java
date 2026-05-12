@@ -24,10 +24,11 @@ public class RecetaController {
     @PreAuthorize("hasAnyRole('FARMACEUTICO','ADMIN')")
     public ResponseEntity<RecetaResponse> uploadReceta(
             @RequestParam("file") MultipartFile file,
+            @RequestParam("codigoMinsa") String codigoMinsa,
             @RequestParam("farmaceuticoId") Long farmaceuticoId) {
 
         try {
-            RecetaResponse response = recetaService.uploadReceta(file, farmaceuticoId);
+            RecetaResponse response = recetaService.uploadReceta(file, farmaceuticoId, codigoMinsa);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IOException e) {
             return ResponseEntity.internalServerError().build();
@@ -80,4 +81,7 @@ public class RecetaController {
     public ResponseEntity<List<RecetaResponse>> listarTodas() {
         return ResponseEntity.ok(recetaService.listarTodas());
     }
+
+
+
 }

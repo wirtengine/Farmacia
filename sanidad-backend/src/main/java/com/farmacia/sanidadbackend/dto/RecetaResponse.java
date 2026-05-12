@@ -4,7 +4,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-public class RecetaResponse {
+public class  RecetaResponse {
     private Long id;
     private String imagenUrl;
     private LocalDateTime fechaSubida;
@@ -12,4 +12,5 @@ public class RecetaResponse {
     private Long farmaceuticoId;
     private String farmaceuticoUsername;
     private Long ventaId;
+    private String codigoMinsa;
 }

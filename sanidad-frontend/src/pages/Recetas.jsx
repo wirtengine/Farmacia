@@ -18,6 +18,7 @@ export default function Recetas() {
     const [file, setFile] = useState(null);
     const [cargando, setCargando] = useState(false);
     const [mostrarTodas, setMostrarTodas] = useState(false);
+    const [codigoMinsa, setCodigoMinsa] = useState("");
 
     const cargarRecetas = async () => {
         try {
@@ -49,10 +50,17 @@ export default function Recetas() {
     const handleUpload = async () => {
         if (!file) return alert("Selecciona una imagen");
 
+        if (!codigoMinsa.trim()){
+            return alert("El Código Minsa es Obligatorio")
+            }
+
         try {
             setCargando(true);
-            await uploadReceta(file, farmaceuticoId);
+            await uploadReceta(file, farmaceuticoId, codigoMinsa);
+
             setFile(null);
+            setCodigoMinsa("");
+
             await cargarRecetas();
             alert("Receta subida correctamente");
         } catch (error) {
@@ -113,10 +121,18 @@ export default function Recetas() {
                         </span>
                     </label>
 
+                    <input
+                      type="text"
+                      placeholder="Ingrese Código MINSA"
+                      value={codigoMinsa}
+                      onChange={(e) => setCodigoMinsa(e.target.value)}
+                      className="input-minsa"
+                    />
+
                     <button
                         className="btn-upload"
                         onClick={handleUpload}
-                        disabled={!file || cargando}
+                        disabled={!file || !codigoMinsa.trim() || cargando}
                     >
                         {cargando ? "Subiendo..." : "Subir Receta"}
                     </button>
@@ -192,6 +208,11 @@ export default function Recetas() {
                                 <p>
                                     <strong>Fecha:</strong>{" "}
                                     {formatearFecha(receta.fechaSubida)}
+                                </p>
+
+                                <p className="minsa-info">
+                                    <strong>Código MINSA:</strong>
+                                    <span className="minsa-tag">{receta.codigoMinsa || "N/A"}</span>
                                 </p>
 
                                 {receta.ventaId && (

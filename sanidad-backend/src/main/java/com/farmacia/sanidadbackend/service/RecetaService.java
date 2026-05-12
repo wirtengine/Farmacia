@@ -29,7 +29,7 @@ public class RecetaService {
     private static final String UPLOAD_DIR = "imagenes/recetas/";
 
     @Transactional
-    public RecetaResponse uploadReceta(MultipartFile file, Long farmaceuticoId) throws IOException {
+    public RecetaResponse uploadReceta(MultipartFile file, Long farmaceuticoId, String codigoMinsa) throws IOException {
 
         Usuario farmaceutico = usuarioRepository.findById(farmaceuticoId)
                 .orElseThrow(() -> new EntityNotFoundException("Farmacéutico no encontrado"));
@@ -52,6 +52,7 @@ public class RecetaService {
                 .fechaSubida(LocalDateTime.now())
                 .farmaceutico(farmaceutico)
                 .estado(EstadoReceta.PENDIENTE)
+                .codigoMinsa(codigoMinsa)
                 .build();
 
         receta = recetaRepository.save(receta);
@@ -141,6 +142,7 @@ public class RecetaService {
         r.setFarmaceuticoId(receta.getFarmaceutico().getId());
         r.setFarmaceuticoUsername(receta.getFarmaceutico().getUsername());
         r.setVentaId(receta.getVenta() != null ? receta.getVenta().getId() : null);
+        r.setCodigoMinsa(receta.getCodigoMinsa());
 
         return r;
     }
