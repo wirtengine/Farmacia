@@ -36,8 +36,4 @@ class AuthRepository(
     fun isLoggedIn(): Flow<Boolean> {
         return tokenDataStore.tokenFlow.map { it != null }
     }
-
-    suspend fun getSavedToken(): String? {
-        return tokenDataStore.tokenFlow.map { it }.toString() // mejor usar first()
-    }
 }
