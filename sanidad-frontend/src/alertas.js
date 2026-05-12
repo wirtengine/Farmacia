@@ -2,7 +2,7 @@ import Swal from 'sweetalert2';
 import './alertas.css';
 
 const configBase = {
-    background: '#1f2235',
+    background: '#000080',
     color: '#ffffff',
     buttonsStyling: false,
     customClass: {
