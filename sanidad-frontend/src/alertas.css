@@ -1,0 +1,47 @@
+.swal-popup {
+    border-radius: 28px !important;
+    padding: 2rem !important;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+.swal-title {
+    font-size: 2rem !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+}
+
+.swal-text {
+    font-size: 1rem !important;
+    color: #cfd3e6 !important;
+}
+
+.swal-actions {
+    gap: 18px !important;
+}
+
+.swal-confirm,
+.swal-cancel {
+    border: none !important;
+    border-radius: 14px !important;
+    padding: 12px 24px !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+}
+
+.swal-confirm {
+    background: #3b82f6 !important;
+    color: white !important;
+}
+
+.swal-cancel {
+    background: #343a55 !important;
+    color: #ffffff !important;
+}
+
+.swal-confirm:hover,
+.swal-cancel:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.08);
+}

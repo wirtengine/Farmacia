@@ -8,75 +8,168 @@ import {
     reactivarMedicamento,
     subirImagenMedicamento
 } from '../services/medicamentos';
+
 import './Medicamentos.css';
 
-// Importaciones para PDF
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+import {
+    alertaConfirmacion,
+    alertaExito,
+    alertaError
+} from '../alertas';
+
 export default function Medicamentos() {
+
     const { user } = useAuth();
+
     const [medicamentos, setMedicamentos] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
-    const [message, setMessage] = useState({ text: '', type: '' });
     const [loading, setLoading] = useState(false);
+
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [editMode, setEditMode] = useState(false);
+
     const [currentId, setCurrentId] = useState(null);
+
     const [imagenFile, setImagenFile] = useState(null);
 
-    // Estados para paginación
+    const [originalData, setOriginalData] = useState(null);
+
+    // PAGINACIÓN
     const [currentPage, setCurrentPage] = useState(1);
     const rowsPerPage = 15;
 
     const [formData, setFormData] = useState({
-        registroSanitario: '', nombre: '', presentacion: '',
-        via: '', fabricante: '', tipoVenta: 'LIBRE',
-        precioUnitario: '', receta: false, activo: true
+        registroSanitario: '',
+        nombre: '',
+        presentacion: '',
+        via: '',
+        fabricante: '',
+        tipoVenta: 'LIBRE',
+        precioUnitario: '',
+        receta: false,
+        activo: true
     });
 
-    // Debounce para búsqueda
+    // =========================
+    // DEBOUNCE
+    // =========================
+
     useEffect(() => {
+
         const timer = setTimeout(() => {
             setDebouncedSearch(searchTerm);
         }, 300);
+
         return () => clearTimeout(timer);
+
     }, [searchTerm]);
 
-    useEffect(() => { cargarMedicamentos(); }, []);
+    // =========================
+    // CARGA INICIAL
+    // =========================
+
+    useEffect(() => {
+        cargarMedicamentos();
+    }, []);
+
+    // =========================
+    // CARGAR MEDICAMENTOS
+    // =========================
 
     const cargarMedicamentos = async () => {
+
         setLoading(true);
+
         try {
+
             const response = await listarMedicamentos();
+
             const sorted = response.data.sort((a, b) => b.id - a.id);
+
             setMedicamentos(sorted);
+
         } catch (error) {
-            setMessage({ text: 'Error al conectar con el servidor', type: 'error' });
-        } finally { setLoading(false); }
+
+            alertaError('Error al conectar con el servidor');
+
+        } finally {
+
+            setLoading(false);
+
+        }
     };
 
-    // Generar PDF original
+    // =========================
+    // GENERAR PDF
+    // =========================
+
     const generarPDF = () => {
+
         const doc = new jsPDF();
+
         const fechaActual = new Date();
-        const fechaStr = fechaActual.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        const fechaStr = fechaActual.toLocaleDateString('es-ES', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
         const horaStr = fechaActual.toLocaleTimeString('es-ES');
-        const nombreUsuario = user?.nombre || user?.username || user?.sub || 'Usuario del Sistema';
+
+        const nombreUsuario =
+            user?.nombre ||
+            user?.username ||
+            user?.sub ||
+            'Usuario del Sistema';
 
         doc.setFontSize(18);
         doc.setTextColor(41, 128, 185);
-        doc.text('Catálogo de Medicamentos - Sanidad App', 14, 20);
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(`Generado: ${fechaStr} - ${horaStr}`, 14, 28);
-        doc.text(`Usuario: ${nombreUsuario}`, 14, 33);
 
-        const columnas = ["Medicamento", "Reg. Sanitario", "Fabricante", "Presentación", "Vía", "Precio (C$)", "Estado"];
+        doc.text(
+            'Catálogo de Medicamentos - Sanidad App',
+            14,
+            20
+        );
+
+        doc.setFontSize(10);
+
+        doc.setTextColor(100);
+
+        doc.text(
+            `Generado: ${fechaStr} - ${horaStr}`,
+            14,
+            28
+        );
+
+        doc.text(
+            `Usuario: ${nombreUsuario}`,
+            14,
+            33
+        );
+
+        const columnas = [
+            'Medicamento',
+            'Reg. Sanitario',
+            'Fabricante',
+            'Presentación',
+            'Vía',
+            'Precio (C$)',
+            'Estado'
+        ];
+
         const filas = medicamentosFiltrados.map(m => [
-            m.nombre, m.registroSanitario, m.fabricante || 'N/A', m.presentacion, m.via,
-            parseFloat(m.precioUnitario).toFixed(2), m.activo ? 'Activo' : 'Inactivo'
+            m.nombre,
+            m.registroSanitario,
+            m.fabricante || 'N/A',
+            m.presentacion,
+            m.via,
+            parseFloat(m.precioUnitario).toFixed(2),
+            m.activo ? 'Activo' : 'Inactivo'
         ]);
 
         autoTable(doc, {
@@ -84,144 +177,449 @@ export default function Medicamentos() {
             body: filas,
             startY: 40,
             theme: 'striped',
-            headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold', halign: 'center' },
-            bodyStyles: { fontSize: 9, cellPadding: 3 },
-            columnStyles: { 5: { halign: 'right' }, 6: { halign: 'center' } },
-            margin: { top: 40, bottom: 30 },
+
+            headStyles: {
+                fillColor: [41, 128, 185],
+                textColor: 255,
+                fontStyle: 'bold',
+                halign: 'center'
+            },
+
+            bodyStyles: {
+                fontSize: 9,
+                cellPadding: 3
+            },
+
+            columnStyles: {
+                5: { halign: 'right' },
+                6: { halign: 'center' }
+            },
+
+            margin: {
+                top: 40,
+                bottom: 30
+            },
+
             didDrawPage: (data) => {
+
                 const pageCount = doc.getNumberOfPages();
+
                 doc.setFontSize(8);
+
                 doc.setTextColor(150);
-                doc.text(`Página ${data.pageNumber} de ${pageCount}`, doc.internal.pageSize.getWidth() - 30, doc.internal.pageSize.getHeight() - 10);
-                doc.text(`Total de medicamentos: ${medicamentosFiltrados.length}`, 14, doc.internal.pageSize.getHeight() - 10);
+
+                doc.text(
+                    `Página ${data.pageNumber} de ${pageCount}`,
+                    doc.internal.pageSize.getWidth() - 30,
+                    doc.internal.pageSize.getHeight() - 10
+                );
+
+                doc.text(
+                    `Total de medicamentos: ${medicamentosFiltrados.length}`,
+                    14,
+                    doc.internal.pageSize.getHeight() - 10
+                );
             }
         });
-        doc.save(`Reporte_Medicamentos_${fechaActual.toISOString().slice(0,10)}.pdf`);
+
+        doc.save(
+            `Reporte_Medicamentos_${fechaActual.toISOString().slice(0, 10)}.pdf`
+        );
     };
 
+    // =========================
+    // FILTROS
+    // =========================
+
     const medicamentosFiltrados = useMemo(() => {
+
         return medicamentos.filter(m => {
-            const esActivo = m.activo === true || String(m.activo) === 'true';
-            if (user?.rol !== 'ADMIN' && !esActivo) return false;
+
+            const esActivo =
+                m.activo === true ||
+                String(m.activo) === 'true';
+
+            if (user?.rol !== 'ADMIN' && !esActivo) {
+                return false;
+            }
+
             const term = debouncedSearch.toLowerCase();
-            return m.nombre.toLowerCase().includes(term) ||
+
+            return (
+                m.nombre.toLowerCase().includes(term) ||
                 m.fabricante?.toLowerCase().includes(term) ||
-                m.registroSanitario.toLowerCase().includes(term);
+                m.registroSanitario.toLowerCase().includes(term)
+            );
         });
+
     }, [medicamentos, debouncedSearch, user]);
 
-    useEffect(() => { setCurrentPage(1); }, [debouncedSearch]);
+    // =========================
+    // PAGINACIÓN
+    // =========================
 
-    const totalPages = Math.ceil(medicamentosFiltrados.length / rowsPerPage);
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [debouncedSearch]);
+
+    const totalPages = Math.ceil(
+        medicamentosFiltrados.length / rowsPerPage
+    );
+
     const paginatedMedicamentos = useMemo(() => {
-        const startIndex = (currentPage - 1) * rowsPerPage;
-        return medicamentosFiltrados.slice(startIndex, startIndex + rowsPerPage);
+
+        const startIndex =
+            (currentPage - 1) * rowsPerPage;
+
+        return medicamentosFiltrados.slice(
+            startIndex,
+            startIndex + rowsPerPage
+        );
+
     }, [medicamentosFiltrados, currentPage]);
 
-    const goToPage = (page) => { if (page >= 1 && page <= totalPages) setCurrentPage(page); };
+    const goToPage = (page) => {
+
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
 
     const renderPageNumbers = () => {
-        const pages = [];
-        const maxVisible = 5;
-        const sidePages = Math.floor(maxVisible / 2);
-        let startPage = Math.max(1, currentPage - sidePages);
-        let endPage = Math.min(totalPages, currentPage + sidePages);
 
-        if (currentPage - sidePages <= 1) endPage = Math.min(totalPages, maxVisible);
-        if (currentPage + sidePages >= totalPages) startPage = Math.max(1, totalPages - maxVisible + 1);
+        const pages = [];
+
+        const maxVisible = 5;
+
+        const sidePages = Math.floor(maxVisible / 2);
+
+        let startPage = Math.max(
+            1,
+            currentPage - sidePages
+        );
+
+        let endPage = Math.min(
+            totalPages,
+            currentPage + sidePages
+        );
+
+        if (currentPage - sidePages <= 1) {
+            endPage = Math.min(totalPages, maxVisible);
+        }
+
+        if (currentPage + sidePages >= totalPages) {
+            startPage = Math.max(
+                1,
+                totalPages - maxVisible + 1
+            );
+        }
 
         for (let i = startPage; i <= endPage; i++) {
+
             pages.push(
-                <button key={i} className={`pagination-number ${currentPage === i ? 'active' : ''}`} onClick={() => goToPage(i)}>
+                <button
+                    key={i}
+                    className={`pagination-number ${
+                        currentPage === i ? 'active' : ''
+                    }`}
+                    onClick={() => goToPage(i)}
+                >
                     {i}
                 </button>
             );
         }
+
         return pages;
     };
 
+    // =========================
+    // NUEVO
+    // =========================
+
     const handleNuevo = () => {
+
         setEditMode(false);
+
         setFormData({
-            registroSanitario: '', nombre: '', presentacion: '', via: '',
-            fabricante: '', tipoVenta: 'LIBRE', precioUnitario: '', receta: false, activo: true
+            registroSanitario: '',
+            nombre: '',
+            presentacion: '',
+            via: '',
+            fabricante: '',
+            tipoVenta: 'LIBRE',
+            precioUnitario: '',
+            receta: false,
+            activo: true
         });
+
+        setOriginalData(null);
+
         setImagenFile(null);
+
         setDrawerOpen(true);
     };
+
+    // =========================
+    // EDITAR
+    // =========================
 
     const handleEditar = (med) => {
+
         setEditMode(true);
+
         setCurrentId(med.id);
-        setFormData({ ...med, activo: med.activo === true || String(med.activo) === 'true' });
+
+        const data = {
+            ...med,
+            activo:
+                med.activo === true ||
+                String(med.activo) === 'true'
+        };
+
+        setFormData(data);
+
+        setOriginalData(data);
+
         setImagenFile(null);
+
         setDrawerOpen(true);
     };
 
+    // =========================
+    // CHANGE INPUTS
+    // =========================
+
     const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        let finalValue = type === 'checkbox' ? checked : value;
-        if (name === 'activo') finalValue = value === 'true';
-        setFormData(prev => ({ ...prev, [name]: finalValue }));
+
+        const {
+            name,
+            value,
+            type,
+            checked
+        } = e.target;
+
+        let finalValue =
+            type === 'checkbox'
+                ? checked
+                : value;
+
+        if (name === 'activo') {
+            finalValue = value === 'true';
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            [name]: finalValue
+        }));
     };
 
-    // 🔥 FIX 1 y 3 INTEGRADOS: Conversión de precio y subida robusta
+    // =========================
+    // SUBMIT
+    // =========================
+
     const handleSubmit = async (e) => {
+
         e.preventDefault();
+
         setLoading(true);
 
-        // Convertimos precioUnitario a número para evitar el Error 400 del Backend
         const payload = {
             ...formData,
-            precioUnitario: formData.precioUnitario ? Number(formData.precioUnitario) : 0
+            precioUnitario:
+                formData.precioUnitario
+                    ? Number(formData.precioUnitario)
+                    : 0
         };
 
+
+        const sinCambios =
+            editMode &&
+            originalData &&
+            !imagenFile &&
+
+            String(payload.nombre) ===
+            String(originalData.nombre) &&
+
+            String(payload.presentacion) ===
+            String(originalData.presentacion) &&
+
+            String(payload.via) ===
+            String(originalData.via) &&
+
+            String(payload.fabricante) ===
+            String(originalData.fabricante) &&
+
+            String(payload.tipoVenta) ===
+            String(originalData.tipoVenta) &&
+
+            Number(payload.precioUnitario) ===
+            Number(originalData.precioUnitario) &&
+
+            Boolean(payload.receta) ===
+            Boolean(originalData.receta) &&
+
+            Boolean(payload.activo) ===
+            Boolean(originalData.activo);
+
+        if (sinCambios) {
+
+            setLoading(false);
+
+            return;
+        }
+
         try {
+
             let targetId;
+
+            // =========================
+            // EDITAR
+            // =========================
+
             if (editMode) {
-                await actualizarMedicamento(currentId, payload);
+
+                await actualizarMedicamento(
+                    currentId,
+                    payload
+                );
+
                 targetId = currentId;
-                setMessage({ text: 'Actualizado correctamente', type: 'success' });
+
+                alertaExito(
+                    'Medicamento actualizado correctamente'
+                );
+
             } else {
-                const response = await crearMedicamento(payload);
+
+                // =========================
+                // CREAR
+                // =========================
+
+                const response =
+                    await crearMedicamento(payload);
+
                 targetId = response.data.id;
-                setMessage({ text: 'Registrado correctamente', type: 'success' });
+
+                alertaExito(
+                    'Medicamento registrado correctamente'
+                );
             }
 
-            // Subida de imagen independiente (si falla la imagen, no se pierde el registro)
+            // =========================
+            // SUBIR IMAGEN
+            // =========================
+
             if (imagenFile && targetId) {
+
                 try {
-                    await subirImagenMedicamento(targetId, imagenFile);
+
+                    await subirImagenMedicamento(
+                        targetId,
+                        imagenFile
+                    );
+
                 } catch (imgError) {
-                    console.error("Error al subir la imagen:", imgError);
-                    setMessage({ text: 'Guardado, pero hubo un problema con la imagen', type: 'warning' });
+
+                    console.error(
+                        'Error al subir la imagen:',
+                        imgError
+                    );
+
+                    alertaError(
+                        'Guardado, pero hubo un problema con la imagen'
+                    );
                 }
             }
 
             setDrawerOpen(false);
+
             setImagenFile(null);
+
             await cargarMedicamentos();
+
         } catch (error) {
-            const errorMsg = error.response?.data?.message || 'Error en el proceso';
-            setMessage({ text: errorMsg, type: 'error' });
-        } finally { setLoading(false); }
+
+            const errorMsg =
+                error.response?.data?.message ||
+                'Error en el proceso';
+
+            alertaError(errorMsg);
+
+        } finally {
+
+            setLoading(false);
+
+        }
     };
+
+    // =========================
+    // DESACTIVAR
+    // =========================
 
     const handleDesactivar = async (id) => {
-        if (!window.confirm('¿Desactivar este medicamento?')) return;
+
+        const result =
+            await alertaConfirmacion({
+                titulo: '¿Desactivar medicamento?',
+                texto: 'El medicamento dejará de estar disponible.',
+                confirmar: 'Sí, desactivar',
+                cancelar: 'Cancelar',
+                icono: 'warning'
+            });
+
+        if (!result.isConfirmed) return;
+
         try {
+
             await desactivarMedicamento(id);
-            setMessage({ text: 'Medicamento desactivado', type: 'success' });
+
+            alertaExito(
+                'Medicamento desactivado'
+            );
+
             cargarMedicamentos();
-        } catch (error) { setMessage({ text: 'Error al desactivar', type: 'error' }); }
+
+        } catch (error) {
+
+            alertaError(
+                'Error al desactivar'
+            );
+        }
     };
 
+    // =========================
+    // REACTIVAR
+    // =========================
+
     const handleReactivar = async (id) => {
+
+        const result =
+            await alertaConfirmacion({
+                titulo: '¿Reactivar medicamento?',
+                texto: 'El medicamento volverá a estar disponible.',
+                confirmar: 'Sí, reactivar',
+                cancelar: 'Cancelar',
+                icono: 'question'
+            });
+
+        if (!result.isConfirmed) return;
+
         try {
+
             await reactivarMedicamento(id);
-            setMessage({ text: 'Medicamento reactivado', type: 'success' });
+
+            alertaExito(
+                'Medicamento reactivado'
+            );
+
             cargarMedicamentos();
-        } catch (error) { setMessage({ text: 'Error al reactivar', type: 'error' }); }
+
+        } catch (error) {
+
+            alertaError(
+                'Error al reactivar'
+            );
+        }
     };
 
     return (
@@ -231,22 +629,29 @@ export default function Medicamentos() {
                     <h1>Catálogo Farmacéutico</h1>
                     <p>Gestión de Medicamentos e Insumos</p>
                 </div>
+
                 <div className="header-actions-row">
                     <div className="search-box">
                         <span className="search-icon">🔍</span>
-                        <input type="text" placeholder="Buscar medicamento..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <input
+                            type="text"
+                            placeholder="Buscar medicamento..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
-                    <button className="btn-print" onClick={generarPDF}>🖨️ PDF</button>
-                    {user?.rol === 'ADMIN' && <button className="btn-primary-compact" onClick={handleNuevo}><span>+</span> Nuevo</button>}
+
+                    <button className="btn-print" onClick={generarPDF}>
+                        🖨️ PDF
+                    </button>
+
+                    {user?.rol === 'ADMIN' && (
+                        <button className="btn-primary-compact" onClick={handleNuevo}>
+                            <span>+</span> Nuevo
+                        </button>
+                    )}
                 </div>
             </header>
-
-            {message.text && (
-                <div className={`alert-banner ${message.type}`}>
-                    {message.text}
-                    <button onClick={() => setMessage({ text: '', type: '' })}>×</button>
-                </div>
-            )}
 
             <div className="table-card">
                 <div className="table-responsive">
@@ -264,41 +669,81 @@ export default function Medicamentos() {
                             {user?.rol === 'ADMIN' && <th>Acciones</th>}
                         </tr>
                         </thead>
+
                         <tbody>
                         {loading ? (
                             Array.from({ length: 5 }).map((_, index) => (
                                 <tr key={index} className="skeleton-row">
-                                    {Array.from({ length: 9 }).map((_, i) => <td key={i}><div className="skeleton-cell" /></td>)}
+                                    {Array.from({ length: 9 }).map((_, i) => (
+                                        <td key={i}>
+                                            <div className="skeleton-cell" />
+                                        </td>
+                                    ))}
                                 </tr>
                             ))
                         ) : (
                             paginatedMedicamentos.map((m, idx) => (
-                                <tr key={m.id} className="fade-in-row" style={{ animationDelay: `${idx * 0.05}s` }}>
+                                <tr
+                                    key={m.id}
+                                    className="fade-in-row"
+                                    style={{ animationDelay: `${idx * 0.05}s` }}
+                                >
                                     <td>
                                         {m.imagen ? (
-                                            /* 🔥 FIX 2: Replace para rutas de Windows en la imagen */
                                             <img
-                                                src={`http://localhost:8080/${m.imagen.replace(/\\/g, "/")}`}
+                                                src={`http://localhost:8080/${m.imagen.replace(/\\/g, '/')}`}
                                                 alt="med"
-                                                style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px' }}
+                                                style={{
+                                                    width: '40px',
+                                                    height: '40px',
+                                                    objectFit: 'cover',
+                                                    borderRadius: '6px'
+                                                }}
                                             />
-                                        ) : '—'}
+                                        ) : (
+                                            '—'
+                                        )}
                                     </td>
+
                                     <td className="font-bold">{m.nombre}</td>
                                     <td className="text-muted">{m.registroSanitario}</td>
                                     <td>{m.fabricante || '-'}</td>
                                     <td><span className="badge-gray">{m.presentacion}</span></td>
                                     <td><span className="badge-blue">{m.via}</span></td>
-                                    <td className="price-text">C$ {parseFloat(m.precioUnitario).toFixed(2)}</td>
-                                    <td><span className={`status-pill ${m.activo ? 'active' : 'inactive'}`}>{m.activo ? 'Activo' : 'Inactivo'}</span></td>
+                                    <td className="price-text">
+                                        C$ {parseFloat(m.precioUnitario).toFixed(2)}
+                                    </td>
+                                    <td>
+                                            <span className={`status-pill ${m.activo ? 'active' : 'inactive'}`}>
+                                                {m.activo ? 'Activo' : 'Inactivo'}
+                                            </span>
+                                    </td>
+
                                     {user?.rol === 'ADMIN' && (
                                         <td>
                                             <div className="action-buttons-group">
-                                                <button className="btn-edit-icon" onClick={() => handleEditar(m)}>✏️</button>
-                                                {m.activo ?
-                                                    <button className="btn-delete-icon" onClick={() => handleDesactivar(m.id)}>🗑️</button> :
-                                                    <button className="btn-restore-icon" onClick={() => handleReactivar(m.id)}>↩️</button>
-                                                }
+                                                <button
+                                                    className="btn-edit-icon"
+                                                    onClick={() => handleEditar(m)}
+                                                >
+                                                    ✏️
+                                                </button>
+
+                                                {m.activo ? (
+                                                    <button
+                                                        className="btn-delete-icon"
+                                                        onClick={() => handleDesactivar(m.id)}
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        className="btn-restore-icon"
+                                                        onClick={() => handleReactivar(m.id)}
+                                                    >
+                                                        ↩️
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     )}
@@ -310,9 +755,25 @@ export default function Medicamentos() {
                 </div>
 
                 <div className="pagination-container">
-                    <button className="pagination-btn" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>← Anterior</button>
-                    <div className="pagination-pages">{renderPageNumbers()}</div>
-                    <button className="pagination-btn" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>Siguiente →</button>
+                    <button
+                        className="pagination-btn"
+                        onClick={() => goToPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                    >
+                        ← Anterior
+                    </button>
+
+                    <div className="pagination-pages">
+                        {renderPageNumbers()}
+                    </div>
+
+                    <button
+                        className="pagination-btn"
+                        onClick={() => goToPage(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                    >
+                        Siguiente →
+                    </button>
                 </div>
             </div>
 
@@ -321,31 +782,65 @@ export default function Medicamentos() {
                     <div className="drawer-panel" onClick={e => e.stopPropagation()}>
                         <div className="drawer-header-compact">
                             <h2>{editMode ? 'Editar' : 'Nuevo'} Medicamento</h2>
-                            <button className="close-btn-round" onClick={() => setDrawerOpen(false)}>×</button>
+                            <button
+                                className="close-btn-round"
+                                onClick={() => setDrawerOpen(false)}
+                            >
+                                ×
+                            </button>
                         </div>
+
                         <form onSubmit={handleSubmit} className="drawer-body-scrollable">
                             <div className="form-content-inner">
                                 <h4 className="section-divider">Información General</h4>
+
                                 <div className="field-group">
                                     <label>Nombre Comercial *</label>
-                                    <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} required />
+                                    <input
+                                        type="text"
+                                        name="nombre"
+                                        value={formData.nombre}
+                                        onChange={handleChange}
+                                        required
+                                    />
                                 </div>
+
                                 <div className="field-grid-2">
                                     <div className="field-group">
                                         <label>Reg. Sanitario *</label>
-                                        <input type="text" name="registroSanitario" value={formData.registroSanitario} onChange={handleChange} required disabled={editMode} />
+                                        <input
+                                            type="text"
+                                            name="registroSanitario"
+                                            value={formData.registroSanitario}
+                                            onChange={handleChange}
+                                            required
+                                            disabled={editMode}
+                                        />
                                     </div>
+
                                     <div className="field-group">
                                         <label>Fabricante *</label>
-                                        <input type="text" name="fabricante" value={formData.fabricante} onChange={handleChange} required />
+                                        <input
+                                            type="text"
+                                            name="fabricante"
+                                            value={formData.fabricante}
+                                            onChange={handleChange}
+                                            required
+                                        />
                                     </div>
                                 </div>
 
                                 <h4 className="section-divider">Detalles Técnicos</h4>
+
                                 <div className="field-grid-2">
                                     <div className="field-group">
                                         <label>Presentación *</label>
-                                        <select name="presentacion" value={formData.presentacion} onChange={handleChange} required>
+                                        <select
+                                            name="presentacion"
+                                            value={formData.presentacion}
+                                            onChange={handleChange}
+                                            required
+                                        >
                                             <option value="">Seleccione...</option>
                                             <option value="Tableta">Tableta</option>
                                             <option value="Cápsula">Cápsula</option>
@@ -354,9 +849,15 @@ export default function Medicamentos() {
                                             <option value="Crema">Crema</option>
                                         </select>
                                     </div>
+
                                     <div className="field-group">
                                         <label>Vía de Admón. *</label>
-                                        <select name="via" value={formData.via} onChange={handleChange} required>
+                                        <select
+                                            name="via"
+                                            value={formData.via}
+                                            onChange={handleChange}
+                                            required
+                                        >
                                             <option value="">Seleccione...</option>
                                             <option value="ORAL">Oral</option>
                                             <option value="TOPICA">Tópica</option>
@@ -368,30 +869,69 @@ export default function Medicamentos() {
                                 <div className="field-grid-2">
                                     <div className="field-group">
                                         <label>Tipo de Venta *</label>
-                                        <select name="tipoVenta" value={formData.tipoVenta} onChange={handleChange} required>
+                                        <select
+                                            name="tipoVenta"
+                                            value={formData.tipoVenta}
+                                            onChange={handleChange}
+                                            required
+                                        >
                                             <option value="LIBRE">Libre</option>
                                             <option value="CONTROLADO">Controlado</option>
                                         </select>
                                     </div>
+
                                     <div className="field-group">
                                         <label>Precio (C$) *</label>
-                                        <input type="number" step="0.01" name="precioUnitario" value={formData.precioUnitario} onChange={handleChange} required />
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            name="precioUnitario"
+                                            value={formData.precioUnitario}
+                                            onChange={handleChange}
+                                            required
+                                        />
                                     </div>
                                 </div>
 
                                 <div className="field-group">
                                     <label>Imagen del Medicamento (Max 2MB)</label>
-                                    <input type="file" accept="image/*" onChange={(e) => setImagenFile(e.target.files[0])} />
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => setImagenFile(e.target.files[0])}
+                                    />
                                 </div>
 
                                 <div className="receta-warning-card">
-                                    <input type="checkbox" id="receta" name="receta" checked={formData.receta} onChange={handleChange} />
-                                    <label htmlFor="receta">Requiere receta médica obligatoria</label>
+                                    <input
+                                        type="checkbox"
+                                        id="receta"
+                                        name="receta"
+                                        checked={formData.receta}
+                                        onChange={handleChange}
+                                    />
+                                    <label htmlFor="receta">
+                                        Requiere receta médica obligatoria
+                                    </label>
                                 </div>
                             </div>
+
                             <div className="drawer-footer-fixed">
-                                <button type="button" className="btn-cancel" onClick={() => setDrawerOpen(false)}>Cancelar</button>
-                                <button type="submit" className="btn-save-final" disabled={loading}>{loading ? '...' : 'Guardar'}</button>
+                                <button
+                                    type="button"
+                                    className="btn-cancel"
+                                    onClick={() => setDrawerOpen(false)}
+                                >
+                                    Cancelar
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    className="btn-save-final"
+                                    disabled={loading}
+                                >
+                                    {loading ? '...' : 'Guardar'}
+                                </button>
                             </div>
                         </form>
                     </div>

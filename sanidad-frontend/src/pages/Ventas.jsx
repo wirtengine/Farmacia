@@ -20,8 +20,10 @@ export default function Ventas() {
     const round2 = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
 
     // Formato de moneda en Córdobas
-    const formatCurrency = (value) => `C$ ${value.toFixed(2)}`;
-
+    const formatCurrency = (value) => {
+        const number = Number(value ?? 0);
+        return `C$ ${number.toFixed(2)}`;
+    };
     // Formato de fecha
     const formatearFecha = (fecha) => {
         if (!fecha) return "";

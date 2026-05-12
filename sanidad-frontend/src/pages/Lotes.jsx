@@ -9,7 +9,11 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import RackVisualization from '../components/RackVisualization';
 import './Lotes.css';
-
+import {
+    alertaConfirmacion,
+    alertaExito,
+    alertaError
+} from '../alertas';
 export default function Lotes() {
     const { user } = useAuth();
     const isAdmin = user?.rol === 'ADMIN';
@@ -125,17 +129,35 @@ export default function Lotes() {
     };
 
     const handleDesactivar = async (id) => {
-        if (!window.confirm('¿Está seguro de desactivar este lote?')) return;
+
+        const result = await alertaConfirmacion({
+            titulo: 'Desactivar lote',
+            texto: '¿Está seguro de desactivar este lote?',
+            confirmar: 'Desactivar',
+            cancelar: 'Cancelar',
+            icono: 'warning'
+        });
+
+        if (!result.isConfirmed) return;
+
         setLoading(true);
+
         try {
+
             await desactivarLote(id);
-            setMessage({ text: 'Lote desactivado correctamente', type: 'success' });
+
+            alertaExito('Lote desactivado correctamente');
+
             cargarDatos();
+
         } catch (error) {
-            setMessage({ text: 'Error al desactivar el lote', type: 'error' });
+
+            alertaError('Error al desactivar el lote');
+
         } finally {
+
             setLoading(false);
-            setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+
         }
     };
 

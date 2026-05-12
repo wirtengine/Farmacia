@@ -7,7 +7,11 @@ import {
     desactivarProveedor
 } from '../services/proveedores';
 import './Proveedores.css';
-
+import {
+    alertaConfirmacion,
+    alertaExito,
+    alertaError
+} from '../alertas';
 export default function Proveedores() {
     const { user } = useAuth();
     const esAdmin = user?.rol === 'ADMIN';
@@ -176,13 +180,29 @@ export default function Proveedores() {
     };
 
     const handleDesactivar = async (id) => {
-        if (!window.confirm('¿Desea dar de baja a este proveedor?')) return;
+
+        const result = await alertaConfirmacion({
+            titulo: 'Dar de baja proveedor',
+            texto: '¿Desea dar de baja a este proveedor?',
+            confirmar: 'Dar de baja',
+            cancelar: 'Cancelar',
+            icono: 'warning'
+        });
+
+        if (!result.isConfirmed) return;
+
         try {
+
             await desactivarProveedor(id);
-            setMessage({ text: 'Proveedor desactivado', type: 'success' });
+
+            alertaExito('Proveedor desactivado');
+
             cargarProveedores();
+
         } catch (error) {
-            setMessage({ text: 'Error al desactivar', type: 'error' });
+
+            alertaError('Error al desactivar');
+
         }
     };
 

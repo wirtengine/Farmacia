@@ -5,6 +5,7 @@ import { listarVentas, obtenerVenta } from '../services/ventas';
 import { listarMedicamentos } from '../services/medicamentos';
 import { listarLotes } from '../services/lotes'; // 🔥 NUEVO: para obtener los lotes
 import './Devoluciones.css';
+import Swal from 'sweetalert2';
 
 export default function Devoluciones() {
     const { user } = useAuth();
@@ -160,10 +161,42 @@ export default function Devoluciones() {
     const handleAprobarAccion = async (devolucionId, aprobado) => {
         let motivoRechazo = null;
         if (!aprobado) {
-            motivoRechazo = prompt('Ingrese el motivo del rechazo:');
-            if (!motivoRechazo) return;
+
+            const result = await Swal.fire({
+                title: 'Rechazar devolución',
+                input: 'textarea',
+                inputLabel: 'Motivo del rechazo',
+                inputPlaceholder: 'Escriba el motivo...',
+                inputAttributes: {
+                    'aria-label': 'Motivo del rechazo'
+                },
+                showCancelButton: true,
+                confirmButtonText: 'Rechazar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#d33',
+                background: '#1e1e2f',
+                color: '#fff'
+            });
+
+            if (!result.isConfirmed) return;
+
+            motivoRechazo = result.value;
+
         } else {
-            if (!window.confirm('¿Aprobar devolución y retornar productos al inventario?')) return;
+
+            const result = await Swal.fire({
+                title: '¿Aprobar devolución?',
+                text: 'Los productos volverán al inventario.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, aprobar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#3085d6',
+                background: '#1e1e2f',
+                color: '#fff'
+            });
+
+            if (!result.isConfirmed) return;
         }
 
         try {

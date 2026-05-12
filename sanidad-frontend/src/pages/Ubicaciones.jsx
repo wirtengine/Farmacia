@@ -6,7 +6,11 @@ import { listarLotes } from '../services/lotes';
 import { listarMedicamentos } from '../services/medicamentos';
 import RackVisualization from '../components/RackVisualization';
 import './Ubicaciones.css';
-
+import {
+    alertaConfirmacion,
+    alertaExito,
+    alertaError
+} from '../alertas';
 export default function Ubicaciones() {
     const { user } = useAuth();
     const esAdmin = user?.rol === 'ADMIN';
@@ -355,17 +359,34 @@ export default function Ubicaciones() {
 
     // --- ELIMINAR RACK ---
     const eliminarRackHandler = async (rackId) => {
-        if (!window.confirm('¿Está seguro de eliminar este estante? Se perderán todas las ubicaciones asociadas.')) return;
+
+        const result = await alertaConfirmacion({
+            titulo: 'Eliminar estante',
+            texto: '¿Está seguro de eliminar este estante? Se perderán todas las ubicaciones asociadas.',
+            confirmar: 'Eliminar',
+            cancelar: 'Cancelar',
+            icono: 'warning'
+        });
+
+        if (!result.isConfirmed) return;
+
         try {
+
             await eliminarRack(rackId);
+
             await cargarDatosBase();
+
             if (rackSeleccionado?.id === rackId) {
                 setRackSeleccionado(null);
                 setUbicaciones([]);
             }
-            setMessage({ text: 'Estante eliminado', type: 'success' });
+
+            alertaExito('Estante eliminado');
+
         } catch (err) {
-            setMessage({ text: 'Error al eliminar estante', type: 'error' });
+
+            alertaError('Error al eliminar estante');
+
         }
     };
 
