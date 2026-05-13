@@ -1,5 +1,6 @@
 package com.sanidad.movil.data.remote
 
+import com.sanidad.movil.BuildConfig
 import com.sanidad.movil.data.remote.api.ApiService
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -9,8 +10,8 @@ import java.util.concurrent.TimeUnit
 
 object NetworkModule {
 
-    private const val BASE_URL =
-        "http://172.16.66.6:8080/"
+    // ❌ Elimina esta línea:
+    // private const val BASE_URL = "http://172.16.66.6:8080/"
 
     private var token: String? = null
 
@@ -21,63 +22,31 @@ object NetworkModule {
     fun getToken(): String? = token
 
     private val okHttpClient: OkHttpClient by lazy {
-
         val logging = HttpLoggingInterceptor().apply {
-
             level = HttpLoggingInterceptor.Level.BODY
         }
 
         OkHttpClient.Builder()
-
             .addInterceptor { chain ->
-
                 val original = chain.request()
-
-                val requestBuilder =
-                    original.newBuilder()
-
+                val requestBuilder = original.newBuilder()
                 token?.let {
-
-                    requestBuilder.header(
-                        "Authorization",
-                        "Bearer $it"
-                    )
+                    requestBuilder.header("Authorization", "Bearer $it")
                 }
-
-                chain.proceed(
-                    requestBuilder.build()
-                )
+                chain.proceed(requestBuilder.build())
             }
-
             .addInterceptor(logging)
-
-            .connectTimeout(
-                30,
-                TimeUnit.SECONDS
-            )
-
-            .readTimeout(
-                30,
-                TimeUnit.SECONDS
-            )
-
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 
     val apiService: ApiService by lazy {
-
         Retrofit.Builder()
-
-            .baseUrl(BASE_URL)
-
+            .baseUrl(BuildConfig.BASE_URL)   //  ← Ahora toma la IP desde BuildConfig
             .client(okHttpClient)
-
-            .addConverterFactory(
-                GsonConverterFactory.create()
-            )
-
+            .addConverterFactory(GsonConverterFactory.create())
             .build()
-
             .create(ApiService::class.java)
     }
 }
