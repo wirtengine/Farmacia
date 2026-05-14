@@ -2,7 +2,7 @@ import Swal from 'sweetalert2';
 import './alertas.css';
 
 const configBase = {
-    background: '#000080',
+    background: '#1f2235',
     color: '#ffffff',
     buttonsStyling: false,
     customClass: {
@@ -22,6 +22,7 @@ export const alertaConfirmacion = async ({
                                              cancelar = 'Cancelar',
                                              icono = 'warning'
                                          }) => {
+
     return await Swal.fire({
         ...configBase,
         title: titulo,
@@ -33,22 +34,36 @@ export const alertaConfirmacion = async ({
     });
 };
 
-export const alertaExito = (texto = 'Operación realizada correctamente') => {
+export const alertaExito = (
+    texto = 'Operación realizada correctamente'
+) => {
+
     return Swal.fire({
         ...configBase,
         title: 'Listo',
         text: texto,
         icon: 'success',
-        confirmButtonText: 'Aceptar'
+
+        toast: true,
+        position: 'top-end',
+
+        showConfirmButton: false,
+
+        timer: 2200,
+        timerProgressBar: true
     });
 };
 
-export const alertaError = (texto = 'Ocurrió un error') => {
+export const alertaError = (
+    texto = 'Ocurrió un error'
+) => {
+
     return Swal.fire({
         ...configBase,
         title: 'Error',
         text: texto,
         icon: 'error',
+
         confirmButtonText: 'Aceptar'
     });
 };

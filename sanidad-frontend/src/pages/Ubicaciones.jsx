@@ -11,6 +11,7 @@ import {
     alertaExito,
     alertaError
 } from '../alertas';
+
 export default function Ubicaciones() {
     const { user } = useAuth();
     const esAdmin = user?.rol === 'ADMIN';
@@ -24,7 +25,6 @@ export default function Ubicaciones() {
     const [todasUbicaciones, setTodasUbicaciones] = useState([]);
 
     const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState({ text: '', type: '' });
     const [drawerNuevoOpen, setDrawerNuevoOpen] = useState(false);
     const [drawerAsignarOpen, setDrawerAsignarOpen] = useState(false);
     const [drawerMoverOpen, setDrawerMoverOpen] = useState(false);
@@ -67,7 +67,7 @@ export default function Ubicaciones() {
             setMedicamentos(medsRes.data || []);
             setTodasUbicaciones(todasUbicRes.data || []);
         } catch (err) {
-            setMessage({ text: 'Error de conexión con el servidor', type: 'error' });
+            alertaError('Error de conexión con el servidor');
         } finally { setLoading(false); }
     }, []);
 
@@ -86,7 +86,7 @@ export default function Ubicaciones() {
             setUbicaciones(ubicRes.data);
             resetearSeleccion();
         } catch {
-            setMessage({ text: 'Error al cargar estante', type: 'error' });
+            alertaError('Error al cargar estante');
         } finally { setLoading(false); }
     };
 
@@ -120,7 +120,7 @@ export default function Ubicaciones() {
 
         const stockDisp = obtenerStockDisponible(detalleSeleccionado.id);
         if (cantidad > stockDisp) {
-            setMessage({ text: `Stock insuficiente. Solo hay ${stockDisp} unidades disponibles.`, type: 'error' });
+            alertaError(`Stock insuficiente. Solo hay ${stockDisp} unidades disponibles.`);
             return;
         }
 
@@ -160,7 +160,7 @@ export default function Ubicaciones() {
         }
 
         if (restantes > 0) {
-            setMessage({ text: `Espacio insuficiente. Faltaron ${restantes} unidades por ubicar.`, type: 'error' });
+            alertaError(`Espacio insuficiente. Faltaron ${restantes} unidades por ubicar.`);
         }
 
         try {
@@ -169,10 +169,10 @@ export default function Ubicaciones() {
             const resUbic = await listarUbicacionesPorRack(rackSeleccionado.id);
             setUbicaciones(resUbic.data);
             resetearSeleccion();
-            setMessage({ text: `${slotsParaEnviar.length} unidades ubicadas con éxito.`, type: 'success' });
+            alertaExito(`${slotsParaEnviar.length} unidades ubicadas con éxito.`);
         } catch (err) {
             console.error(err);
-            setMessage({ text: 'Error al procesar la ubicación', type: 'error' });
+            alertaError('Error al procesar la ubicación');
         } finally {
             setLoading(false);
         }
@@ -180,7 +180,16 @@ export default function Ubicaciones() {
 
     // --- ELIMINAR UBICACIÓN ---
     const confirmarEliminarUbicacion = async (ubicacion) => {
-        if (!window.confirm(`¿Eliminar este producto de la celda?`)) return;
+        const result = await alertaConfirmacion({
+            titulo: 'Eliminar producto',
+            texto: '¿Eliminar este producto de la celda?',
+            confirmar: 'Eliminar',
+            cancelar: 'Cancelar',
+            icono: 'warning'
+        });
+
+        if (!result.isConfirmed) return;
+
         try {
             await eliminarUbicacion(ubicacion.id);
             await cargarDatosBase();
@@ -188,10 +197,10 @@ export default function Ubicaciones() {
                 const resUbic = await listarUbicacionesPorRack(rackSeleccionado.id);
                 setUbicaciones(resUbic.data);
             }
-            setMessage({ text: 'Producto eliminado del estante', type: 'success' });
+            alertaExito('Producto eliminado del estante');
         } catch (err) {
             console.error(err);
-            setMessage({ text: 'Error al eliminar', type: 'error' });
+            alertaError('Error al eliminar');
         }
     };
 
@@ -208,7 +217,7 @@ export default function Ubicaciones() {
 
     const handleMover = async () => {
         if (!ubicacionAMover || !celdaSeleccionada) {
-            setMessage({ text: 'Seleccione una celda destino', type: 'error' });
+            alertaError('Seleccione una celda destino');
             return;
         }
         const ocupada = ubicaciones.some(u =>
@@ -218,7 +227,7 @@ export default function Ubicaciones() {
             u.activo !== false && u.id !== ubicacionAMover.id
         );
         if (ocupada) {
-            setMessage({ text: 'La celda destino ya está ocupada', type: 'error' });
+            alertaError('La celda destino ya está ocupada');
             return;
         }
 
@@ -237,10 +246,10 @@ export default function Ubicaciones() {
             const resUbic = await listarUbicacionesPorRack(rackSeleccionado.id);
             setUbicaciones(resUbic.data);
             resetearSeleccion();
-            setMessage({ text: 'Producto movido con éxito', type: 'success' });
+            alertaExito('Producto movido con éxito');
         } catch (err) {
             console.error(err);
-            setMessage({ text: 'Error al mover el producto', type: 'error' });
+            alertaError('Error al mover el producto');
         } finally {
             setLoading(false);
         }
@@ -267,16 +276,13 @@ export default function Ubicaciones() {
                 return med?.nombre || 'Producto';
             })()
         });
-        setMessage({ text: 'Modo movimiento activado. Haz clic en una celda libre para mover el producto.', type: 'info' });
     };
 
     const cancelarMovimiento = () => {
         setModoMovimiento(false);
         setOrigenMovimiento(null);
-        setMessage({ text: 'Movimiento cancelado', type: 'info' });
     };
 
-    // 🔥 FUNCIÓN PRINCIPAL QUE MANEJA EL CLICK EN LA CELDA (CORREGIDA)
     const handleCeldaClick = async (nivel, columna, profundidadIndex) => {
         // MODO MOVIMIENTO: intentar mover
         if (modoMovimiento && origenMovimiento) {
@@ -302,7 +308,7 @@ export default function Ubicaciones() {
                 );
 
                 if (ocupadaDestino) {
-                    setMessage({ text: 'La celda destino está ocupada. Movimiento cancelado.', type: 'error' });
+                    alertaError('La celda destino está ocupada. Movimiento cancelado.');
                     cancelarMovimiento();
                     return;
                 }
@@ -326,10 +332,10 @@ export default function Ubicaciones() {
                 await cargarDatosBase();
                 const finalUbicRes = await listarUbicacionesPorRack(rackSeleccionado.id);
                 setUbicaciones(finalUbicRes.data);
-                setMessage({ text: 'Producto movido con éxito', type: 'success' });
+                alertaExito('Producto movido con éxito');
             } catch (err) {
                 console.error(err);
-                setMessage({ text: err.response?.data?.message || 'Error al mover el producto', type: 'error' });
+                alertaError(err.response?.data?.message || 'Error al mover el producto');
             } finally {
                 cancelarMovimiento();
                 setLoading(false);
@@ -393,7 +399,7 @@ export default function Ubicaciones() {
     // --- CREAR RACK ---
     const handleCrearRack = async () => {
         if (!nuevoRack.nombre.trim()) {
-            setMessage({ text: 'El nombre es obligatorio', type: 'error' });
+            alertaError('El nombre es obligatorio');
             return;
         }
         setLoading(true);
@@ -408,9 +414,9 @@ export default function Ubicaciones() {
             await crearRack(request);
             await cargarDatosBase();
             resetearSeleccion();
-            setMessage({ text: 'Estante creado correctamente', type: 'success' });
+            alertaExito('Estante creado correctamente');
         } catch (error) {
-            setMessage({ text: 'Error al crear estante', type: 'error' });
+            alertaError('Error al crear estante');
         } finally { setLoading(false); }
     };
 
@@ -436,12 +442,6 @@ export default function Ubicaciones() {
                     )}
                 </div>
             </header>
-
-            {message.text && (
-                <div className={`alert-banner ${message.type}`} onClick={() => setMessage({ text: '', type: '' })}>
-                    {message.text}
-                </div>
-            )}
 
             <div className="main-layout">
                 <aside className="side-panel">
