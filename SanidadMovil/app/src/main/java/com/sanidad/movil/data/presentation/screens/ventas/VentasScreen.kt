@@ -1,8 +1,10 @@
-package com.sanidad.movil.presentation.screens.ventas
+package com.sanidad.movil.data.presentation.screens.ventas
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,7 +17,8 @@ import com.sanidad.movil.data.repository.VentaRepository
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VentasScreen(
-    ventaRepository: VentaRepository = remember { VentaRepository() }
+    ventaRepository: VentaRepository = remember { VentaRepository() },
+    onNuevaVenta: () -> Unit = {}
 ) {
     val viewModel: VentasViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
@@ -28,9 +31,28 @@ fun VentasScreen(
     val ventas by viewModel.ventas.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Ventas") }) }) { padding ->
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Ventas") }) },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onNuevaVenta,
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Nueva venta",
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+        }
+    ) { padding ->
         if (isLoading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) { CircularProgressIndicator() }
         } else {
             LazyColumn(modifier = Modifier.padding(padding)) {
                 items(ventas) { venta ->

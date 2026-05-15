@@ -18,7 +18,7 @@ import com.sanidad.movil.data.local.TokenDataStore
 import com.sanidad.movil.data.remote.NetworkModule
 import com.sanidad.movil.data.repository.AuthRepository
 import com.sanidad.movil.data.presentation.screens.login.LoginScreen
-import com.sanidad.movil.presentation.screens.dashboard.DashboardScreen
+import com.sanidad.movil.data.presentation.screens.dashboard.DashboardScreen
 import com.sanidad.movil.presentation.screens.medicamentos.MedicamentosScreen
 import com.sanidad.movil.presentation.screens.clientes.ClientesScreen
 import com.sanidad.movil.presentation.screens.usuarios.UsuariosScreen
@@ -32,7 +32,7 @@ import com.sanidad.movil.presentation.screens.ubicaciones.UbicacionesScreen
 import com.sanidad.movil.presentation.screens.alerts.AlertsScreen
 import com.sanidad.movil.presentation.screens.perdidas.PerdidasScreen
 import com.sanidad.movil.presentation.screens.recommendations.RecommendationsScreen
-import com.sanidad.movil.presentation.screens.ventas.VentasScreen
+import com.sanidad.movil.data.presentation.screens.ventas.VentasScreen          // ← corregido
 import com.sanidad.movil.data.presentation.screens.ventas.VentaCreateScreen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -57,18 +57,13 @@ fun NavGraph() {
     }
 
     if (isLoggedIn == null) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
         return
     }
 
-    val startDestination =
-        if (isLoggedIn == true) "dashboard"
-        else "login"
+    val startDestination = if (isLoggedIn == true) "dashboard" else "login"
 
     val drawerItems = listOf(
         "Dashboard" to "dashboard",
@@ -91,60 +86,36 @@ fun NavGraph() {
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-
             ModalDrawerSheet {
-
                 Text(
                     text = "Farmacia Sanidad",
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.headlineSmall
                 )
-
                 HorizontalDivider()
-
                 drawerItems.forEach { (label, route) ->
-
                     NavigationDrawerItem(
-                        label = {
-                            Text(label)
-                        },
+                        label = { Text(label) },
                         selected = false,
                         onClick = {
-
-                            coroutineScope.launch {
-                                drawerState.close()
-                            }
-
+                            coroutineScope.launch { drawerState.close() }
                             navController.navigate(route) {
-                                popUpTo("dashboard") {
-                                    saveState = true
-                                }
-
+                                popUpTo("dashboard") { saveState = true }
                                 launchSingleTop = true
                             }
                         }
                     )
                 }
-
                 HorizontalDivider()
-
                 NavigationDrawerItem(
-                    label = {
-                        Text("Cerrar sesión")
-                    },
+                    label = { Text("Cerrar sesión") },
                     selected = false,
                     onClick = {
-
                         coroutineScope.launch {
-
                             drawerState.close()
-
                             authRepository.logout()
-
                             navController.navigate("login") {
-                                popUpTo(0) {
-                                    inclusive = true
-                                }
+                                popUpTo(0) { inclusive = true }
                             }
                         }
                     }
@@ -152,160 +123,81 @@ fun NavGraph() {
             }
         }
     ) {
-
         Scaffold(
-
             topBar = {
-
                 if (isLoggedIn == true) {
-
                     TopAppBar(
-
-                        title = {
-                            Text("Sanidad")
-                        },
-
+                        title = { Text("Sanidad") },
                         navigationIcon = {
-
-                            IconButton(
-                                onClick = {
-                                    coroutineScope.launch {
-                                        drawerState.open()
-                                    }
-                                }
-                            ) {
-
-                                Icon(
-                                    imageVector = Icons.Default.Menu,
-                                    contentDescription = "Menú"
-                                )
+                            IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
+                                Icon(imageVector = Icons.Default.Menu, contentDescription = "Menú")
                             }
                         }
                     )
                 }
             }
-
         ) { innerPadding ->
-
             NavHost(
                 navController = navController,
                 startDestination = startDestination,
                 modifier = Modifier.padding(innerPadding)
             ) {
-
                 composable("login") {
-
                     LoginScreen(
-
                         onLoginSuccess = {
-
                             navController.navigate("dashboard") {
-                                popUpTo("login") {
-                                    inclusive = true
-                                }
+                                popUpTo("login") { inclusive = true }
                             }
                         },
-
                         authRepository = authRepository
                     )
                 }
 
                 composable("dashboard") {
-
                     DashboardScreen(
-
+                        onNavigateAlerts = { navController.navigate("alertas") },
+                        onNavigateRecommendations = { navController.navigate("recomendaciones") },
                         onLogout = {
-
                             coroutineScope.launch {
-
                                 authRepository.logout()
-
                                 navController.navigate("login") {
-
-                                    popUpTo("dashboard") {
-                                        inclusive = true
-                                    }
+                                    popUpTo("dashboard") { inclusive = true }
                                 }
                             }
-                        },
-
-                        onNavigate = { route ->
-                            navController.navigate(route)
                         }
                     )
                 }
 
-                composable("medicamentos") {
-                    MedicamentosScreen()
-                }
-
-                composable("clientes") {
-                    ClientesScreen()
-                }
+                composable("medicamentos") { MedicamentosScreen() }
+                composable("clientes") { ClientesScreen() }
 
                 composable("ventas") {
-                    VentasScreen()
+                    VentasScreen(
+                        onNuevaVenta = {
+                            navController.navigate("venta_create")
+                        }
+                    )
                 }
 
                 composable("venta_create") {
-
                     VentaCreateScreen(
-
-                        usuarioId = 1L,
-
-                        onVentaExitosa = {
-                            navController.popBackStack()
-                        },
-
-                        onCancelar = {
-                            navController.popBackStack()
-                        }
+                        usuarioId = 1L, // Ajusta con el ID real del usuario
+                        onVentaExitosa = { navController.popBackStack() },
+                        onCancelar = { navController.popBackStack() }
                     )
                 }
 
-                composable("usuarios") {
-                    UsuariosScreen()
-                }
-
-                composable("proveedores") {
-                    ProveedoresScreen()
-                }
-
-                composable("lotes") {
-                    LotesScreen()
-                }
-
-                composable("devoluciones") {
-                    DevolucionesScreen()
-                }
-
-                composable("devoluciones_proveedor") {
-                    DevolucionesProveedorScreen()
-                }
-
-                composable("racks") {
-                    RacksScreen()
-                }
-
-                composable("recetas") {
-                    RecetasScreen()
-                }
-
-                composable("ubicaciones") {
-                    UbicacionesScreen()
-                }
-
-                composable("alertas") {
-                    AlertsScreen()
-                }
-
-                composable("perdidas") {
-                    PerdidasScreen()
-                }
-
-                composable("recomendaciones") {
-                    RecommendationsScreen()
-                }
+                composable("usuarios") { UsuariosScreen() }
+                composable("proveedores") { ProveedoresScreen() }
+                composable("lotes") { LotesScreen() }
+                composable("devoluciones") { DevolucionesScreen() }
+                composable("devoluciones_proveedor") { DevolucionesProveedorScreen() }
+                composable("racks") { RacksScreen() }
+                composable("recetas") { RecetasScreen() }
+                composable("ubicaciones") { UbicacionesScreen() }
+                composable("alertas") { AlertsScreen() }
+                composable("perdidas") { PerdidasScreen() }
+                composable("recomendaciones") { RecommendationsScreen() }
             }
         }
     }

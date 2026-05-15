@@ -1,4 +1,4 @@
-package com.sanidad.movil.presentation.screens.ventas
+package com.sanidad.movil.data.presentation.screens.ventas
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
