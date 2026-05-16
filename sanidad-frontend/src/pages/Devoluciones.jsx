@@ -5,8 +5,12 @@ import { listarVentas, obtenerVenta } from '../services/ventas';
 import { listarMedicamentos } from '../services/medicamentos';
 import { listarLotes } from '../services/lotes'; // 🔥 NUEVO: para obtener los lotes
 import './Devoluciones.css';
-import Swal from 'sweetalert2';
-
+import {
+    alertaConfirmacion,
+    alertaExito,
+    alertaError,
+    alertaInput
+} from '../alertas';
 export default function Devoluciones() {
     const { user } = useAuth();
     const esAdmin = user?.rol === 'ADMIN';
@@ -159,56 +163,79 @@ export default function Devoluciones() {
     };
 
     const handleAprobarAccion = async (devolucionId, aprobado) => {
+
         let motivoRechazo = null;
+
         if (!aprobado) {
 
-            const result = await Swal.fire({
-                title: 'Rechazar devolución',
-                input: 'textarea',
-                inputLabel: 'Motivo del rechazo',
-                inputPlaceholder: 'Escriba el motivo...',
-                inputAttributes: {
-                    'aria-label': 'Motivo del rechazo'
-                },
-                showCancelButton: true,
-                confirmButtonText: 'Rechazar',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#d33',
-                background: '#1e1e2f',
-                color: '#fff'
+            const result = await alertaConfirmacion({
+                titulo: 'Rechazar devolución',
+                texto: '¿Desea rechazar esta devolución?',
+                confirmar: 'Rechazar',
+                cancelar: 'Cancelar',
+                icono: 'warning'
             });
 
             if (!result.isConfirmed) return;
 
-            motivoRechazo = result.value;
+            const motivo = await alertaInput({
+                titulo: 'Motivo del rechazo',
+                placeholder: 'Escriba el motivo...',
+                confirmar: 'Continuar',
+                cancelar: 'Cancelar'
+            });
+
+            if (!motivo.isConfirmed) return;
+
+            motivoRechazo = motivo.value;
 
         } else {
 
-            const result = await Swal.fire({
-                title: '¿Aprobar devolución?',
-                text: 'Los productos volverán al inventario.',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, aprobar',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#3085d6',
-                background: '#1e1e2f',
-                color: '#fff'
+            const result = await alertaConfirmacion({
+                titulo: '¿Aprobar devolución?',
+                texto: 'Los productos volverán al inventario.',
+                confirmar: 'Sí, aprobar',
+                cancelar: 'Cancelar',
+                icono: 'question'
             });
 
             if (!result.isConfirmed) return;
         }
 
         try {
-            await aprobarDevolucion({ devolucionId, aprobadoPorId: usuarioId, aprobada: aprobado, motivoRechazo });
-            cargarDevoluciones();
-        } catch (error) { alert('Error al procesar'); }
+
+            await aprobarDevolucion({
+                devolucionId,
+                aprobadoPorId: usuarioId,
+                aprobada: aprobado,
+                motivoRechazo
+            });
+
+            await cargarDevoluciones();
+
+            if (aprobado) {
+                alertaExito('Devolución aprobada correctamente');
+            } else {
+                alertaExito('Devolución rechazada');
+            }
+
+        } catch (error) {
+
+            alertaError('Error al procesar');
+
+        }
     };
 
     const handleImprimir = (devolucion) => {
         setTicketPrint(devolucion);
+
         setTimeout(() => {
             window.print();
+
+            setTimeout(() => {
+                setTicketPrint(null);
+            }, 500);
+
         }, 500);
     };
 
@@ -221,7 +248,7 @@ export default function Devoluciones() {
             const res = await listarVentas();
             setVentas(res.data);
             setDrawerOpen(true);
-        } catch (error) { alert('Error al cargar ventas'); }
+        } catch (error) { alertaError('Error al cargar ventas'); }
     };
 
     const handleSeleccionarVenta = async (venta) => {
@@ -241,7 +268,7 @@ export default function Devoluciones() {
             });
             setItemsDevolucion(inicial);
             setVentaSeleccionada(res.data);
-        } catch (error) { alert('Error al cargar detalles'); }
+        } catch (error) { alertaError('Error al cargar detalles'); }
     };
 
     const actualizarCantidad = (id, val) => {
@@ -251,16 +278,49 @@ export default function Devoluciones() {
     };
 
     const handleSolicitar = async () => {
-        const detalles = itemsDevolucion.filter(i => i.cantidadDevuelta > 0)
-            .map(i => ({ ventaDetalleId: i.ventaDetalleId, cantidadDevuelta: i.cantidadDevuelta }));
 
-        if (detalles.length === 0 || !motivo.trim()) return alert('Complete los datos');
+        const detalles = itemsDevolucion
+            .filter(i => i.cantidadDevuelta > 0)
+            .map(i => ({
+                ventaDetalleId: i.ventaDetalleId,
+                cantidadDevuelta: i.cantidadDevuelta
+            }));
+
+        if (detalles.length === 0 || !motivo.trim()) {
+            alertaError('Complete los datos');
+            return;
+        }
+
+        const result = await alertaConfirmacion({
+            titulo: 'Crear devolución',
+            texto: '¿Desea registrar esta solicitud de devolución?',
+            confirmar: 'Crear solicitud',
+            cancelar: 'Cancelar',
+            icono: 'question'
+        });
+
+        if (!result.isConfirmed) return;
 
         try {
-            await solicitarDevolucion({ ventaId: ventaSeleccionada.id, solicitadoPorId: usuarioId, motivo, detalles });
+
+            await solicitarDevolucion({
+                ventaId: ventaSeleccionada.id,
+                solicitadoPorId: usuarioId,
+                motivo,
+                detalles
+            });
+
             setDrawerOpen(false);
-            cargarDevoluciones();
-        } catch (error) { alert('Error al procesar'); }
+
+            await cargarDevoluciones();
+
+            alertaExito('Solicitud de devolución creada');
+
+        } catch (error) {
+
+            alertaError('Error al procesar');
+
+        }
     };
 
     const ventasFiltradas = useMemo(() => {

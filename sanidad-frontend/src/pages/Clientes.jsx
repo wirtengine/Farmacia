@@ -9,7 +9,11 @@ import {
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import './Clientes.css';
-
+import {
+    alertaConfirmacion,
+    alertaExito,
+    alertaError
+} from '../alertas';
 export default function Clientes() {
     const { user } = useAuth();
     const tienePermiso = user?.rol === 'ADMIN' || user?.rol === 'VENDEDOR';
@@ -22,7 +26,6 @@ export default function Clientes() {
 
     const [clientes, setClientes] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [message, setMessage] = useState({ text: '', type: '' });
     const [loading, setLoading] = useState(false);
 
     // Estados para paginación
@@ -49,11 +52,10 @@ export default function Clientes() {
         setLoading(true);
         try {
             const response = await listarClientes();
-            // Ordenar por ID descendente (último registrado primero)
             const sorted = (response.data || []).sort((a, b) => b.id - a.id);
             setClientes(sorted);
         } catch (error) {
-            setMessage({ text: 'Error al cargar clientes', type: 'error' });
+            alertaError('Error al cargar clientes');
         } finally {
             setLoading(false);
         }
@@ -162,37 +164,50 @@ export default function Clientes() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
         if (!formData.cedula.trim() || !formData.nombre.trim()) {
-            alert('Cédula y Nombre son obligatorios');
+            alertaError('Cédula y Nombre son obligatorios');
             return;
         }
+
         setLoading(true);
+
         try {
             if (editMode) {
                 await actualizarCliente(currentId, formData);
-                setMessage({ text: 'Cliente actualizado con éxito', type: 'success' });
+                alertaExito('Cliente actualizado con éxito');
             } else {
                 await crearCliente(formData);
-                setMessage({ text: 'Cliente registrado con éxito', type: 'success' });
+                alertaExito('Cliente registrado con éxito');
             }
+
             setDrawerOpen(false);
             cargarClientes();
+
         } catch (error) {
-            setMessage({ text: 'Error en la operación', type: 'error' });
+            alertaError('Error en la operación');
         } finally {
             setLoading(false);
-            setTimeout(() => setMessage({ text: '', type: '' }), 3000);
         }
     };
 
     const handleDesactivar = async (id) => {
-        if (!window.confirm('¿Está seguro de desactivar este cliente?')) return;
+        const result = await alertaConfirmacion({
+            titulo: 'Desactivar cliente',
+            texto: '¿Está seguro de desactivar este cliente?',
+            confirmar: 'Desactivar',
+            cancelar: 'Cancelar',
+            icono: 'warning'
+        });
+
+        if (!result.isConfirmed) return;
+
         try {
             await desactivarCliente(id);
-            setMessage({ text: 'Cliente desactivado (Soft Delete)', type: 'success' });
+            alertaExito('Cliente desactivado correctamente');
             cargarClientes();
         } catch (error) {
-            setMessage({ text: 'Error al desactivar', type: 'error' });
+            alertaError('Error al desactivar');
         }
     };
 
@@ -263,13 +278,6 @@ export default function Clientes() {
                     )}
                 </div>
             </header>
-
-            {message.text && (
-                <div className={`alert-banner ${message.type}`}>
-                    {message.text}
-                    <button onClick={() => setMessage({ text: '', type: '' })}>×</button>
-                </div>
-            )}
 
             <div className="table-card">
                 <div className="table-responsive">

@@ -9,6 +9,10 @@ import { getLoteFIFO, getComplementarios, getVentaGuiada } from "../services/ven
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import "./Ventas.css";
+import {
+    alertaExito,
+    alertaError
+} from '../alertas';
 
 export default function Ventas() {
     const { user } = useAuth();
@@ -235,7 +239,7 @@ export default function Ventas() {
             setContextoCliente(null);
             setDrawerOpen(true);
         } catch (err) {
-            alert("Error al cargar datos");
+            await alertaError("Error al cargar datos");
         }
     };
 
@@ -284,14 +288,14 @@ export default function Ventas() {
     const agregarMedicamento = (med, loteId = med.id) => {
         const stockVenta = getStockVenta(loteId);
         if (stockVenta < 1) {
-            alert("Producto sin stock disponible.");
+            alertaError("Producto sin stock disponible.");
             return;
         }
         setDetallesVenta(prev => {
             const existente = prev.find(p => p.loteDetalleId === loteId);
             let nuevaCantidad = existente ? existente.cantidad + 1 : 1;
             if (nuevaCantidad > stockVenta) {
-                alert(`No hay suficiente stock disponible (máximo: ${stockVenta})`);
+                alertaError(`No hay suficiente stock disponible (máximo: ${stockVenta})`);
                 return prev;
             }
             const precio = med.precioUnitario;
@@ -327,7 +331,7 @@ export default function Ventas() {
                 agregarMedicamento({ ...med, medicamentoNombre: med.nombre, precioUnitario: med.precioUnitario }, loteDetalle.id);
             }
         } else {
-            alert("Producto sin stock disponible");
+            alertaError("Producto sin stock disponible");
         }
     };
 
@@ -348,7 +352,7 @@ export default function Ventas() {
         if (detallesVenta.length === 0) return alert("El carrito está vacío");
 
         if (requiereReceta && !recetaSeleccionada) {
-            alert("Debe seleccionar una receta validada para esta venta.");
+            await alertaError("Debe seleccionar una receta validada para esta venta.");
             return;
         }
 
@@ -356,7 +360,7 @@ export default function Ventas() {
         for (const det of detallesVenta) {
             const stockVenta = getStockVenta(det.loteDetalleId);
             if (det.cantidad > stockVenta) {
-                alert(`Stock insuficiente para ${det.medicamentoNombre}. Solo disponible: ${stockVenta}`);
+                await alertaError(`Stock insuficiente para ${det.medicamentoNombre}. Solo disponible: ${stockVenta}`);
                 return;
             }
         }
@@ -373,10 +377,11 @@ export default function Ventas() {
             const res = await crearVenta(data);
             generarPDF(res.data, detallesVenta);
             setDrawerOpen(false);
+            await alertaExito('Venta realizada correctamente');
             cargarVentas();
         } catch (e) {
             console.error(e);
-            alert("Error al procesar la venta. Verifica el stock o contacta a soporte.");
+            await alertaError("Error al procesar la venta. Verifica el stock o contacta a soporte.");
         }
     };
 
@@ -693,7 +698,7 @@ export default function Ventas() {
                                                     const v = parseInt(e.target.value) || 1;
                                                     const stockVenta = getStockVenta(d.loteDetalleId);
                                                     if (v > stockVenta) {
-                                                        alert(`Solo hay ${stockVenta} unidades disponibles.`);
+                                                        alertaError(`Solo hay ${stockVenta} unidades disponibles.`);
                                                         return;
                                                     }
                                                     setDetallesVenta(prev => prev.map((p, idx) => idx === i ? { ...p, cantidad: v, subtotal: v * p.precioUnitario } : p));

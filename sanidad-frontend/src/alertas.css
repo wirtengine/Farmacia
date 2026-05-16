@@ -1,19 +1,22 @@
 .swal-popup {
-    border-radius: 28px !important;
-    padding: 2rem !important;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.35) !important;
+    border-radius: 22px !important;
+    padding: 1.3rem !important;
+
+    box-shadow: 0 8px 20px rgba(0,0,0,0.18) !important;
+
     border: 1px solid rgba(255,255,255,0.08) !important;
+
+    width: 360px !important;
 }
 
 .swal-title {
-    font-size: 2rem !important;
+    font-size: 1.6rem !important;
     font-weight: 700 !important;
     color: #ffffff !important;
 }
 
 .swal-text {
-    font-size: 1rem !important;
-    color: #cfd3e6 !important;
+    font-size: 0.95rem !important;
 }
 
 .swal-actions {
@@ -44,4 +47,8 @@
 .swal-cancel:hover {
     transform: translateY(-2px);
     filter: brightness(1.08);
+}
+
+.swal2-container {
+    z-index: 999999 !important;
 }

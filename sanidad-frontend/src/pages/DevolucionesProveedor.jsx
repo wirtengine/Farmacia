@@ -7,6 +7,12 @@ import { listarMedicamentos } from '../services/medicamentos'; // 🔥 NUEVO
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import './DevolucionesProveedor.css';
+import {
+    alertaConfirmacion,
+    alertaExito,
+    alertaError,
+    alertaInput
+} from '../alertas';
 
 export default function DevolucionesProveedor() {
     const { user } = useAuth();
@@ -253,7 +259,7 @@ export default function DevolucionesProveedor() {
             const url = `https://wa.me/+505${telefono}?text=${encodeURIComponent(mensaje)}`;
             window.open(url, '_blank');
         } else {
-            alert('No se encontró el número de teléfono del proveedor.');
+            alertaError('No se encontró el número de teléfono del proveedor.');
         }
     };
 
@@ -268,7 +274,7 @@ export default function DevolucionesProveedor() {
             setProveedores(resProv.data);
             setDrawerOpen(true);
         } catch (error) {
-            alert('Error al cargar datos');
+            alertaError('Error al cargar datos');
         }
     };
 
@@ -288,7 +294,7 @@ export default function DevolucionesProveedor() {
             setItemsDevolucion(detalles);
             setLoteSeleccionado(lote);
         } catch (error) {
-            alert('Error al cargar detalles del lote');
+            alertaError('Error al cargar detalles del lote');
         }
     };
 
@@ -362,7 +368,20 @@ export default function DevolucionesProveedor() {
     const handleSolicitar = async () => {
         const productosParaDevolver = itemsDevolucion.filter(i => i.cantidadDevuelta > 0);
 
-        if (productosParaDevolver.length === 0) return alert('Seleccione cantidades válidas');
+        if (productosParaDevolver.length === 0) {
+            alertaError('Seleccione cantidades válidas');
+            return;
+        }
+
+        const result = await alertaConfirmacion({
+            titulo: 'Crear devolución',
+            texto: '¿Desea registrar esta solicitud de devolución a proveedor?',
+            confirmar: 'Crear solicitud',
+            cancelar: 'Cancelar',
+            icono: 'question'
+        });
+
+        if (!result.isConfirmed) return;
 
         try {
             const payload = {
@@ -397,30 +416,72 @@ export default function DevolucionesProveedor() {
             window.open(url, '_blank');
 
             setDrawerOpen(false);
-            cargarDevoluciones();
+
+            await cargarDevoluciones();
+
+            alertaExito('Solicitud de devolución creada');
+
         } catch (error) {
-            alert('Error al crear la solicitud');
+            alertaError('Error al crear la solicitud');
         }
     };
 
     const handleAprobar = async (id) => {
-        if (!window.confirm('¿Confirmar aprobación física de la devolución?')) return;
+        const result = await alertaConfirmacion({
+            titulo: '¿Aprobar devolución?',
+            texto: 'Confirma la aprobación física de esta devolución.',
+            confirmar: 'Sí, aprobar',
+            cancelar: 'Cancelar',
+            icono: 'question'
+        });
+
+        if (!result.isConfirmed) return;
+
         try {
-            await aprobarDevolucionProveedor({ devolucionId: id, aprobadoPorId: usuarioId, aprobada: true });
-            cargarDevoluciones();
+            await aprobarDevolucionProveedor({
+                devolucionId: id,
+                aprobadoPorId: usuarioId,
+                aprobada: true
+            });
+
+            await cargarDevoluciones();
+
+            alertaExito('Devolución aprobada correctamente');
+
         } catch (error) {
-            alert('Error');
+            alertaError('Error al aprobar la devolución');
         }
     };
 
     const handleRechazar = async (id) => {
-        const motivoRechazo = window.prompt('Motivo del rechazo:');
-        if (!motivoRechazo) return;
+        const motivo = await alertaInput({
+            titulo: 'Motivo del rechazo',
+            placeholder: 'Escriba el motivo...',
+            confirmar: 'Rechazar',
+            cancelar: 'Cancelar'
+        });
+
+        if (!motivo.isConfirmed) return;
+
+        if (!motivo.value?.trim()) {
+            alertaError('Debe ingresar un motivo de rechazo');
+            return;
+        }
+
         try {
-            await aprobarDevolucionProveedor({ devolucionId: id, aprobadoPorId: usuarioId, aprobada: false, motivoRechazo });
-            cargarDevoluciones();
+            await aprobarDevolucionProveedor({
+                devolucionId: id,
+                aprobadoPorId: usuarioId,
+                aprobada: false,
+                motivoRechazo: motivo.value
+            });
+
+            await cargarDevoluciones();
+
+            alertaExito('Devolución rechazada');
+
         } catch (error) {
-            alert('Error');
+            alertaError('Error al rechazar la devolución');
         }
     };
 

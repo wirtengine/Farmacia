@@ -44,12 +44,9 @@ export const alertaExito = (
         text: texto,
         icon: 'success',
 
-        toast: true,
-        position: 'top-end',
-
         showConfirmButton: false,
 
-        timer: 2200,
+        timer: 2000,
         timerProgressBar: true
     });
 };
@@ -65,5 +62,29 @@ export const alertaError = (
         icon: 'error',
 
         confirmButtonText: 'Aceptar'
+    });
+
+};
+
+export const alertaInput = async ({
+                                      titulo = 'Ingrese un valor',
+                                      placeholder = '',
+                                      confirmar = 'Aceptar',
+                                      cancelar = 'Cancelar'
+                                  }) => {
+
+    return await Swal.fire({
+        ...configBase,
+
+        title: titulo,
+
+        input: 'textarea',
+
+        inputPlaceholder: placeholder,
+
+        showCancelButton: true,
+
+        confirmButtonText: confirmar,
+        cancelButtonText: cancelar
     });
 };

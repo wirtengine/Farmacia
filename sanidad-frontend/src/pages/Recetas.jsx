@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import {
     uploadReceta,
@@ -8,6 +8,11 @@ import {
     listarTodas,
 } from "../services/recetas";
 import "./Recetas.css";
+import {
+    alertaConfirmacion,
+    alertaExito,
+    alertaError
+} from "../alertas";
 
 export default function Recetas() {
     const { user } = useAuth();
@@ -20,7 +25,7 @@ export default function Recetas() {
     const [mostrarTodas, setMostrarTodas] = useState(false);
     const [codigoMinsa, setCodigoMinsa] = useState("");
 
-    const cargarRecetas = async () => {
+    const cargarRecetas = useCallback(async () => {
         try {
             setCargando(true);
             let res;
@@ -41,46 +46,89 @@ export default function Recetas() {
         } finally {
             setCargando(false);
         }
-    };
+
+    }, [esAdmin, mostrarTodas, farmaceuticoId]);
 
     useEffect(() => {
         cargarRecetas();
-    }, [user, mostrarTodas]);
+    }, [cargarRecetas]);
 
     const handleUpload = async () => {
-        if (!file) return alert("Selecciona una imagen");
 
-        if (!codigoMinsa.trim()){
-            return alert("El Código Minsa es Obligatorio")
-            }
+        if (!file) {
+            alertaError("Selecciona una imagen");
+            return;
+        }
+
+        if (!codigoMinsa.trim()) {
+            alertaError("El Código MINSA es obligatorio");
+            return;
+        }
 
         try {
+
             setCargando(true);
+
             await uploadReceta(file, farmaceuticoId, codigoMinsa);
 
             setFile(null);
             setCodigoMinsa("");
 
             await cargarRecetas();
-            alert("Receta subida correctamente");
+
+            alertaExito("Receta subida correctamente");
+
         } catch (error) {
+
             console.error(error);
-            alert("Error al subir la receta");
+
+            alertaError("Error al subir la receta");
+
         } finally {
+
             setCargando(false);
+
         }
     };
 
     const handleValidar = async (recetaId, aprobar) => {
+
+        const result = await alertaConfirmacion({
+            titulo: aprobar ? "Aprobar receta" : "Rechazar receta",
+            texto: aprobar
+                ? "¿Desea aprobar esta receta?"
+                : "¿Desea rechazar esta receta?",
+            confirmar: aprobar ? "Aprobar" : "Rechazar",
+            cancelar: "Cancelar",
+            icono: aprobar ? "question" : "warning"
+        });
+
+        if (!result.isConfirmed) return;
+
         try {
+
             setCargando(true);
+
             await validarReceta(recetaId, aprobar, farmaceuticoId);
+
             await cargarRecetas();
+
+            if (aprobar) {
+                alertaExito("Receta aprobada correctamente");
+            } else {
+                alertaExito("Receta rechazada");
+            }
+
         } catch (error) {
+
             console.error(error);
-            alert("Error al validar la receta");
+
+            alertaError("Error al validar la receta");
+
         } finally {
+
             setCargando(false);
+
         }
     };
 
