@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
 import './Sidebar.css';
+import { alertaConfirmacion } from '../alertas';
 
 const MENU_SECTIONS = [
     {
@@ -61,12 +62,22 @@ export default function Sidebar() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
-    const [showModal, setShowModal] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
 
     const userRole = user?.rol || 'Portal';
 
-    const confirmLogout = () => {
+    const confirmLogout = async () => {
+
+        const result = await alertaConfirmacion({
+            titulo: '¿Cerrar sesión?',
+            texto: 'Estás a punto de salir del sistema.',
+            confirmar: 'Cerrar sesión',
+            cancelar: 'Cancelar',
+            icono: 'warning'
+        });
+
+        if (!result.isConfirmed) return;
+
         logout();
         navigate('/login');
     };
@@ -150,7 +161,7 @@ export default function Sidebar() {
                 <div className="sidebar-footer">
                     <button
                         className="logout-trigger"
-                        onClick={() => setShowModal(true)}
+                        onClick={confirmLogout}
                         title={collapsed ? "Cerrar sesión" : ""}
                     >
                         <span role="img" aria-label="Cerrar sesión">
@@ -161,37 +172,6 @@ export default function Sidebar() {
                 </div>
             </aside>
 
-            {showModal && (
-                <div
-                    className="modal-overlay"
-                    onClick={() => setShowModal(false)}
-                >
-                    <div
-                        className="logout-modal"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="modal-icon">⚠️</div>
-                        <h3>¿Cerrar sesión?</h3>
-                        <p>
-                            Estás a punto de salir del sistema. ¿Deseas continuar?
-                        </p>
-                        <div className="modal-actions">
-                            <button
-                                className="btn-cancel"
-                                onClick={() => setShowModal(false)}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                className="btn-danger"
-                                onClick={confirmLogout}
-                            >
-                                Cerrar sesión
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </>
     );
 }

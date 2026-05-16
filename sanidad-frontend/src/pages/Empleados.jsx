@@ -1,12 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { listarUsuarios, crearUsuario, actualizarUsuario } from '../services/usuarios';
 import './Empleados.css';
+import {
+    alertaExito,
+    alertaError
+} from '../alertas';
 
 export default function Empleados() {
     // --- ESTADOS ---
     const [usuarios, setUsuarios] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [message, setMessage] = useState({ text: '', type: '' });
     const [loading, setLoading] = useState(false);
 
     // Paginación
@@ -35,10 +38,10 @@ export default function Empleados() {
             const sorted = (response.data || []).sort((a, b) => b.id - a.id);
             setUsuarios(sorted);
             if (sorted.length === 0) {
-                setMessage({ text: 'No hay usuarios registrados', type: 'info' });
+                alertaError('No hay usuarios registrados');
             }
         } catch (error) {
-            setMessage({ text: 'Error al conectar con el servidor', type: 'error' });
+            alertaError('Error al conectar con el servidor');
         } finally {
             setLoading(false);
         }
@@ -148,18 +151,17 @@ export default function Empleados() {
                     password: formData.password || undefined
                 };
                 await actualizarUsuario(selectedUserId, dataToUpdate);
-                setMessage({ text: 'Usuario actualizado con éxito', type: 'success' });
+                alertaExito('Usuario actualizado con éxito');
             } else {
                 await crearUsuario(formData);
-                setMessage({ text: 'Usuario creado con éxito', type: 'success' });
+                alertaExito('Empleado agregado correctamente');
             }
             setIsModalOpen(false);
             cargarUsuarios();
         } catch (error) {
-            setMessage({ text: 'Error al procesar la solicitud', type: 'error' });
+            alertaError('Error al procesar la solicitud');
         } finally {
             setLoading(false);
-            setTimeout(() => setMessage({ text: '', type: '' }), 3000);
         }
     };
 
@@ -187,14 +189,6 @@ export default function Empleados() {
                     </button>
                 </div>
             </header>
-
-            {/* Alertas dinámicas */}
-            {message.text && (
-                <div className={`alert-banner ${message.type}`}>
-                    <span>{message.text}</span>
-                    <button className="close-alert" onClick={() => setMessage({ text: '', type: '' })}>×</button>
-                </div>
-            )}
 
             {/* Tabla de Datos */}
             <div className="table-wrapper">
