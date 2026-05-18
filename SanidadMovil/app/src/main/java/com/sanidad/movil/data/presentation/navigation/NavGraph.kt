@@ -19,7 +19,7 @@ import com.sanidad.movil.data.remote.NetworkModule
 import com.sanidad.movil.data.repository.AuthRepository
 import com.sanidad.movil.data.presentation.screens.login.LoginScreen
 import com.sanidad.movil.data.presentation.screens.dashboard.DashboardScreen
-import com.sanidad.movil.presentation.screens.medicamentos.MedicamentosScreen
+import com.sanidad.movil.data.presentation.screens.medicamentos.MedicamentosScreen   // ← corregido (data)
 import com.sanidad.movil.presentation.screens.clientes.ClientesScreen
 import com.sanidad.movil.presentation.screens.usuarios.UsuariosScreen
 import com.sanidad.movil.presentation.screens.proveedores.ProveedoresScreen
@@ -32,7 +32,7 @@ import com.sanidad.movil.presentation.screens.ubicaciones.UbicacionesScreen
 import com.sanidad.movil.presentation.screens.alerts.AlertsScreen
 import com.sanidad.movil.presentation.screens.perdidas.PerdidasScreen
 import com.sanidad.movil.presentation.screens.recommendations.RecommendationsScreen
-import com.sanidad.movil.data.presentation.screens.ventas.VentasScreen          // ← corregido
+import com.sanidad.movil.data.presentation.screens.ventas.VentasScreen
 import com.sanidad.movil.data.presentation.screens.ventas.VentaCreateScreen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -168,20 +168,18 @@ fun NavGraph() {
                     )
                 }
 
-                composable("medicamentos") { MedicamentosScreen() }
+                composable("medicamentos") { MedicamentosScreen() }  // Ahora usa la ruta correcta
                 composable("clientes") { ClientesScreen() }
 
                 composable("ventas") {
                     VentasScreen(
-                        onNuevaVenta = {
-                            navController.navigate("venta_create")
-                        }
+                        onNuevaVenta = { navController.navigate("venta_create") }
                     )
                 }
 
                 composable("venta_create") {
                     VentaCreateScreen(
-                        usuarioId = 1L, // Ajusta con el ID real del usuario
+                        usuarioId = 1L, // Reemplazar con el ID real
                         onVentaExitosa = { navController.popBackStack() },
                         onCancelar = { navController.popBackStack() }
                     )
