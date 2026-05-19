@@ -19,11 +19,11 @@ import com.sanidad.movil.data.remote.NetworkModule
 import com.sanidad.movil.data.repository.AuthRepository
 import com.sanidad.movil.data.presentation.screens.login.LoginScreen
 import com.sanidad.movil.data.presentation.screens.dashboard.DashboardScreen
-import com.sanidad.movil.data.presentation.screens.medicamentos.MedicamentosScreen   // ← corregido (data)
+import com.sanidad.movil.data.presentation.screens.medicamentos.MedicamentosScreen
+import com.sanidad.movil.data.presentation.screens.proveedores.ProveedoresScreen   // ← corregido
+import com.sanidad.movil.data.presentation.screens.lotes.LotesScreen             // ← corregido
 import com.sanidad.movil.presentation.screens.clientes.ClientesScreen
 import com.sanidad.movil.presentation.screens.usuarios.UsuariosScreen
-import com.sanidad.movil.presentation.screens.proveedores.ProveedoresScreen
-import com.sanidad.movil.presentation.screens.lotes.LotesScreen
 import com.sanidad.movil.presentation.screens.devoluciones.DevolucionesScreen
 import com.sanidad.movil.presentation.screens.devolucionesProveedor.DevolucionesProveedorScreen
 import com.sanidad.movil.presentation.screens.racks.RacksScreen
@@ -168,7 +168,7 @@ fun NavGraph() {
                     )
                 }
 
-                composable("medicamentos") { MedicamentosScreen() }  // Ahora usa la ruta correcta
+                composable("medicamentos") { MedicamentosScreen() }
                 composable("clientes") { ClientesScreen() }
 
                 composable("ventas") {
@@ -179,15 +179,15 @@ fun NavGraph() {
 
                 composable("venta_create") {
                     VentaCreateScreen(
-                        usuarioId = 1L, // Reemplazar con el ID real
+                        usuarioId = 1L, // Reemplazar con el ID real del usuario logueado
                         onVentaExitosa = { navController.popBackStack() },
                         onCancelar = { navController.popBackStack() }
                     )
                 }
 
                 composable("usuarios") { UsuariosScreen() }
-                composable("proveedores") { ProveedoresScreen() }
-                composable("lotes") { LotesScreen() }
+                composable("proveedores") { ProveedoresScreen() }   // ← usa la nueva ruta
+                composable("lotes") { LotesScreen() }               // ← usa la nueva ruta
                 composable("devoluciones") { DevolucionesScreen() }
                 composable("devoluciones_proveedor") { DevolucionesProveedorScreen() }
                 composable("racks") { RacksScreen() }
