@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+
 import com.sanidad.movil.MyApplication
 import com.sanidad.movil.data.local.TokenDataStore
 import com.sanidad.movil.data.remote.NetworkModule
@@ -28,8 +29,8 @@ import com.sanidad.movil.data.presentation.screens.devoluciones.DevolucionesScre
 import com.sanidad.movil.data.presentation.screens.devolucionesProveedor.DevolucionesProveedorScreen
 import com.sanidad.movil.data.presentation.screens.ventas.VentasScreen
 import com.sanidad.movil.data.presentation.screens.ventas.VentaCreateScreen
+import com.sanidad.movil.data.presentation.screens.clientes.ClientesScreen
 
-import com.sanidad.movil.presentation.screens.clientes.ClientesScreen
 import com.sanidad.movil.presentation.screens.usuarios.UsuariosScreen
 import com.sanidad.movil.presentation.screens.racks.RacksScreen
 import com.sanidad.movil.presentation.screens.recetas.RecetasScreen
@@ -45,12 +46,16 @@ import kotlinx.coroutines.launch
 fun NavGraph() {
 
     val navController = rememberNavController()
+
     val coroutineScope = rememberCoroutineScope()
+
     val drawerState = rememberDrawerState(
         initialValue = DrawerValue.Closed
     )
 
-    val tokenDataStore = TokenDataStore(MyApplication.instance)
+    val tokenDataStore = TokenDataStore(
+        MyApplication.instance
+    )
 
     val authRepository = AuthRepository(
         tokenDataStore = tokenDataStore
@@ -61,6 +66,7 @@ fun NavGraph() {
     }
 
     LaunchedEffect(Unit) {
+
         val token = tokenDataStore.tokenFlow.first()
 
         NetworkModule.setToken(token)
@@ -74,6 +80,7 @@ fun NavGraph() {
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
+
             CircularProgressIndicator()
         }
 
@@ -106,6 +113,7 @@ fun NavGraph() {
     )
 
     ModalNavigationDrawer(
+
         drawerState = drawerState,
 
         drawerContent = {
@@ -123,6 +131,7 @@ fun NavGraph() {
                 drawerItems.forEach { (label, route) ->
 
                     NavigationDrawerItem(
+
                         label = {
                             Text(label)
                         },
@@ -150,6 +159,7 @@ fun NavGraph() {
                 HorizontalDivider()
 
                 NavigationDrawerItem(
+
                     label = {
                         Text("Cerrar sesión")
                     },
@@ -192,12 +202,14 @@ fun NavGraph() {
                         navigationIcon = {
 
                             IconButton(
+
                                 onClick = {
 
                                     coroutineScope.launch {
                                         drawerState.open()
                                     }
                                 }
+
                             ) {
 
                                 Icon(
@@ -213,9 +225,13 @@ fun NavGraph() {
         ) { innerPadding ->
 
             NavHost(
+
                 navController = navController,
+
                 startDestination = startDestination,
+
                 modifier = Modifier.padding(innerPadding)
+
             ) {
 
                 composable("login") {
@@ -276,6 +292,7 @@ fun NavGraph() {
                 composable("ventas") {
 
                     VentasScreen(
+
                         onNuevaVenta = {
                             navController.navigate("venta_create")
                         }
@@ -285,6 +302,7 @@ fun NavGraph() {
                 composable("venta_create") {
 
                     VentaCreateScreen(
+
                         usuarioId = 1L,
 
                         onVentaExitosa = {
