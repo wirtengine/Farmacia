@@ -20,15 +20,15 @@ import com.sanidad.movil.data.repository.AuthRepository
 import com.sanidad.movil.data.presentation.screens.login.LoginScreen
 import com.sanidad.movil.data.presentation.screens.dashboard.DashboardScreen
 import com.sanidad.movil.data.presentation.screens.medicamentos.MedicamentosScreen
-import com.sanidad.movil.data.presentation.screens.proveedores.ProveedoresScreen   // ← corregido
-import com.sanidad.movil.data.presentation.screens.lotes.LotesScreen             // ← corregido
+import com.sanidad.movil.data.presentation.screens.proveedores.ProveedoresScreen
+import com.sanidad.movil.data.presentation.screens.lotes.LotesScreen
+import com.sanidad.movil.data.presentation.screens.ubicaciones.UbicacionesScreen  // ← nueva ruta
 import com.sanidad.movil.presentation.screens.clientes.ClientesScreen
 import com.sanidad.movil.presentation.screens.usuarios.UsuariosScreen
 import com.sanidad.movil.presentation.screens.devoluciones.DevolucionesScreen
 import com.sanidad.movil.presentation.screens.devolucionesProveedor.DevolucionesProveedorScreen
 import com.sanidad.movil.presentation.screens.racks.RacksScreen
 import com.sanidad.movil.presentation.screens.recetas.RecetasScreen
-import com.sanidad.movil.presentation.screens.ubicaciones.UbicacionesScreen
 import com.sanidad.movil.presentation.screens.alerts.AlertsScreen
 import com.sanidad.movil.presentation.screens.perdidas.PerdidasScreen
 import com.sanidad.movil.presentation.screens.recommendations.RecommendationsScreen
@@ -186,13 +186,13 @@ fun NavGraph() {
                 }
 
                 composable("usuarios") { UsuariosScreen() }
-                composable("proveedores") { ProveedoresScreen() }   // ← usa la nueva ruta
-                composable("lotes") { LotesScreen() }               // ← usa la nueva ruta
+                composable("proveedores") { ProveedoresScreen() }
+                composable("lotes") { LotesScreen() }
                 composable("devoluciones") { DevolucionesScreen() }
                 composable("devoluciones_proveedor") { DevolucionesProveedorScreen() }
                 composable("racks") { RacksScreen() }
                 composable("recetas") { RecetasScreen() }
-                composable("ubicaciones") { UbicacionesScreen() }
+                composable("ubicaciones") { UbicacionesScreen() }   // ← usa la nueva ruta
                 composable("alertas") { AlertsScreen() }
                 composable("perdidas") { PerdidasScreen() }
                 composable("recomendaciones") { RecommendationsScreen() }
