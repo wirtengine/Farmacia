@@ -22,10 +22,10 @@ import com.sanidad.movil.data.presentation.screens.dashboard.DashboardScreen
 import com.sanidad.movil.data.presentation.screens.medicamentos.MedicamentosScreen
 import com.sanidad.movil.data.presentation.screens.proveedores.ProveedoresScreen
 import com.sanidad.movil.data.presentation.screens.lotes.LotesScreen
-import com.sanidad.movil.data.presentation.screens.ubicaciones.UbicacionesScreen  // ← nueva ruta
+import com.sanidad.movil.data.presentation.screens.ubicaciones.UbicacionesScreen
+import com.sanidad.movil.data.presentation.screens.devoluciones.DevolucionesScreen
 import com.sanidad.movil.presentation.screens.clientes.ClientesScreen
 import com.sanidad.movil.presentation.screens.usuarios.UsuariosScreen
-import com.sanidad.movil.presentation.screens.devoluciones.DevolucionesScreen
 import com.sanidad.movil.presentation.screens.devolucionesProveedor.DevolucionesProveedorScreen
 import com.sanidad.movil.presentation.screens.racks.RacksScreen
 import com.sanidad.movil.presentation.screens.recetas.RecetasScreen
@@ -93,6 +93,7 @@ fun NavGraph() {
                     style = MaterialTheme.typography.headlineSmall
                 )
                 HorizontalDivider()
+
                 drawerItems.forEach { (label, route) ->
                     NavigationDrawerItem(
                         label = { Text(label) },
@@ -106,7 +107,9 @@ fun NavGraph() {
                         }
                     )
                 }
+
                 HorizontalDivider()
+
                 NavigationDrawerItem(
                     label = { Text("Cerrar sesión") },
                     selected = false,
@@ -114,6 +117,7 @@ fun NavGraph() {
                         coroutineScope.launch {
                             drawerState.close()
                             authRepository.logout()
+
                             navController.navigate("login") {
                                 popUpTo(0) { inclusive = true }
                             }
@@ -129,19 +133,28 @@ fun NavGraph() {
                     TopAppBar(
                         title = { Text("Sanidad") },
                         navigationIcon = {
-                            IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
-                                Icon(imageVector = Icons.Default.Menu, contentDescription = "Menú")
+                            IconButton(
+                                onClick = {
+                                    coroutineScope.launch { drawerState.open() }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = "Menú"
+                                )
                             }
                         }
                     )
                 }
             }
         ) { innerPadding ->
+
             NavHost(
                 navController = navController,
                 startDestination = startDestination,
                 modifier = Modifier.padding(innerPadding)
             ) {
+
                 composable("login") {
                     LoginScreen(
                         onLoginSuccess = {
@@ -155,11 +168,16 @@ fun NavGraph() {
 
                 composable("dashboard") {
                     DashboardScreen(
-                        onNavigateAlerts = { navController.navigate("alertas") },
-                        onNavigateRecommendations = { navController.navigate("recomendaciones") },
+                        onNavigateAlerts = {
+                            navController.navigate("alertas")
+                        },
+                        onNavigateRecommendations = {
+                            navController.navigate("recomendaciones")
+                        },
                         onLogout = {
                             coroutineScope.launch {
                                 authRepository.logout()
+
                                 navController.navigate("login") {
                                     popUpTo("dashboard") { inclusive = true }
                                 }
@@ -173,26 +191,39 @@ fun NavGraph() {
 
                 composable("ventas") {
                     VentasScreen(
-                        onNuevaVenta = { navController.navigate("venta_create") }
+                        onNuevaVenta = {
+                            navController.navigate("venta_create")
+                        }
                     )
                 }
 
                 composable("venta_create") {
                     VentaCreateScreen(
-                        usuarioId = 1L, // Reemplazar con el ID real del usuario logueado
-                        onVentaExitosa = { navController.popBackStack() },
-                        onCancelar = { navController.popBackStack() }
+                        usuarioId = 1L,
+                        onVentaExitosa = {
+                            navController.popBackStack()
+                        },
+                        onCancelar = {
+                            navController.popBackStack()
+                        }
                     )
                 }
 
                 composable("usuarios") { UsuariosScreen() }
                 composable("proveedores") { ProveedoresScreen() }
                 composable("lotes") { LotesScreen() }
-                composable("devoluciones") { DevolucionesScreen() }
-                composable("devoluciones_proveedor") { DevolucionesProveedorScreen() }
+
+                composable("devoluciones") {
+                    DevolucionesScreen()
+                }
+
+                composable("devoluciones_proveedor") {
+                    DevolucionesProveedorScreen()
+                }
+
                 composable("racks") { RacksScreen() }
                 composable("recetas") { RecetasScreen() }
-                composable("ubicaciones") { UbicacionesScreen() }   // ← usa la nueva ruta
+                composable("ubicaciones") { UbicacionesScreen() }
                 composable("alertas") { AlertsScreen() }
                 composable("perdidas") { PerdidasScreen() }
                 composable("recomendaciones") { RecommendationsScreen() }
