@@ -35,7 +35,7 @@ import com.sanidad.movil.presentation.screens.usuarios.UsuariosScreen
 import com.sanidad.movil.presentation.screens.racks.RacksScreen
 import com.sanidad.movil.presentation.screens.recetas.RecetasScreen
 import com.sanidad.movil.presentation.screens.alerts.AlertsScreen
-import com.sanidad.movil.presentation.screens.perdidas.PerdidasScreen
+import com.sanidad.movil.data.presentation.screens.perdidas.PerdidasScreen
 import com.sanidad.movil.presentation.screens.recommendations.RecommendationsScreen
 
 import kotlinx.coroutines.flow.first

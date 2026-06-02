@@ -1,4 +1,4 @@
-package com.sanidad.movil.presentation.screens.perdidas
+package com.sanidad.movil.data.presentation.screens.perdidas
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,61 +7,186 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModelProvider
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.sanidad.movil.data.repository.PerdidasRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PerdidasScreen(
-    perdidasRepository: PerdidasRepository = remember { PerdidasRepository() }
-) {
-    val viewModel: PerdidasViewModel = viewModel(
-        factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                return PerdidasViewModel(perdidasRepository) as T
-            }
-        }
-    )
-    val vencidos by viewModel.vencidos.collectAsState()
-    val inmoviles by viewModel.inmoviles.collectAsState()
-    val inconsistencias by viewModel.inconsistencias.collectAsState()
-    val resumen by viewModel.resumen.collectAsState()
+fun PerdidasScreen(viewModel: PerdidasViewModel = viewModel()) {
     val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val resumen by viewModel.resumen.collectAsState()
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Pérdidas") }) }) { padding ->
-        if (isLoading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        } else {
-            LazyColumn(modifier = Modifier.padding(padding).padding(16.dp)) {
-                resumen?.let {
-                    item { Text("Resumen:", style = MaterialTheme.typography.headlineMedium) }
-                    item { Text("Vencidos: ${it.totalProductosVencidos}") }
-                    item { Text("Inmóviles: ${it.totalProductosInmoviles}") }
-                    item { Text("Inconsistencias: ${it.totalInconsistencias}") }
-                    item { Text("Pérdida estimada: C$${it.perdidaEstimada}") }
-                    item { Spacer(modifier = Modifier.height(20.dp)) }
+    var activeTab by remember { mutableStateOf(0) }
+
+    LaunchedEffect(Unit) { viewModel.cargarDatos() }
+
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Control de Pérdidas") }) }
+    ) { padding ->
+        when {
+            isLoading -> {
+                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
                 }
+            }
+            error != null -> {
+                Column(
+                    Modifier.fillMaxSize().padding(padding),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(error!!, color = MaterialTheme.colorScheme.error)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { viewModel.cargarDatos() }) { Text("Reintentar") }
+                }
+            }
+            else -> {
+                Column(modifier = Modifier.padding(padding).padding(16.dp)) {
+                    // KPIs
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        KpiCard(
+                            title = "Prod. Vencidos",
+                            value = "${resumen?.totalProductosVencidos ?: 0}",
+                            subtitle = "unidades",
+                            color = Color(0xFFFFF3E0),
+                            modifier = Modifier.weight(1f)
+                        )
+                        KpiCard(
+                            title = "Prod. Inmóviles",
+                            value = "${resumen?.totalProductosInmoviles ?: 0}",
+                            subtitle = "sin rotación",
+                            color = Color(0xFFE3F2FD),
+                            modifier = Modifier.weight(1f)
+                        )
+                        KpiCard(
+                            title = "Inconsistencias",
+                            value = "${resumen?.totalInconsistencias ?: 0}",
+                            subtitle = "detectadas",
+                            color = Color(0xFFFCE4EC),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
 
-                item { Text("Vencidos", style = MaterialTheme.typography.titleLarge) }
-                items(vencidos) { v ->
-                    Column {
-                        Text("${v.nombre} (Lote ${v.lote}) vence ${v.fechaVencimiento} - stock: ${v.cantidad}")
+                    // Pérdida estimada
+                    resumen?.let {
+                        Text(
+                            text = "Pérdida estimada total: ${viewModel.formatCurrency(it.perdidaEstimada)}",
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Pestañas
+                    TabRow(selectedTabIndex = activeTab) {
+                        Tab(selected = activeTab == 0, onClick = { activeTab = 0 }, text = { Text("Vencidos") })
+                        Tab(selected = activeTab == 1, onClick = { activeTab = 1 }, text = { Text("Sin Rotación") })
+                        Tab(selected = activeTab == 2, onClick = { activeTab = 2 }, text = { Text("Inconsistencias") })
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    when (activeTab) {
+                        0 -> VencidosTab(viewModel)
+                        1 -> InmovilesTab(viewModel)
+                        2 -> InconsistenciasTab(viewModel)
                     }
                 }
-                item { Spacer(modifier = Modifier.height(16.dp)) }
-                item { Text("Inmóviles", style = MaterialTheme.typography.titleLarge) }
-                items(inmoviles) { i ->
-                    Text("${i.nombre}: ${i.cantidad} unidades, inmóvil ${i.diasInmovil} días")
-                }
-                item { Spacer(modifier = Modifier.height(16.dp)) }
-                item { Text("Inconsistencias", style = MaterialTheme.typography.titleLarge) }
-                items(inconsistencias) { inc ->
-                    Text("${inc.nombre}: sistema ${inc.stockSistema}, real ${inc.stockReal} (dif ${inc.diferencia})")
+            }
+        }
+    }
+}
+
+@Composable
+fun KpiCard(title: String, value: String, subtitle: String, color: Color, modifier: Modifier) {
+    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = color)) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(subtitle, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+fun VencidosTab(viewModel: PerdidasViewModel) {
+    val vencidos by viewModel.vencidos.collectAsState()
+    if (vencidos.isEmpty()) {
+        EmptyState(message = "No se registran productos vencidos con stock.")
+    } else {
+        LazyColumn {
+            items(vencidos) { v ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("Lote: ${v.lote}", fontWeight = FontWeight.Bold)          // campo correcto
+                        Text("Medicamento: ${v.nombre}")                              // campo correcto
+                        Text("Vencimiento: ${v.fechaVencimiento}")
+                        Text("Cantidad: ${v.cantidad} u.")                            // campo correcto
+                        // Si el backend no devuelve valorPerdido, lo omitimos
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun InmovilesTab(viewModel: PerdidasViewModel) {
+    val inmoviles by viewModel.inmoviles.collectAsState()
+    if (inmoviles.isEmpty()) {
+        EmptyState(message = "Todos los productos presentan rotación activa.")
+    } else {
+        LazyColumn {
+            items(inmoviles) { p ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("Medicamento: ${p.nombre}", fontWeight = FontWeight.Bold)
+                        Text("Stock Actual: ${p.cantidad} u.")                        // campo correcto
+                        Text("Días sin Movimiento: ${p.diasInmovil} días")            // campo correcto
+                        // valorInmovilizado no está en el DTO
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InconsistenciasTab(viewModel: PerdidasViewModel) {
+    val inconsistencias by viewModel.inconsistencias.collectAsState()
+    if (inconsistencias.isEmpty()) {
+        EmptyState(message = "Integridad de stock verificada.")
+    } else {
+        LazyColumn {
+            items(inconsistencias) { inc ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("Medicamento: ${inc.nombre}", fontWeight = FontWeight.Bold)
+                        Text("Stock Sistema: ${inc.stockSistema}")
+                        Text("Stock Real: ${inc.stockReal}")
+                        Text(
+                            "Diferencia: ${if (inc.diferencia > 0) "+${inc.diferencia}" else "${inc.diferencia}"}",
+                            color = if (inc.diferencia > 0) Color(0xFFF57C00) else Color(0xFFD32F2F)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmptyState(message: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(message, style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
     }
 }
