@@ -31,7 +31,7 @@ import com.sanidad.movil.data.presentation.screens.ventas.VentasScreen
 import com.sanidad.movil.data.presentation.screens.ventas.VentaCreateScreen
 import com.sanidad.movil.data.presentation.screens.clientes.ClientesScreen
 
-import com.sanidad.movil.presentation.screens.usuarios.UsuariosScreen
+import com.sanidad.movil.data.presentation.screens.usuarios.UsuariosScreen
 import com.sanidad.movil.presentation.screens.racks.RacksScreen
 import com.sanidad.movil.data.presentation.screens.recetas.RecetasScreen
 import com.sanidad.movil.presentation.screens.alerts.AlertsScreen
