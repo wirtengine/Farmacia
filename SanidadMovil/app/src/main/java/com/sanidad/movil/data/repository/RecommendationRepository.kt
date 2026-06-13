@@ -12,7 +12,15 @@ class RecommendationRepository(private val api: ApiService = NetworkModule.apiSe
         api.obtenerRecomendaciones()
     }
 
-    suspend fun aplicarRecomendacion(id: Long): Result<Unit> = runCatchingApiCallUnit {
-        api.aplicarRecomendacion(id)
+    suspend fun aceptarRecomendacion(id: Long): Result<Unit> = runCatchingApiCallUnit {
+        api.aceptarRecomendacion(id)
+    }
+
+    suspend fun descartarRecomendacion(id: Long): Result<Unit> = runCatchingApiCallUnit {
+        api.descartarRecomendacion(id)
+    }
+
+    suspend fun generarRecomendaciones(): Result<Unit> = runCatchingApiCallUnit {
+        api.generarRecomendaciones()
     }
 }
