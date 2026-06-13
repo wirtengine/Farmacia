@@ -14,6 +14,7 @@ import java.util.Optional;
 
 public interface LoteDetalleRepository extends JpaRepository<LoteDetalle, Long> {
 
+    // ⚠️ Este método ya no se usa (reemplazado por vw_productos_bajo_stock en DashboardService)
     @Query("SELECT ld.medicamento.nombre, SUM(ld.cantidad) FROM LoteDetalle ld WHERE ld.lote.activo = true GROUP BY ld.medicamento.id, ld.medicamento.nombre ORDER BY SUM(ld.cantidad) ASC")
     List<Object[]> findProductosBajoStock();
 
@@ -21,6 +22,7 @@ public interface LoteDetalleRepository extends JpaRepository<LoteDetalle, Long> 
     @Query("select ld from LoteDetalle ld where ld.id = :id")
     Optional<LoteDetalle> findByIdWithLock(@Param("id") Long id);
 
+    // ⚠️ Reemplazado por vw_stock_actual_por_medicamento (AlertService, RecommendationService, PerdidasService)
     @Query("SELECT ld.medicamento.id, SUM(ld.cantidad) FROM LoteDetalle ld WHERE ld.lote.activo = true AND ld.lote.fechaVencimiento > :fechaActual GROUP BY ld.medicamento.id")
     List<Object[]> findStockActualPorMedicamento(@Param("fechaActual") LocalDate fechaActual);
 
@@ -32,22 +34,12 @@ public interface LoteDetalleRepository extends JpaRepository<LoteDetalle, Long> 
 
     // ================== NUEVOS MÉTODOS PARA FUNCTION CALLING ==================
 
-    /**
-     * Productos con stock total menor a un umbral.
-     */
     @Query("SELECT m.nombre, SUM(ld.cantidad) FROM LoteDetalle ld JOIN ld.medicamento m WHERE ld.lote.activo = true GROUP BY m.id HAVING SUM(ld.cantidad) < :umbral")
     List<Object[]> findProductosBajoStockConUmbral(@Param("umbral") int umbral);
 
-    /**
-     * Stock total de un medicamento sumando todos los lotes activos.
-     */
     @Query("SELECT COALESCE(SUM(ld.cantidad), 0) FROM LoteDetalle ld WHERE ld.medicamento.id = :medicamentoId AND ld.lote.activo = true")
     int sumStockByMedicamento(@Param("medicamentoId") Long medicamentoId);
 
-    /**
-     * Sugiere productos para reorden basado en stock actual y ventas en un período.
-     * Retorna: [medicamento_id, nombre, stock_total, ventas_en_periodo]
-     */
     @Query("SELECT m.id, m.nombre, COALESCE(SUM(ld.cantidad), 0) as stock, COALESCE(SUM(vd.cantidad), 0) as ventas " +
             "FROM Medicamento m " +
             "LEFT JOIN LoteDetalle ld ON ld.medicamento.id = m.id AND ld.lote.activo = true " +

@@ -10,12 +10,14 @@ import java.util.List;
 
 public interface VentaDetalleRepository extends JpaRepository<VentaDetalle, Long> {
 
+    // ⚠️ Reemplazado por vw_productos_mas_rentables (DashboardService)
     @Query("SELECT ld.medicamento.nombre, SUM(vd.subtotal) FROM VentaDetalle vd JOIN vd.loteDetalle ld WHERE vd.venta.activo = true GROUP BY ld.medicamento.id, ld.medicamento.nombre ORDER BY SUM(vd.subtotal) DESC")
     List<Object[]> findTopProductosByIngresos();
 
     @Query("SELECT COUNT(vd) > 0 FROM VentaDetalle vd WHERE vd.loteDetalle.lote.id = :loteId")
     boolean existsByLoteId(@Param("loteId") Long loteId);
 
+    // ⚠️ Reemplazado por vw_ventas_30_dias / vw_ventas_90_dias / vw_metricas_productos
     @Query("SELECT ld.medicamento.id, SUM(vd.cantidad) FROM VentaDetalle vd JOIN vd.loteDetalle ld WHERE vd.venta.fecha BETWEEN :desde AND :hasta AND vd.venta.activo = true GROUP BY ld.medicamento.id")
     List<Object[]> sumCantidadByMedicamentoEntreFechas(
             @Param("desde") LocalDateTime desde,
@@ -34,10 +36,10 @@ public interface VentaDetalleRepository extends JpaRepository<VentaDetalle, Long
             "ORDER BY freq DESC")
     List<Object[]> findComplementaryProducts(@Param("medicamentoId") Long medicamentoId);
 
+    // ⚠️ Reemplazado por vw_ventas_90_dias (PerdidasService)
     @Query("SELECT ld.medicamento.id, SUM(vd.cantidad) FROM VentaDetalle vd JOIN vd.loteDetalle ld WHERE vd.venta.fecha >= :fechaInicio AND vd.venta.activo = true GROUP BY ld.medicamento.id")
     List<Object[]> sumVentasPorMedicamentoDesde(@Param("fechaInicio") LocalDateTime fechaInicio);
 
-    // 🔥 NUEVO: ventas diarias por medicamento (para predicción / gráficos)
     @Query("SELECT CAST(vd.venta.fecha AS date), SUM(vd.cantidad) " +
             "FROM VentaDetalle vd " +
             "WHERE vd.loteDetalle.medicamento.id = :medicamentoId " +
