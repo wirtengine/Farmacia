@@ -33,9 +33,10 @@ import com.sanidad.movil.data.presentation.screens.clientes.ClientesScreen
 import com.sanidad.movil.data.presentation.screens.usuarios.UsuariosScreen
 import com.sanidad.movil.data.presentation.screens.recetas.RecetasScreen
 import com.sanidad.movil.data.presentation.screens.perdidas.PerdidasScreen
+import com.sanidad.movil.data.presentation.screens.alerts.AlertsScreen  // ← Nuevo import
 
 import com.sanidad.movil.presentation.screens.racks.RacksScreen
-import com.sanidad.movil.presentation.screens.alerts.AlertsScreen
+// import com.sanidad.movil.presentation.screens.alerts.AlertsScreen  ← Eliminado
 import com.sanidad.movil.presentation.screens.recommendations.RecommendationsScreen
 
 import kotlinx.coroutines.flow.first
@@ -346,7 +347,7 @@ fun NavGraph() {
                 }
 
                 composable("alertas") {
-                    AlertsScreen()
+                    AlertsScreen()  // Ahora usa la clase del nuevo paquete
                 }
 
                 composable("perdidas") {
