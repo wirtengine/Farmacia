@@ -3,28 +3,33 @@ package com.farmacia.sanidadbackend.service;
 import com.farmacia.sanidadbackend.dto.*;
 import com.farmacia.sanidadbackend.model.*;
 import com.farmacia.sanidadbackend.repository.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class DevolucionProveedorService {
 
+    private final JdbcTemplate jdbcTemplate;
     private final DevolucionProveedorRepository devolucionProveedorRepository;
     private final LoteRepository loteRepository;
     private final ProveedorRepository proveedorRepository;
     private final UsuarioRepository usuarioRepository;
     private final LoteDetalleRepository loteDetalleRepository;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private String generarNumeroDevolucion() {
         String fecha = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
@@ -36,52 +41,36 @@ public class DevolucionProveedorService {
         return numero;
     }
 
+    /**
+     * Solicita una devolución a proveedor usando la función fn_solicitar_devolucion_proveedor.
+     * Parámetros: lote_id, solicitado_por_id, detalles_jsonb, motivo
+     */
     public DevolucionProveedorResponse solicitarDevolucion(DevolucionProveedorRequest request) {
+        String detallesJson;
+        try {
+            detallesJson = objectMapper.writeValueAsString(request.getDetalles());
+        } catch (Exception e) {
+            throw new RuntimeException("Error al convertir detalles a JSON", e);
+        }
 
-        Lote lote = loteRepository.findByIdAndActivoTrue(request.getLoteId())
-                .orElseThrow(() -> new EntityNotFoundException("Lote no encontrado o inactivo"));
+        String sql = "SELECT * FROM fn_solicitar_devolucion_proveedor(?, ?, ?::jsonb, ?)";
+        Map<String, Object> result = jdbcTemplate.queryForMap(sql,
+                request.getLoteId(),
+                request.getSolicitadoPorId(),
+                detallesJson,
+                request.getMotivo()
+        );
 
-        Proveedor proveedor = lote.getProveedor(); // El lote ya tiene proveedor
-
-        Usuario solicitante = usuarioRepository.findById(request.getSolicitadoPorId())
-                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado"));
-
-        DevolucionProveedor devolucion = new DevolucionProveedor();
-        devolucion.setLote(lote);
-        devolucion.setProveedor(proveedor);
-        devolucion.setSolicitadoPor(solicitante);
-        devolucion.setEstado(EstadoDevolucionProveedor.PENDIENTE);
-        devolucion.setMotivo(request.getMotivo());
-
-        List<DevolucionProveedorDetalle> detalles = request.getDetalles().stream()
-                .map(detReq -> {
-                    LoteDetalle loteDetalle = loteDetalleRepository.findById(detReq.getLoteDetalleId())
-                            .orElseThrow(() -> new EntityNotFoundException("Detalle de lote no encontrado"));
-
-                    if (!loteDetalle.getLote().getId().equals(lote.getId())) {
-                        throw new IllegalArgumentException("El detalle no pertenece al lote seleccionado");
-                    }
-
-                    if (detReq.getCantidadDevuelta() > loteDetalle.getCantidad()) {
-                        throw new IllegalArgumentException("Cantidad a devolver excede el stock disponible");
-                    }
-
-                    DevolucionProveedorDetalle detalle = new DevolucionProveedorDetalle();
-                    detalle.setDevolucionProveedor(devolucion);
-                    detalle.setLoteDetalle(loteDetalle);
-                    detalle.setCantidadDevuelta(detReq.getCantidadDevuelta());
-                    return detalle;
-                })
-                .collect(Collectors.toList());
-
-        devolucion.setDetalles(detalles);
-
-        DevolucionProveedor saved = devolucionProveedorRepository.save(devolucion);
-        return mapToResponse(saved);
+        Long devolucionId = ((Number) result.get("devolucion_id")).longValue();
+        DevolucionProveedor dev = devolucionProveedorRepository.findById(devolucionId)
+                .orElseThrow(() -> new EntityNotFoundException("Devolución no encontrada después de crearla"));
+        return mapToResponse(dev);
     }
 
+    /**
+     * Aprueba o rechaza una devolución a proveedor (lógica manual en Java).
+     */
     public DevolucionProveedorResponse aprobarDevolucion(DevolucionProveedorAprobarRequest request) {
-
         DevolucionProveedor devolucion = devolucionProveedorRepository.findById(request.getDevolucionId())
                 .orElseThrow(() -> new EntityNotFoundException("Devolución no encontrada"));
 
@@ -95,7 +84,7 @@ public class DevolucionProveedorService {
         // Rechazo
         if (Boolean.FALSE.equals(request.getAprobada())) {
             devolucion.setEstado(EstadoDevolucionProveedor.RECHAZADA);
-            devolucion.setMotivo(request.getMotivoRechazo()); // sobrescribe el motivo original o usa otro campo
+            devolucion.setMotivo(request.getMotivoRechazo());
             devolucion.setAprobadoPor(admin);
             devolucion.setFechaAprobacion(LocalDateTime.now());
             return mapToResponse(devolucionProveedorRepository.save(devolucion));
@@ -107,7 +96,6 @@ public class DevolucionProveedorService {
         devolucion.setAprobadoPor(admin);
         devolucion.setFechaAprobacion(LocalDateTime.now());
 
-        // Descontar stock del lote
         for (DevolucionProveedorDetalle det : devolucion.getDetalles()) {
             LoteDetalle loteDetalle = det.getLoteDetalle();
             loteDetalle.setCantidad(loteDetalle.getCantidad() - det.getCantidadDevuelta());
@@ -133,7 +121,6 @@ public class DevolucionProveedorService {
 
     private DevolucionProveedorResponse mapToResponse(DevolucionProveedor d) {
         DevolucionProveedorResponse resp = new DevolucionProveedorResponse();
-
         resp.setId(d.getId());
         resp.setNumeroDevolucion(d.getNumeroDevolucion());
         resp.setLoteId(d.getLote().getId());
