@@ -30,12 +30,12 @@ import com.sanidad.movil.data.presentation.screens.devolucionesProveedor.Devoluc
 import com.sanidad.movil.data.presentation.screens.ventas.VentasScreen
 import com.sanidad.movil.data.presentation.screens.ventas.VentaCreateScreen
 import com.sanidad.movil.data.presentation.screens.clientes.ClientesScreen
-
 import com.sanidad.movil.data.presentation.screens.usuarios.UsuariosScreen
-import com.sanidad.movil.presentation.screens.racks.RacksScreen
 import com.sanidad.movil.data.presentation.screens.recetas.RecetasScreen
-import com.sanidad.movil.presentation.screens.alerts.AlertsScreen
 import com.sanidad.movil.data.presentation.screens.perdidas.PerdidasScreen
+
+import com.sanidad.movil.presentation.screens.racks.RacksScreen
+import com.sanidad.movil.presentation.screens.alerts.AlertsScreen
 import com.sanidad.movil.presentation.screens.recommendations.RecommendationsScreen
 
 import kotlinx.coroutines.flow.first
@@ -46,7 +46,6 @@ import kotlinx.coroutines.launch
 fun NavGraph() {
 
     val navController = rememberNavController()
-
     val coroutineScope = rememberCoroutineScope()
 
     val drawerState = rememberDrawerState(
@@ -80,7 +79,6 @@ fun NavGraph() {
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-
             CircularProgressIndicator()
         }
 

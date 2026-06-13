@@ -52,34 +52,25 @@ fun PerdidasScreen(viewModel: PerdidasViewModel = viewModel()) {
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         KpiCard(
-                            title = "Prod. Vencidos",
-                            value = "${resumen?.totalProductosVencidos ?: 0}",
-                            subtitle = "unidades",
+                            title = "Pérdidas por Venc.",
+                            value = viewModel.formatCurrency(resumen?.totalPerdidasVencimiento ?: 0.0),
+                            subtitle = "${resumen?.cantidadProductosVencidos ?: 0} productos",
                             color = Color(0xFFFFF3E0),
                             modifier = Modifier.weight(1f)
                         )
                         KpiCard(
-                            title = "Prod. Inmóviles",
-                            value = "${resumen?.totalProductosInmoviles ?: 0}",
-                            subtitle = "sin rotación",
+                            title = "Inmovilizado",
+                            value = viewModel.formatCurrency(resumen?.totalInmovilizado ?: 0.0),
+                            subtitle = "${resumen?.cantidadProductosInmoviles ?: 0} SKU",
                             color = Color(0xFFE3F2FD),
                             modifier = Modifier.weight(1f)
                         )
                         KpiCard(
                             title = "Inconsistencias",
-                            value = "${resumen?.totalInconsistencias ?: 0}",
+                            value = "${resumen?.cantidadInconsistencias ?: 0}",
                             subtitle = "detectadas",
                             color = Color(0xFFFCE4EC),
                             modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    // Pérdida estimada
-                    resumen?.let {
-                        Text(
-                            text = "Pérdida estimada total: ${viewModel.formatCurrency(it.perdidaEstimada)}",
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            fontWeight = FontWeight.Bold
                         )
                     }
 
@@ -127,11 +118,11 @@ fun VencidosTab(viewModel: PerdidasViewModel) {
             items(vencidos) { v ->
                 Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text("Lote: ${v.lote}", fontWeight = FontWeight.Bold)          // campo correcto
-                        Text("Medicamento: ${v.nombre}")                              // campo correcto
-                        Text("Vencimiento: ${v.fechaVencimiento}")
-                        Text("Cantidad: ${v.cantidad} u.")                            // campo correcto
-                        // Si el backend no devuelve valorPerdido, lo omitimos
+                        Text("Lote: ${v.numeroLote}", fontWeight = FontWeight.Bold)
+                        Text(v.medicamentoNombre)
+                        Text("Vence: ${v.fechaVencimiento}")
+                        Text("Cantidad: ${v.cantidadVencida} u.")
+                        Text("Valor perdido: ${viewModel.formatCurrency(v.valorPerdido)}", color = Color.Red)
                     }
                 }
             }
@@ -149,10 +140,10 @@ fun InmovilesTab(viewModel: PerdidasViewModel) {
             items(inmoviles) { p ->
                 Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text("Medicamento: ${p.nombre}", fontWeight = FontWeight.Bold)
-                        Text("Stock Actual: ${p.cantidad} u.")                        // campo correcto
-                        Text("Días sin Movimiento: ${p.diasInmovil} días")            // campo correcto
-                        // valorInmovilizado no está en el DTO
+                        Text(p.medicamentoNombre, fontWeight = FontWeight.Bold)
+                        Text("Stock: ${p.stockActual} u.")
+                        Text("Días sin movimiento: ${p.diasSinMovimiento}")
+                        Text("Valor inmovilizado: ${viewModel.formatCurrency(p.valorInmovilizado)}")
                     }
                 }
             }
@@ -170,9 +161,9 @@ fun InconsistenciasTab(viewModel: PerdidasViewModel) {
             items(inconsistencias) { inc ->
                 Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text("Medicamento: ${inc.nombre}", fontWeight = FontWeight.Bold)
-                        Text("Stock Sistema: ${inc.stockSistema}")
-                        Text("Stock Real: ${inc.stockReal}")
+                        Text(inc.medicamentoNombre, fontWeight = FontWeight.Bold)
+                        Text("Stock lote: ${inc.cantidadLote}")
+                        Text("Stock ubicación: ${inc.cantidadUbicaciones}")
                         Text(
                             "Diferencia: ${if (inc.diferencia > 0) "+${inc.diferencia}" else "${inc.diferencia}"}",
                             color = if (inc.diferencia > 0) Color(0xFFF57C00) else Color(0xFFD32F2F)

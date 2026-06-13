@@ -1,10 +1,11 @@
 package com.sanidad.movil.data.remote.dto
 
 data class ProductoVencidoDTO(
-    val medicamentoId: Long,
-    val nombre: String,
-    val lote: String,
+    val loteId: Long,
+    val numeroLote: String,
     val fechaVencimiento: String,
-    val cantidad: Int,
-    val rackNombre: String?
+    val medicamentoId: Long,
+    val medicamentoNombre: String,
+    val cantidadVencida: Int,
+    val valorPerdido: Double
 )
