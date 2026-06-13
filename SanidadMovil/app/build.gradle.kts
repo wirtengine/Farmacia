@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.kotlin.compose)   // Plugin del compilador de Compose
 }
 
 android {
@@ -22,7 +23,7 @@ android {
         buildConfigField(
             "String",
             "BASE_URL",
-            "\"http://172.16.66.6:8080/\""
+            "\"http://192.168.1.19:8080/\""
         )
     }
 
@@ -41,14 +42,21 @@ android {
         }
     }
 
+    // Fija la compatibilidad de Java a 17 (igual que el jvmTarget de Kotlin)
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.4"
-    }
+    // El bloque composeOptions ya NO es necesario con el nuevo plugin
+    // composeOptions {
+    //     kotlinCompilerExtensionVersion = "1.5.4"
+    // }
 
     kotlinOptions {
         jvmTarget = "17"
@@ -124,5 +132,12 @@ dependencies {
         "com.squareup.okhttp3:logging-interceptor:4.12.0"
     )
 
+    implementation("com.patrykandpatrick.vico:compose-m3:1.13.1")
+
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
     testImplementation("junit:junit:4.13.2")
+
 }

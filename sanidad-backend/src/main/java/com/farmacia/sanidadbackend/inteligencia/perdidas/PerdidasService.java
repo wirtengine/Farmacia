@@ -1,148 +1,75 @@
 package com.farmacia.sanidadbackend.inteligencia.perdidas;
 
 import com.farmacia.sanidadbackend.inteligencia.perdidas.dto.*;
-import com.farmacia.sanidadbackend.model.*;
-import com.farmacia.sanidadbackend.repository.*;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class PerdidasService {
 
-    private final LoteRepository loteRepository;
-    private final LoteDetalleRepository loteDetalleRepository;
-    private final UbicacionLoteRepository ubicacionLoteRepository;
-    private final VentaDetalleRepository ventaDetalleRepository;
-    private final MedicamentoRepository medicamentoRepository;
-
-    private static final int DIAS_INMOVIL = 90;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Transactional(readOnly = true)
     public List<ProductoVencidoDTO> obtenerProductosVencidos() {
-        LocalDate hoy = LocalDate.now();
-        List<Object[]> resultados = loteRepository.findLotesVencidosConStock(hoy);
-        List<ProductoVencidoDTO> lista = new ArrayList<>();
-
-        for (Object[] row : resultados) {
-            Lote lote = (Lote) row[0];
-            // Cada detalle del lote puede tener un medicamento diferente
-            for (LoteDetalle det : lote.getDetalles()) {
-                if (det.getCantidad() > 0) {
-                    ProductoVencidoDTO dto = new ProductoVencidoDTO();
-                    dto.setLoteId(lote.getId());
-                    dto.setNumeroLote(lote.getNumeroLote());
-                    dto.setFechaVencimiento(lote.getFechaVencimiento());
-                    dto.setMedicamentoId(det.getMedicamento().getId());
-                    dto.setMedicamentoNombre(det.getMedicamento().getNombre());
-                    dto.setCantidadVencida(det.getCantidad());
-                    dto.setValorPerdido(det.getMedicamento().getPrecioUnitario()
-                            .multiply(BigDecimal.valueOf(det.getCantidad())));
-                    lista.add(dto);
-                }
-            }
-        }
-        return lista;
+        String sql = "SELECT lote_id, numero_lote, fecha_vencimiento, medicamento_id, medicamento_nombre, cantidad_vencida, valor_perdido FROM vw_productos_vencidos";
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            ProductoVencidoDTO dto = new ProductoVencidoDTO();
+            dto.setLoteId(rs.getLong("lote_id"));
+            dto.setNumeroLote(rs.getString("numero_lote"));
+            dto.setFechaVencimiento(rs.getDate("fecha_vencimiento").toLocalDate());
+            dto.setMedicamentoId(rs.getLong("medicamento_id"));
+            dto.setMedicamentoNombre(rs.getString("medicamento_nombre"));
+            dto.setCantidadVencida(rs.getInt("cantidad_vencida"));
+            dto.setValorPerdido(rs.getBigDecimal("valor_perdido"));
+            return dto;
+        });
     }
 
     @Transactional(readOnly = true)
     public List<ProductoInmovilDTO> obtenerProductosInmoviles() {
-        LocalDateTime fechaLimite = LocalDateTime.now().minusDays(DIAS_INMOVIL);
-        // Ventas por medicamento en el período
-        List<Object[]> ventasPorMedicamento = ventaDetalleRepository.sumVentasPorMedicamentoDesde(fechaLimite);
-        Map<Long, Integer> ventasMap = ventasPorMedicamento.stream()
-                .collect(Collectors.toMap(
-                        row -> ((Number) row[0]).longValue(),
-                        row -> ((Number) row[1]).intValue()
-                ));
-
-        // Stock actual por medicamento
-        LocalDate hoy = LocalDate.now();
-        List<Object[]> stockResult = loteDetalleRepository.findStockActualPorMedicamento(hoy);
-        Map<Long, Integer> stockMap = stockResult.stream()
-                .collect(Collectors.toMap(
-                        row -> ((Number) row[0]).longValue(),
-                        row -> ((Number) row[1]).intValue()
-                ));
-
-        List<ProductoInmovilDTO> inmoviles = new ArrayList<>();
-        List<Medicamento> medicamentos = medicamentoRepository.findByActivoTrue();
-
-        for (Medicamento m : medicamentos) {
-            Integer ventasProducto = ventasMap.getOrDefault(m.getId(), 0);
-            Integer stock = stockMap.getOrDefault(m.getId(), 0);
-            if (stock > 0 && ventasProducto == 0) {
-                ProductoInmovilDTO dto = new ProductoInmovilDTO();
-                dto.setMedicamentoId(m.getId());
-                dto.setMedicamentoNombre(m.getNombre());
-                dto.setStockActual(stock);
-                dto.setVentasUltimos90Dias(0);
-                dto.setDiasSinMovimiento(DIAS_INMOVIL);
-                dto.setValorInmovilizado(m.getPrecioUnitario().multiply(BigDecimal.valueOf(stock)));
-                inmoviles.add(dto);
-            }
-        }
-        return inmoviles;
+        String sql = "SELECT medicamento_id, medicamento_nombre, stock_actual, dias_sin_movimiento, valor_inmovilizado FROM vw_productos_inmoviles";
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            ProductoInmovilDTO dto = new ProductoInmovilDTO();
+            dto.setMedicamentoId(rs.getLong("medicamento_id"));
+            dto.setMedicamentoNombre(rs.getString("medicamento_nombre"));
+            dto.setStockActual(rs.getInt("stock_actual"));
+            dto.setDiasSinMovimiento(rs.getInt("dias_sin_movimiento"));
+            dto.setValorInmovilizado(rs.getBigDecimal("valor_inmovilizado"));
+            return dto;
+        });
     }
 
     @Transactional(readOnly = true)
     public List<InconsistenciaStockDTO> obtenerInconsistenciasStock() {
-        // Suma de stock en ubicaciones por loteDetalle
-        List<Object[]> ubicacionesSum = ubicacionLoteRepository.sumCantidadPorLoteDetalle();
-        Map<Long, Integer> ubicacionesMap = ubicacionesSum.stream()
-                .collect(Collectors.toMap(
-                        row -> ((Number) row[0]).longValue(),
-                        row -> ((Number) row[1]).intValue()
-                ));
-
-        List<LoteDetalle> todosDetalles = loteDetalleRepository.findAll();
-        List<InconsistenciaStockDTO> inconsistencias = new ArrayList<>();
-
-        for (LoteDetalle ld : todosDetalles) {
-            int cantLote = ld.getCantidad();
-            int cantUbic = ubicacionesMap.getOrDefault(ld.getId(), 0);
-            if (cantLote != cantUbic) {
-                InconsistenciaStockDTO dto = new InconsistenciaStockDTO();
-                dto.setLoteDetalleId(ld.getId());
-                dto.setMedicamentoId(ld.getMedicamento().getId());
-                dto.setMedicamentoNombre(ld.getMedicamento().getNombre());
-                dto.setCantidadLote(cantLote);
-                dto.setCantidadUbicaciones(cantUbic);
-                dto.setDiferencia(cantLote - cantUbic);
-                inconsistencias.add(dto);
-            }
-        }
-        return inconsistencias;
+        String sql = "SELECT lote_detalle_id, medicamento_id, medicamento_nombre, cantidad_lote, cantidad_ubicaciones, diferencia FROM vw_inconsistencias_stock";
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            InconsistenciaStockDTO dto = new InconsistenciaStockDTO();
+            dto.setLoteDetalleId(rs.getLong("lote_detalle_id"));
+            dto.setMedicamentoId(rs.getLong("medicamento_id"));
+            dto.setMedicamentoNombre(rs.getString("medicamento_nombre"));
+            dto.setCantidadLote(rs.getInt("cantidad_lote"));
+            dto.setCantidadUbicaciones(rs.getInt("cantidad_ubicaciones"));
+            dto.setDiferencia(rs.getInt("diferencia"));
+            return dto;
+        });
     }
 
     @Transactional(readOnly = true)
     public ResumenPerdidasDTO obtenerResumenPerdidas() {
-        ResumenPerdidasDTO resumen = new ResumenPerdidasDTO();
-
-        List<ProductoVencidoDTO> vencidos = obtenerProductosVencidos();
-        BigDecimal totalVencido = vencidos.stream()
-                .map(ProductoVencidoDTO::getValorPerdido)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        resumen.setTotalPerdidasVencimiento(totalVencido);
-        resumen.setCantidadProductosVencidos(vencidos.size());
-
-        List<ProductoInmovilDTO> inmoviles = obtenerProductosInmoviles();
-        BigDecimal totalInmovil = inmoviles.stream()
-                .map(ProductoInmovilDTO::getValorInmovilizado)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        resumen.setTotalInmovilizado(totalInmovil);
-        resumen.setCantidadProductosInmoviles(inmoviles.size());
-
-        List<InconsistenciaStockDTO> inconsistencias = obtenerInconsistenciasStock();
-        resumen.setCantidadInconsistencias(inconsistencias.size());
-
-        return resumen;
+        String sql = "SELECT total_perdidas_vencimiento, cantidad_productos_vencidos, total_inmovilizado, cantidad_productos_inmoviles, cantidad_inconsistencias FROM vw_resumen_perdidas";
+        return jdbcTemplate.queryForObject(sql, (rs, rowNum) -> {
+            ResumenPerdidasDTO resumen = new ResumenPerdidasDTO();
+            resumen.setTotalPerdidasVencimiento(rs.getBigDecimal("total_perdidas_vencimiento"));
+            resumen.setCantidadProductosVencidos(rs.getInt("cantidad_productos_vencidos"));
+            resumen.setTotalInmovilizado(rs.getBigDecimal("total_inmovilizado"));
+            resumen.setCantidadProductosInmoviles(rs.getInt("cantidad_productos_inmoviles"));
+            resumen.setCantidadInconsistencias(rs.getInt("cantidad_inconsistencias"));
+            return resumen;
+        });
     }
 }
