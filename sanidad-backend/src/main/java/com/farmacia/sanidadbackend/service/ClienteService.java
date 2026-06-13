@@ -4,8 +4,10 @@ import com.farmacia.sanidadbackend.dto.ClienteRequest;
 import com.farmacia.sanidadbackend.dto.ClienteResponse;
 import com.farmacia.sanidadbackend.model.Cliente;
 import com.farmacia.sanidadbackend.repository.ClienteRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +18,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ClienteService {
 
+    private final JdbcTemplate jdbcTemplate;
     private final ClienteRepository clienteRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
     public ClienteResponse crearCliente(ClienteRequest request) {
@@ -48,7 +52,7 @@ public class ClienteService {
         cliente.setNombre(request.getNombre());
         cliente.setTelefono(request.getTelefono());
         cliente.setEmail(request.getEmail());
-        cliente.setSaldo(request.getSaldo()); // <-- CAMBIO IMPORTANTE
+        cliente.setSaldo(request.getSaldo());
 
         return mapToResponse(clienteRepository.save(cliente));
     }
@@ -72,33 +76,39 @@ public class ClienteService {
         clienteRepository.save(cliente);
     }
 
+    /**
+     * Abona saldo a un cliente usando la función fn_abonar_saldo.
+     */
     @Transactional
-    public ClienteResponse abonarSaldo(Long id, BigDecimal monto) {
+    public ClienteResponse abonarSaldo(Long clienteId, BigDecimal monto) {
         if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("El monto debe ser positivo");
         }
 
-        Cliente cliente = obtenerClienteActivo(id);
-        cliente.setSaldo(cliente.getSaldo().add(monto));
+        String sql = "SELECT fn_abonar_saldo(?, ?)";
+        jdbcTemplate.queryForObject(sql, BigDecimal.class, clienteId, monto);
 
-        return mapToResponse(clienteRepository.save(cliente));
+        // Recuperar cliente actualizado para devolver respuesta completa
+        Cliente cliente = clienteRepository.findById(clienteId)
+                .orElseThrow(() -> new EntityNotFoundException("Cliente no encontrado después del abono"));
+        return mapToResponse(cliente);
     }
 
+    /**
+     * Descuenta saldo a un cliente usando la función fn_descontar_saldo.
+     */
     @Transactional
-    public void descontarSaldo(Long id, BigDecimal monto) {
+    public ClienteResponse descontarSaldo(Long clienteId, BigDecimal monto) {
         if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("El monto debe ser positivo");
         }
 
-        Cliente cliente = obtenerClienteActivo(id);
-        BigDecimal nuevoSaldo = cliente.getSaldo().subtract(monto);
+        String sql = "SELECT fn_descontar_saldo(?, ?)";
+        jdbcTemplate.queryForObject(sql, BigDecimal.class, clienteId, monto);
 
-        if (nuevoSaldo.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalStateException("Saldo insuficiente");
-        }
-
-        cliente.setSaldo(nuevoSaldo);
-        clienteRepository.save(cliente);
+        Cliente cliente = clienteRepository.findById(clienteId)
+                .orElseThrow(() -> new EntityNotFoundException("Cliente no encontrado después del descuento"));
+        return mapToResponse(cliente);
     }
 
     private Cliente obtenerClienteActivo(Long id) {
