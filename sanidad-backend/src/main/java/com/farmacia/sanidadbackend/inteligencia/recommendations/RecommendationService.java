@@ -9,11 +9,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.stream.Collectors;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class RecommendationService {
@@ -30,19 +29,28 @@ public class RecommendationService {
     private static final int DIAS_SIN_VENTAS = 90;
     private static final int DIAS_VENCIMIENTO = 30;
 
+    /**
+     * Programa diario (1:30 AM) que invoca la función almacenada fn_generar_recomendaciones
+     * para generar y resolver recomendaciones automáticamente en la base de datos.
+     */
     @Transactional
     @Scheduled(cron = "0 30 1 * * ?")
     public void generarRecomendaciones() {
-        resolverRecomendacionesViejas();
-        generarRecomendacionesCompra();
-        generarRecomendacionesEvitarReposicion();
-        generarRecomendacionesPriorizarVenta();
+        String sql = "SELECT fn_generar_recomendaciones()";
+        Integer generadas = jdbcTemplate.queryForObject(sql, Integer.class);
+        logger.info("Recomendaciones generadas/resueltas: {}", generadas);
     }
 
-    // ✅ Método público que necesita AssistantService
+    /**
+     * Devuelve las recomendaciones pendientes (usado por AssistantService).
+     */
     public List<Recommendation> obtenerRecomendacionesPendientes() {
         return recommendationRepository.findByStatusOrderByPriorityDescCreatedAtDesc(RecommendationStatus.PENDING);
     }
+
+    // Los siguientes métodos privados se conservan por si se requiere ejecutar verificaciones
+    // individuales de forma manual o desde otras partes de la aplicación.
+    // No son invocados por el método programado actual.
 
     private void resolverRecomendacionesViejas() {
         List<Recommendation> pending = recommendationRepository.findByStatusOrderByPriorityDescCreatedAtDesc(RecommendationStatus.PENDING);
@@ -52,7 +60,7 @@ public class RecommendationService {
                 "SELECT medicamento_id, dias_cobertura, sin_movimiento_90_dias FROM vw_metricas_productos",
                 (rs, rn) -> new MetricaRec(rs.getLong(1), rs.getDouble(2), rs.getBoolean(3))
         );
-        Set<Long> lotesIds = jdbcTemplate.queryForList("SELECT lote_id FROM vw_lotes_proximos_vencer", Long.class).stream().collect(Collectors.toSet());
+        var lotesIds = jdbcTemplate.queryForList("SELECT lote_id FROM vw_lotes_proximos_vencer", Long.class).stream().collect(Collectors.toSet());
 
         for (Recommendation r : pending) {
             boolean resolver = false;
