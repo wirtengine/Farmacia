@@ -9,79 +9,61 @@ import com.farmacia.sanidadbackend.repository.LoteRepository;
 import com.farmacia.sanidadbackend.repository.MedicamentoRepository;
 import com.farmacia.sanidadbackend.repository.ProveedorRepository;
 import com.farmacia.sanidadbackend.repository.VentaDetalleRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.sql.Date;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
 public class LoteService {
 
+    private final JdbcTemplate jdbcTemplate;
     private final LoteRepository loteRepository;
     private final MedicamentoRepository medicamentoRepository;
     private final ProveedorRepository proveedorRepository;
     private final VentaDetalleRepository ventaDetalleRepository;
     private final UbicacionService ubicacionService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private String generarNumeroLote() {
-        String fecha = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String numero;
-        do {
-            int random = ThreadLocalRandom.current().nextInt(1000, 10000);
-            numero = "LOTE-" + fecha + "-" + random;
-        } while (loteRepository.existsByNumeroLote(numero));
-        return numero;
-    }
-
+    /**
+     * Crea un lote con sus detalles usando la función fn_crear_lote.
+     */
     @Transactional
     public LoteResponse crearLote(LoteRequest request) {
-
+        // Validación de fechas (la función también lo hará, pero fallamos rápido)
         validarFechas(request.getFechaFabricacion(), request.getFechaVencimiento());
 
-        Proveedor proveedor = proveedorRepository
-                .findByIdAndActivoTrue(request.getProveedorId())
-                .orElseThrow(() -> new EntityNotFoundException("Proveedor no encontrado o suspendido"));
-
-        Lote lote = new Lote();
-        lote.setNumeroLote(generarNumeroLote());
-        lote.setFechaFabricacion(request.getFechaFabricacion());
-        lote.setFechaVencimiento(request.getFechaVencimiento());
-        lote.setProveedor(proveedor);
-        lote.setFactura(request.getFactura());
-        lote.setActivo(true);
-
-        lote.setDetalles(crearDetalles(request.getDetalles(), lote));
-
-        Lote saved = loteRepository.save(lote);
-
-        for (int i = 0; i < request.getDetalles().size(); i++) {
-            LoteDetalleRequest detalleReq = request.getDetalles().get(i);
-            LoteDetalle detalle = saved.getDetalles().get(i);
-
-            if (detalleReq.getRackId() != null) {
-                UbicacionLoteRequest ubicReq = new UbicacionLoteRequest();
-                ubicReq.setLoteDetalleId(detalle.getId());
-                ubicReq.setRackId(detalleReq.getRackId());
-                ubicReq.setNivel(detalleReq.getNivel());
-                ubicReq.setColumna(detalleReq.getColumna());
-                ubicReq.setProfundidadIndex(detalleReq.getProfundidadIndex());
-                ubicReq.setCantidad(detalleReq.getCantidad());
-                ubicacionService.asignarUbicacion(ubicReq);
-            }
+        String detallesJson;
+        try {
+            detallesJson = objectMapper.writeValueAsString(request.getDetalles());
+        } catch (Exception e) {
+            throw new RuntimeException("Error al convertir detalles a JSON", e);
         }
 
-        return mapToResponse(saved);
+        String sql = "SELECT fn_crear_lote(?, ?, ?, ?, ?::jsonb)";
+        Long loteId = jdbcTemplate.queryForObject(sql, Long.class,
+                request.getFechaFabricacion() != null ? Date.valueOf(request.getFechaFabricacion()) : null,
+                request.getFechaVencimiento() != null ? Date.valueOf(request.getFechaVencimiento()) : null,
+                request.getProveedorId(),
+                request.getFactura(),
+                detallesJson
+        );
+
+        Lote lote = loteRepository.findById(loteId)
+                .orElseThrow(() -> new EntityNotFoundException("Lote no encontrado después de crearlo"));
+        return mapToResponse(lote);
     }
 
+    // El resto de métodos se mantienen sin cambios
     @Transactional
     public LoteResponse actualizarLote(Long id, LoteRequest request) {
-
         if (ventaDetalleRepository.existsByLoteId(id)) {
             throw new IllegalStateException("No se puede modificar un lote que ya tiene ventas asociadas. Solo puede desactivarlo.");
         }
@@ -104,7 +86,6 @@ public class LoteService {
         lote.getDetalles().addAll(crearDetalles(request.getDetalles(), lote));
 
         Lote updated = loteRepository.save(lote);
-
         return mapToResponse(updated);
     }
 
@@ -179,7 +160,6 @@ public class LoteService {
                 .toList();
 
         response.setDetalles(detalles);
-
         return response;
     }
 

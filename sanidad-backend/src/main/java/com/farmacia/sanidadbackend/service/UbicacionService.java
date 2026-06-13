@@ -2,15 +2,13 @@ package com.farmacia.sanidadbackend.service;
 
 import com.farmacia.sanidadbackend.dto.UbicacionLoteRequest;
 import com.farmacia.sanidadbackend.dto.UbicacionLoteResponse;
-import com.farmacia.sanidadbackend.model.LoteDetalle;
-import com.farmacia.sanidadbackend.model.Rack;
 import com.farmacia.sanidadbackend.model.UbicacionLote;
 import com.farmacia.sanidadbackend.repository.LoteDetalleRepository;
 import com.farmacia.sanidadbackend.repository.RackRepository;
 import com.farmacia.sanidadbackend.repository.UbicacionLoteRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +18,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UbicacionService {
 
+    private final JdbcTemplate jdbcTemplate;
     private final UbicacionLoteRepository ubicacionRepository;
     private final RackRepository rackRepository;
     private final LoteDetalleRepository loteDetalleRepository;
@@ -31,64 +30,23 @@ public class UbicacionService {
                 .toList();
     }
 
+    /**
+     * Asigna una ubicación usando la función fn_asignar_ubicacion.
+     */
     @Transactional
     public UbicacionLoteResponse asignarUbicacion(UbicacionLoteRequest request) {
-        Rack rack = rackRepository.findById(request.getRackId())
-                .orElseThrow(() -> new EntityNotFoundException("Rack no encontrado"));
-
-        LoteDetalle loteDetalle = loteDetalleRepository.findById(request.getLoteDetalleId())
-                .orElseThrow(() -> new EntityNotFoundException("LoteDetalle no encontrado"));
-
-        // Validar límites del rack
-        if (request.getNivel() >= rack.getAlto() ||
-                request.getColumna() >= rack.getAncho() ||
-                request.getProfundidadIndex() >= rack.getProfundidad()) {
-            throw new IllegalArgumentException("Coordenadas fuera del rango del rack");
-        }
-
-        // Verificar que la celda no esté ocupada (prevención lógica)
-        if (ubicacionRepository.findByCoordenadas(
-                rack.getId(),
+        String sql = "SELECT fn_asignar_ubicacion(?, ?, ?, ?, ?, ?)";
+        Long ubicacionId = jdbcTemplate.queryForObject(sql, Long.class,
+                request.getLoteDetalleId(),
+                request.getRackId(),
                 request.getNivel(),
                 request.getColumna(),
-                request.getProfundidadIndex()
-        ).isPresent()) {
-            throw new IllegalStateException("La celda ya está ocupada");
-        }
-
-        // Validar stock global
-        int yaAsignado = ubicacionRepository
-                .findByLoteDetalleIdAndActivoTrue(request.getLoteDetalleId())
-                .stream()
-                .mapToInt(UbicacionLote::getCantidad)
-                .sum();
-        int nuevoTotal = yaAsignado + request.getCantidad();
-
-        if (nuevoTotal > loteDetalle.getCantidad()) {
-            throw new IllegalStateException(
-                    String.format(
-                            "Stock insuficiente. Ya hay %d unidades asignadas. Solo quedan %d disponibles.",
-                            yaAsignado,
-                            loteDetalle.getCantidad() - yaAsignado
-                    )
-            );
-        }
-
-        UbicacionLote ubicacion = new UbicacionLote();
-        ubicacion.setRack(rack);
-        ubicacion.setLoteDetalle(loteDetalle);
-        ubicacion.setNivel(request.getNivel());
-        ubicacion.setColumna(request.getColumna());
-        ubicacion.setProfundidadIndex(request.getProfundidadIndex());
-        ubicacion.setCantidad(request.getCantidad());
-        ubicacion.setActivo(true);
-
-        try {
-            return mapToResponse(ubicacionRepository.save(ubicacion));
-        } catch (DataIntegrityViolationException e) {
-            // Captura la violación de unicidad (ej: dos peticiones simultáneas)
-            throw new IllegalStateException("La celda ya está ocupada (conflicto de concurrencia)");
-        }
+                request.getProfundidadIndex(),
+                request.getCantidad()
+        );
+        UbicacionLote ubicacion = ubicacionRepository.findById(ubicacionId)
+                .orElseThrow(() -> new EntityNotFoundException("Ubicación no encontrada después de crearla"));
+        return mapToResponse(ubicacion);
     }
 
     public List<UbicacionLoteResponse> listarUbicacionesPorRack(Long rackId) {
@@ -102,11 +60,12 @@ public class UbicacionService {
         return mapToResponse(obtenerUbicacionEntity(id));
     }
 
+    /**
+     * Elimina lógicamente una ubicación usando la función fn_eliminar_ubicacion.
+     */
     @Transactional
     public void eliminarUbicacion(Long id) {
-        UbicacionLote ubicacion = obtenerUbicacionEntity(id);
-        ubicacion.setActivo(false);
-        ubicacionRepository.save(ubicacion);
+        jdbcTemplate.update("SELECT fn_eliminar_ubicacion(?)", id);
     }
 
     private UbicacionLote obtenerUbicacionEntity(Long id) {
