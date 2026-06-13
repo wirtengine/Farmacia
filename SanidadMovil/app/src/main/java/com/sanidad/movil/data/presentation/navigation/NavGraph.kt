@@ -33,11 +33,8 @@ import com.sanidad.movil.data.presentation.screens.clientes.ClientesScreen
 import com.sanidad.movil.data.presentation.screens.usuarios.UsuariosScreen
 import com.sanidad.movil.data.presentation.screens.recetas.RecetasScreen
 import com.sanidad.movil.data.presentation.screens.perdidas.PerdidasScreen
-import com.sanidad.movil.data.presentation.screens.alerts.AlertsScreen  // ← Nuevo import
-
-import com.sanidad.movil.presentation.screens.racks.RacksScreen
-// import com.sanidad.movil.presentation.screens.alerts.AlertsScreen  ← Eliminado
-import com.sanidad.movil.presentation.screens.recommendations.RecommendationsScreen
+import com.sanidad.movil.data.presentation.screens.alerts.AlertsScreen
+import com.sanidad.movil.data.presentation.screens.recommendations.RecommendationsScreen
 
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -93,6 +90,7 @@ fun NavGraph() {
             "login"
         }
 
+    // Lista sin "Racks"
     val drawerItems = listOf(
         "Dashboard" to "dashboard",
         "Medicamentos" to "medicamentos",
@@ -103,7 +101,6 @@ fun NavGraph() {
         "Lotes" to "lotes",
         "Devoluciones" to "devoluciones",
         "Dev. Proveedor" to "devoluciones_proveedor",
-        "Racks" to "racks",
         "Recetas" to "recetas",
         "Ubicaciones" to "ubicaciones",
         "Alertas" to "alertas",
@@ -334,9 +331,7 @@ fun NavGraph() {
                     DevolucionesProveedorScreen()
                 }
 
-                composable("racks") {
-                    RacksScreen()
-                }
+                // composable("racks") eliminado
 
                 composable("recetas") {
                     RecetasScreen()
@@ -347,7 +342,7 @@ fun NavGraph() {
                 }
 
                 composable("alertas") {
-                    AlertsScreen()  // Ahora usa la clase del nuevo paquete
+                    AlertsScreen()
                 }
 
                 composable("perdidas") {

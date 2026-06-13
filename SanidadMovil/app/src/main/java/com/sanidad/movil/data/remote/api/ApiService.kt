@@ -230,10 +230,16 @@ interface ApiService {
     @GET("api/perdidas/resumen")
     suspend fun obtenerResumenPerdidas(): Response<ResumenPerdidasDTO>
 
-    // ========== RECOMMENDATIONS (asumido) ==========
+    // ========== RECOMMENDATIONS ==========
     @GET("api/recommendations")
     suspend fun obtenerRecomendaciones(): Response<List<RecommendationResponse>>
 
-    @POST("api/recommendations/{id}/apply")
-    suspend fun aplicarRecomendacion(@Path("id") id: Long): Response<Void>
+    @POST("api/recommendations/{id}/accept")
+    suspend fun aceptarRecomendacion(@Path("id") id: Long): Response<Void>
+
+    @POST("api/recommendations/{id}/dismiss")
+    suspend fun descartarRecomendacion(@Path("id") id: Long): Response<Void>
+
+    @POST("api/recommendations/generate")
+    suspend fun generarRecomendaciones(): Response<Void>
 }
