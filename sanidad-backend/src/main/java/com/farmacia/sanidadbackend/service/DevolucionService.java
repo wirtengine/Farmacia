@@ -3,9 +3,11 @@ package com.farmacia.sanidadbackend.service;
 import com.farmacia.sanidadbackend.dto.*;
 import com.farmacia.sanidadbackend.model.*;
 import com.farmacia.sanidadbackend.repository.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -15,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -22,11 +25,14 @@ import java.util.concurrent.ThreadLocalRandom;
 @Transactional
 public class DevolucionService {
 
+    private final JdbcTemplate jdbcTemplate;
     private final DevolucionRepository devolucionRepository;
     private final VentaRepository ventaRepository;
     private final UsuarioRepository usuarioRepository;
     private final LoteDetalleRepository loteDetalleRepository;
     private final ClienteService clienteService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final BigDecimal IVA = new BigDecimal("0.15");
 
@@ -40,63 +46,35 @@ public class DevolucionService {
         return numero;
     }
 
+    /**
+     * Solicita una devolución usando la función fn_solicitar_devolucion.
+     */
     public DevolucionResponse solicitarDevolucion(DevolucionRequest request) {
-
-        Venta venta = ventaRepository.findByIdAndActivoTrue(request.getVentaId())
-                .orElseThrow(() -> new EntityNotFoundException("Venta no encontrada"));
-
-        Usuario solicitante = usuarioRepository.findById(request.getSolicitadoPorId())
-                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado"));
-
-        Devolucion devolucion = new Devolucion();
-        devolucion.setVenta(venta);
-        devolucion.setSolicitadoPor(solicitante);
-        devolucion.setEstado(EstadoDevolucion.PENDIENTE);
-        devolucion.setMotivo(request.getMotivo());
-
-        BigDecimal subtotal = BigDecimal.ZERO;
-        List<DevolucionDetalle> detalles = new ArrayList<>();
-
-        for (DevolucionDetalleRequest detReq : request.getDetalles()) {
-
-            VentaDetalle ventaDetalle = venta.getDetalles().stream()
-                    .filter(vd -> vd.getId().equals(detReq.getVentaDetalleId()))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Detalle de venta no encontrado"));
-
-            if (detReq.getCantidadDevuelta() > ventaDetalle.getCantidad()) {
-                throw new IllegalArgumentException("Cantidad devuelta excede la vendida");
-            }
-
-            BigDecimal precio = ventaDetalle.getPrecioUnitario();
-            BigDecimal subtotalDetalle = precio.multiply(BigDecimal.valueOf(detReq.getCantidadDevuelta()));
-
-            DevolucionDetalle detalle = new DevolucionDetalle();
-            detalle.setDevolucion(devolucion);
-            detalle.setVentaDetalle(ventaDetalle);
-            detalle.setLoteDetalle(ventaDetalle.getLoteDetalle());
-            detalle.setCantidadDevuelta(detReq.getCantidadDevuelta());
-            detalle.setPrecioUnitario(precio);
-            detalle.setSubtotal(subtotalDetalle);
-
-            detalles.add(detalle);
-            subtotal = subtotal.add(subtotalDetalle);
+        String detallesJson;
+        try {
+            detallesJson = objectMapper.writeValueAsString(request.getDetalles());
+        } catch (Exception e) {
+            throw new RuntimeException("Error al convertir detalles a JSON", e);
         }
 
-        BigDecimal ivaDevuelto = subtotal.multiply(IVA).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal totalDevuelto = subtotal.add(ivaDevuelto).setScale(2, RoundingMode.HALF_UP);
+        String sql = "SELECT * FROM fn_solicitar_devolucion(?, ?, ?, ?::jsonb)";
+        Map<String, Object> result = jdbcTemplate.queryForMap(sql,
+                request.getVentaId(),
+                request.getSolicitadoPorId(),
+                request.getMotivo(),
+                detallesJson
+        );
 
-        devolucion.setSubtotalDevuelto(subtotal);
-        devolucion.setIvaDevuelto(ivaDevuelto);
-        devolucion.setTotalDevuelto(totalDevuelto);
-        devolucion.setDetalles(detalles);
-
-        Devolucion saved = devolucionRepository.save(devolucion);
-        return mapToResponse(saved);
+        Long devolucionId = ((Number) result.get("devolucion_id")).longValue();
+        Devolucion dev = devolucionRepository.findById(devolucionId)
+                .orElseThrow(() -> new EntityNotFoundException("Devolución no encontrada después de crearla"));
+        return mapToResponse(dev);
     }
 
+    /**
+     * Aprueba o rechaza una devolución (método original sin cambios).
+     */
     public DevolucionResponse aprobarDevolucion(DevolucionAprobarRequest request) {
-
         Devolucion devolucion = devolucionRepository.findById(request.getDevolucionId())
                 .orElseThrow(() -> new EntityNotFoundException("Devolución no encontrada"));
 
@@ -107,10 +85,9 @@ public class DevolucionService {
         Usuario admin = usuarioRepository.findById(request.getAprobadoPorId())
                 .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado"));
 
-        // Rechazo
         if (Boolean.FALSE.equals(request.getAprobada())) {
             devolucion.setEstado(EstadoDevolucion.RECHAZADA);
-            devolucion.setMotivo(request.getMotivoRechazo()); // Sobrescribe el motivo original (o puedes usar otro campo)
+            devolucion.setMotivo(request.getMotivoRechazo());
             devolucion.setAprobadoPor(admin);
             devolucion.setFechaAprobacion(LocalDateTime.now());
             return mapToResponse(devolucionRepository.save(devolucion));
@@ -122,7 +99,6 @@ public class DevolucionService {
         devolucion.setAprobadoPor(admin);
         devolucion.setFechaAprobacion(LocalDateTime.now());
 
-        // Reponer stock
         for (DevolucionDetalle det : devolucion.getDetalles()) {
             LoteDetalle loteDetalle = det.getLoteDetalle();
             loteDetalle.setCantidad(loteDetalle.getCantidad() + det.getCantidadDevuelta());
@@ -132,28 +108,22 @@ public class DevolucionService {
         Venta venta = devolucion.getVenta();
         BigDecimal totalVenta = venta.getTotal();
         BigDecimal totalDevuelto = devolucion.getTotalDevuelto();
-
-        // Proporción de devolución
         BigDecimal factor = totalDevuelto.divide(totalVenta, 10, RoundingMode.HALF_UP);
 
         BigDecimal montoSaldo = venta.getMontoUsadoSaldo() != null ? venta.getMontoUsadoSaldo() : BigDecimal.ZERO;
         BigDecimal montoEfectivo = venta.getMontoEfectivo() != null ? venta.getMontoEfectivo() : BigDecimal.ZERO;
-
         BigDecimal saldoDevuelto = montoSaldo.multiply(factor).setScale(2, RoundingMode.HALF_UP);
         BigDecimal efectivoDevuelto = montoEfectivo.multiply(factor).setScale(2, RoundingMode.HALF_UP);
 
         devolucion.setMontoDevueltoSaldo(saldoDevuelto);
         devolucion.setMontoDevueltoEfectivo(efectivoDevuelto);
 
-        // Devolver saldo al cliente
         if (venta.getCliente() != null && saldoDevuelto.compareTo(BigDecimal.ZERO) > 0) {
             clienteService.abonarSaldo(venta.getCliente().getId(), saldoDevuelto);
         }
 
-        // Si se devolvieron todos los productos, desactivar la venta
         boolean devolucionCompleta = devolucion.getDetalles().stream()
                 .allMatch(d -> d.getCantidadDevuelta().equals(d.getVentaDetalle().getCantidad()));
-
         if (devolucionCompleta) {
             venta.setActivo(false);
             ventaRepository.save(venta);
@@ -198,7 +168,6 @@ public class DevolucionService {
         resp.setSubtotalDevuelto(d.getSubtotalDevuelto());
         resp.setIvaDevuelto(d.getIvaDevuelto());
         resp.setTotalDevuelto(d.getTotalDevuelto());
-
         resp.setMontoDevueltoEfectivo(d.getMontoDevueltoEfectivo());
         resp.setMontoDevueltoSaldo(d.getMontoDevueltoSaldo());
 
