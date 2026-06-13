@@ -10,12 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +20,8 @@ public class DevolucionProveedorService {
 
     private final JdbcTemplate jdbcTemplate;
     private final DevolucionProveedorRepository devolucionProveedorRepository;
+    // Los siguientes repositorios se mantienen por si otros métodos los necesitan,
+    // aunque las funciones nuevas ya manejan la lógica internamente.
     private final LoteRepository loteRepository;
     private final ProveedorRepository proveedorRepository;
     private final UsuarioRepository usuarioRepository;
@@ -31,19 +29,8 @@ public class DevolucionProveedorService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private String generarNumeroDevolucion() {
-        String fecha = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String numero;
-        do {
-            int random = ThreadLocalRandom.current().nextInt(1000, 10000);
-            numero = "DPROV-" + fecha + "-" + random;
-        } while (devolucionProveedorRepository.existsByNumeroDevolucion(numero));
-        return numero;
-    }
-
     /**
      * Solicita una devolución a proveedor usando la función fn_solicitar_devolucion_proveedor.
-     * Parámetros: lote_id, solicitado_por_id, detalles_jsonb, motivo
      */
     public DevolucionProveedorResponse solicitarDevolucion(DevolucionProveedorRequest request) {
         String detallesJson;
@@ -68,42 +55,21 @@ public class DevolucionProveedorService {
     }
 
     /**
-     * Aprueba o rechaza una devolución a proveedor (lógica manual en Java).
+     * Aprueba o rechaza una devolución a proveedor usando la función fn_aprobar_devolucion_proveedor.
      */
     public DevolucionProveedorResponse aprobarDevolucion(DevolucionProveedorAprobarRequest request) {
-        DevolucionProveedor devolucion = devolucionProveedorRepository.findById(request.getDevolucionId())
-                .orElseThrow(() -> new EntityNotFoundException("Devolución no encontrada"));
+        String sql = "SELECT * FROM fn_aprobar_devolucion_proveedor(?, ?, ?, ?)";
+        Map<String, Object> result = jdbcTemplate.queryForMap(sql,
+                request.getDevolucionId(),
+                request.getAprobadoPorId(),
+                request.getAprobada(),
+                request.getMotivoRechazo()
+        );
 
-        if (devolucion.getEstado() != EstadoDevolucionProveedor.PENDIENTE) {
-            throw new IllegalStateException("La devolución ya fue procesada");
-        }
-
-        Usuario admin = usuarioRepository.findById(request.getAprobadoPorId())
-                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado"));
-
-        // Rechazo
-        if (Boolean.FALSE.equals(request.getAprobada())) {
-            devolucion.setEstado(EstadoDevolucionProveedor.RECHAZADA);
-            devolucion.setMotivo(request.getMotivoRechazo());
-            devolucion.setAprobadoPor(admin);
-            devolucion.setFechaAprobacion(LocalDateTime.now());
-            return mapToResponse(devolucionProveedorRepository.save(devolucion));
-        }
-
-        // Aprobación
-        devolucion.setEstado(EstadoDevolucionProveedor.APROBADA);
-        devolucion.setNumeroDevolucion(generarNumeroDevolucion());
-        devolucion.setAprobadoPor(admin);
-        devolucion.setFechaAprobacion(LocalDateTime.now());
-
-        for (DevolucionProveedorDetalle det : devolucion.getDetalles()) {
-            LoteDetalle loteDetalle = det.getLoteDetalle();
-            loteDetalle.setCantidad(loteDetalle.getCantidad() - det.getCantidadDevuelta());
-            loteDetalleRepository.save(loteDetalle);
-        }
-
-        DevolucionProveedor saved = devolucionProveedorRepository.save(devolucion);
-        return mapToResponse(saved);
+        Long devolucionId = ((Number) result.get("devolucion_id")).longValue();
+        DevolucionProveedor dev = devolucionProveedorRepository.findById(devolucionId)
+                .orElseThrow(() -> new EntityNotFoundException("Devolución no encontrada después del proceso"));
+        return mapToResponse(dev);
     }
 
     public List<DevolucionProveedorResponse> listarDevoluciones() {

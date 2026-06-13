@@ -27,14 +27,21 @@ public class AlertService {
     private static final int DIAS_LOTE_VENCE = 30;
     private static final int DIAS_SIN_MOVIMIENTO = 90;
 
+    /**
+     * Programa diario (1:00 AM) que invoca la función almacenada fn_generar_alertas
+     * para generar y resolver alertas automáticamente en la base de datos.
+     */
     @Transactional
     @Scheduled(cron = "0 0 1 * * ?")
     public void generarAlertas() {
-        resolverAlertasViejas();
-        verificarStockCritico();
-        verificarLotesProximosVencer();
-        verificarProductosSinMovimiento();
+        String sql = "SELECT fn_generar_alertas()";
+        Integer alertasGeneradas = jdbcTemplate.queryForObject(sql, Integer.class);
+        // Opcional: log.info("Alertas generadas: {}", alertasGeneradas);
     }
+
+    // Los siguientes métodos se conservan por si se necesita ejecutar verificaciones
+    // individuales de forma manual o desde otras partes de la aplicación.
+    // No son invocados por el método programado actual.
 
     private void resolverAlertasViejas() {
         List<Alert> pending = alertRepository.findByStatusOrderByCreatedAtDesc(AlertStatus.PENDING);
@@ -43,7 +50,6 @@ public class AlertService {
         Set<Long> lotesProximosIds = jdbcTemplate.queryForList(
                 "SELECT lote_id FROM vw_lotes_proximos_vencer", Long.class
         ).stream().collect(Collectors.toSet());
-
 
         List<MetricaAlert> metricas = jdbcTemplate.query(
                 "SELECT s.medicamento_id, s.stock_actual, COALESCE(v.total_vendido,0) AS ventas_30_dias " +
@@ -84,7 +90,6 @@ public class AlertService {
     }
 
     private void verificarStockCritico() {
-
         jdbcTemplate.query(
                 "SELECT s.medicamento_id, s.medicamento_nombre, s.stock_actual, COALESCE(v.total_vendido,0) AS ventas_30_dias " +
                         "FROM vw_stock_actual_por_medicamento s " +
