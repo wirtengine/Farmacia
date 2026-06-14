@@ -1,245 +1,405 @@
-package com.sanidad.movil.data.presentation.screens.medicamentos
+package com.sanidad.movil.presentation.screens.medicamentos
 
-import android.net.Uri
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.graphics.pdf.PdfDocument
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sanidad.movil.data.remote.NetworkModule
+import com.sanidad.movil.MyApplication
+import com.sanidad.movil.data.remote.ApiResult
 import com.sanidad.movil.data.remote.dto.MedicamentoRequest
 import com.sanidad.movil.data.remote.dto.MedicamentoResponse
+import com.sanidad.movil.data.repository.MedicamentoRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 import java.io.FileOutputStream
+import java.text.NumberFormat
+import java.util.*
 
-class MedicamentosViewModel : ViewModel() {
-    private val api = NetworkModule.apiService
+data class MedicamentoFormState(
+    val registroSanitario: String = "",
+    val nombre: String = "",
+    val presentacion: String = "Tableta",
+    val via: String = "ORAL",
+    val fabricante: String = "",
+    val tipoVenta: String = "LIBRE",
+    val precioUnitario: String = "",
+    val receta: Boolean = false
+)
 
-    // -------------------- Lista --------------------
-    private val _medicamentos = MutableStateFlow<List<MedicamentoResponse>>(emptyList())
-    val medicamentos: StateFlow<List<MedicamentoResponse>> = _medicamentos
+data class MedicamentosUiState(
+    val medicamentos: List<MedicamentoResponse> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val searchQuery: String = "",
+    val currentPage: Int = 1,
+    val totalPages: Int = 1,
+    val showSheet: Boolean = false,
+    val isEditMode: Boolean = false,
+    val editingId: Long? = null,
+    val formData: MedicamentoFormState = MedicamentoFormState(),
+    val formError: String? = null,
+    val imageUri: android.net.Uri? = null,
+    val showConfirmDialog: Boolean = false,
+    val confirmTitle: String = "",
+    val confirmText: String = "",
+    val confirmAction: ConfirmAction? = null
+)
 
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
+enum class ConfirmAction {
+    DESACTIVAR, REACTIVAR
+}
 
-    // -------------------- Búsqueda y paginación --------------------
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery
+class MedicamentosViewModel(
+    private val medicamentoRepo: MedicamentoRepository
+) : ViewModel() {
 
-    private val _currentPage = MutableStateFlow(1)
-    val currentPage: StateFlow<Int> = _currentPage
+    private val _uiState = MutableStateFlow(MedicamentosUiState())
+    val uiState: StateFlow<MedicamentosUiState> = _uiState
 
-    val rowsPerPage = 15
+    private val rowsPerPage = 15
 
-    // -------------------- Medicamento filtrado paginado --------------------
-    val medicamentosFiltrados: List<MedicamentoResponse>
-        get() {
-            val query = _searchQuery.value.lowercase()
-            return _medicamentos.value
-                .filter { m ->
-                    m.nombre.lowercase().contains(query) ||
-                            m.fabricante.lowercase().contains(query) ||
-                            m.registroSanitario.lowercase().contains(query)
-                }
-        }
-
-    val totalPages: Int
-        get() {
-            val total = medicamentosFiltrados.size
-            return if (total == 0) 1 else (total + rowsPerPage - 1) / rowsPerPage
-        }
-
-    val paginatedMedicamentos: List<MedicamentoResponse>
-        get() {
-            val start = (_currentPage.value - 1) * rowsPerPage
-            val end = minOf(start + rowsPerPage, medicamentosFiltrados.size)
-            return medicamentosFiltrados.subList(
-                start.coerceAtMost(end),
-                end
-            )
-        }
-
-    // -------------------- Formulario --------------------
-    private val _formData = MutableStateFlow(FormState())
-    val formData: StateFlow<FormState> = _formData
-
-    private val _isEditMode = MutableStateFlow(false)
-    val isEditMode: StateFlow<Boolean> = _isEditMode
-
-    private val _editingId = MutableStateFlow<Long?>(null)
-    val editingId: StateFlow<Long?> = _editingId
-
-    private val _imageUri = MutableStateFlow<Uri?>(null)
-    val imageUri: StateFlow<Uri?> = _imageUri
-
-    private val _showSheet = MutableStateFlow(false)
-    val showSheet: StateFlow<Boolean> = _showSheet
+    init { cargarMedicamentos() }
 
     fun cargarMedicamentos() {
         viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.obtenerMedicamentos()
-                if (response.isSuccessful) {
-                    _medicamentos.value = response.body()?.sortedByDescending { it.id } ?: emptyList()
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            when (val result = medicamentoRepo.getMedicamentos()) {
+                is ApiResult.Success -> {
+                    val sorted = result.data.sortedByDescending { it.id }
+                    val filtered = filtrarMedicamentos(sorted, _uiState.value.searchQuery)
+                    _uiState.value = _uiState.value.copy(
+                        medicamentos = sorted,
+                        isLoading = false,
+                        totalPages = calcularTotalPaginas(filtered.size),
+                        currentPage = 1
+                    )
                 }
-            } catch (_: Exception) {
-            } finally {
-                _isLoading.value = false
+                is ApiResult.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message,
+                        medicamentos = emptyList(),
+                        totalPages = 1
+                    )
+                }
+                else -> {}
             }
         }
     }
 
     fun setSearch(query: String) {
-        _searchQuery.value = query
-        _currentPage.value = 1
+        _uiState.value = _uiState.value.copy(searchQuery = query, currentPage = 1)
+        actualizarPaginacion()
     }
 
     fun setPage(page: Int) {
-        if (page in 1..totalPages) _currentPage.value = page
-    }
-
-    // Abrir formulario para nuevo
-    fun abrirNuevo() {
-        _isEditMode.value = false
-        _editingId.value = null
-        _formData.value = FormState()
-        _imageUri.value = null
-        _showSheet.value = true
-    }
-
-    // Abrir formulario para editar
-    fun abrirEdicion(med: MedicamentoResponse) {
-        _isEditMode.value = true
-        _editingId.value = med.id
-        _formData.value = FormState(
-            registroSanitario = med.registroSanitario,
-            nombre = med.nombre,
-            presentacion = med.presentacion,
-            via = med.via,
-            fabricante = med.fabricante,
-            tipoVenta = med.tipoVenta,
-            precioUnitario = med.precioUnitario.toString(),
-            receta = med.receta
-        )
-        _imageUri.value = null
-        _showSheet.value = true
-    }
-
-    fun actualizarCampo(campo: String, valor: Any) {
-        _formData.value = _formData.value.copy().also {
-            when (campo) {
-                "registroSanitario" -> it.registroSanitario = valor as String
-                "nombre" -> it.nombre = valor as String
-                "presentacion" -> it.presentacion = valor as String
-                "via" -> it.via = valor as String
-                "fabricante" -> it.fabricante = valor as String
-                "tipoVenta" -> it.tipoVenta = valor as String
-                "precioUnitario" -> it.precioUnitario = valor as String
-                "receta" -> it.receta = valor as Boolean
-            }
+        if (page in 1.._uiState.value.totalPages) {
+            _uiState.value = _uiState.value.copy(currentPage = page)
         }
     }
 
-    fun setImageUri(uri: Uri?) {
-        _imageUri.value = uri
+    fun abrirNuevo() {
+        _uiState.value = _uiState.value.copy(
+            showSheet = true,
+            isEditMode = false,
+            editingId = null,
+            formData = MedicamentoFormState(),
+            formError = null,
+            imageUri = null
+        )
+    }
+
+    fun abrirEdicion(med: MedicamentoResponse) {
+        _uiState.value = _uiState.value.copy(
+            showSheet = true,
+            isEditMode = true,
+            editingId = med.id,
+            formData = MedicamentoFormState(
+                registroSanitario = med.registroSanitario,
+                nombre = med.nombre,
+                presentacion = med.presentacion ?: "Tableta",
+                via = med.via ?: "ORAL",
+                fabricante = med.fabricante ?: "",
+                tipoVenta = med.tipoVenta ?: "LIBRE",
+                precioUnitario = med.precioUnitario.toString(),
+                receta = med.receta ?: false
+            ),
+            formError = null,
+            imageUri = null
+        )
     }
 
     fun cerrarSheet() {
-        _showSheet.value = false
+        _uiState.value = _uiState.value.copy(showSheet = false, formError = null)
     }
 
-    // Guardar (crear o actualizar)
-    fun guardarMedicamento(onSuccess: () -> Unit, onError: (String) -> Unit) {
-        viewModelScope.launch {
-            val form = _formData.value
-            val request = MedicamentoRequest(
-                registroSanitario = form.registroSanitario,
-                nombre = form.nombre,
-                presentacion = form.presentacion,
-                via = form.via,
-                fabricante = form.fabricante,
-                tipoVenta = form.tipoVenta,
-                precioUnitario = form.precioUnitario.toDoubleOrNull() ?: 0.0,
-                receta = form.receta
-            )
+    fun actualizarCampo(campo: String, valor: Any) {
+        val form = _uiState.value.formData
+        val nuevo = when (campo) {
+            "registroSanitario" -> form.copy(registroSanitario = valor as String)
+            "nombre" -> form.copy(nombre = valor as String)
+            "presentacion" -> form.copy(presentacion = valor as String)
+            "via" -> form.copy(via = valor as String)
+            "fabricante" -> form.copy(fabricante = valor as String)
+            "tipoVenta" -> form.copy(tipoVenta = valor as String)
+            "precioUnitario" -> form.copy(precioUnitario = valor as String)
+            "receta" -> form.copy(receta = valor as Boolean)
+            else -> form
+        }
+        _uiState.value = _uiState.value.copy(formData = nuevo, formError = null)
+    }
 
-            try {
-                if (_isEditMode.value) {
-                    val id = _editingId.value!!
-                    api.actualizarMedicamento(id, request)
-                } else {
-                    api.crearMedicamento(request)
-                }.let { response ->
-                    if (response.isSuccessful) {
-                        val targetId = response.body()?.id ?: _editingId.value!!
-                        // Subir imagen si hay
-                        _imageUri.value?.let { uri ->
-                            try {
-                                subirImagen(targetId, uri)
-                            } catch (_: Exception) {
-                                onError("Guardado, pero falló la imagen")
+    fun setImageUri(uri: android.net.Uri?) {
+        _uiState.value = _uiState.value.copy(imageUri = uri)
+    }
+
+    fun guardarMedicamento() {
+        val form = _uiState.value.formData
+        if (form.nombre.isBlank() || form.registroSanitario.isBlank() || form.fabricante.isBlank()) {
+            _uiState.value = _uiState.value.copy(formError = "Complete los campos obligatorios")
+            return
+        }
+        val request = MedicamentoRequest(
+            registroSanitario = form.registroSanitario,
+            nombre = form.nombre,
+            presentacion = form.presentacion,
+            via = form.via,
+            fabricante = form.fabricante,
+            tipoVenta = form.tipoVenta,
+            precioUnitario = form.precioUnitario.toDoubleOrNull() ?: 0.0,
+            receta = form.receta
+        )
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            val result = if (_uiState.value.isEditMode) {
+                medicamentoRepo.actualizarMedicamento(_uiState.value.editingId!!, request)
+            } else {
+                medicamentoRepo.crearMedicamento(request)
+            }
+            when (result) {
+                is ApiResult.Success -> {
+                    val targetId = result.data.id
+                    _uiState.value.imageUri?.let { uri ->
+                        try {
+                            val file = convertirUriAFile(uri)
+                            if (file != null) {
+                                val requestBody = file.asRequestBody("image/*".toMediaTypeOrNull())
+                                val part = MultipartBody.Part.createFormData("file", file.name, requestBody)
+                                medicamentoRepo.subirImagen(targetId, part)
                             }
-                        }
-                        onSuccess()
-                        cargarMedicamentos()
-                    } else {
-                        onError("Error ${response.code()}: ${response.message()}")
+                        } catch (_: Exception) {}
                     }
+                    _uiState.value = _uiState.value.copy(showSheet = false, isLoading = false)
+                    cargarMedicamentos()
                 }
-            } catch (e: Exception) {
-                onError(e.message ?: "Error de conexión")
+                is ApiResult.Error -> {
+                    _uiState.value = _uiState.value.copy(isLoading = false, formError = result.message)
+                }
+                else -> {}
             }
         }
     }
 
-    private suspend fun subirImagen(medicamentoId: Long, uri: Uri) {
-        // Leer el archivo desde el URI
-        val context = com.sanidad.movil.MyApplication.instance
-        val inputStream = context.contentResolver.openInputStream(uri)
-        val file = File(context.cacheDir, "upload_temp.jpg")
-        inputStream?.use { input ->
+    private suspend fun convertirUriAFile(uri: android.net.Uri): File? = withContext(Dispatchers.IO) {
+        try {
+            val context = MyApplication.instance
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return@withContext null
+            val file = File(context.cacheDir, "upload_temp.jpg")
             FileOutputStream(file).use { output ->
-                input.copyTo(output)
+                inputStream.copyTo(output)
+            }
+            file
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun solicitarDesactivar(id: Long) {
+        _uiState.value = _uiState.value.copy(
+            showConfirmDialog = true,
+            confirmTitle = "¿Desactivar medicamento?",
+            confirmText = "El medicamento dejará de estar disponible.",
+            confirmAction = ConfirmAction.DESACTIVAR,
+            editingId = id
+        )
+    }
+
+    fun solicitarReactivar(id: Long) {
+        _uiState.value = _uiState.value.copy(
+            showConfirmDialog = true,
+            confirmTitle = "¿Reactivar medicamento?",
+            confirmText = "Volverá a estar disponible.",
+            confirmAction = ConfirmAction.REACTIVAR,
+            editingId = id
+        )
+    }
+
+    fun cancelarConfirmacion() {
+        _uiState.value = _uiState.value.copy(showConfirmDialog = false)
+    }
+
+    fun confirmarAccion() {
+        val id = _uiState.value.editingId ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            val result = when (_uiState.value.confirmAction) {
+                ConfirmAction.DESACTIVAR -> medicamentoRepo.desactivarMedicamento(id)
+                ConfirmAction.REACTIVAR -> medicamentoRepo.activarMedicamento(id)
+                else -> null
+            }
+            if (result != null) {
+                when (result) {
+                    is ApiResult.Success -> {
+                        _uiState.value = _uiState.value.copy(showConfirmDialog = false, isLoading = false)
+                        cargarMedicamentos()
+                    }
+                    is ApiResult.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = result.message,
+                            showConfirmDialog = false
+                        )
+                    }
+                    else -> {}
+                }
             }
         }
-        val requestBody = file.asRequestBody("image/*".toMediaTypeOrNull())
-        val part = MultipartBody.Part.createFormData("file", file.name, requestBody)
-        api.subirImagenMedicamento(medicamentoId, part)
     }
 
-    // Desactivar / Reactivar
-    fun desactivarMedicamento(id: Long, onResult: () -> Unit) {
+    fun generarPDF() {
         viewModelScope.launch {
             try {
-                api.desactivarMedicamento(id)
-                onResult()
-                cargarMedicamentos()
-            } catch (_: Exception) {}
+                val file = generarPDFConDatos(_uiState.value.medicamentos)
+                _uiState.value = _uiState.value.copy(error = "PDF generado en ${file.absolutePath}")
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = "Error al generar PDF: ${e.message}")
+            }
         }
     }
 
-    fun reactivarMedicamento(id: Long, onResult: () -> Unit) {
-        viewModelScope.launch {
-            try {
-                api.activarMedicamento(id)
-                onResult()
-                cargarMedicamentos()
-            } catch (_: Exception) {}
+    private suspend fun generarPDFConDatos(medicamentos: List<MedicamentoResponse>): File = withContext(Dispatchers.IO) {
+        val context = MyApplication.instance
+        val pdf = PdfDocument()
+        val pageWidth = 595
+        val pageHeight = 842
+        val margin = 40
+
+        val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
+        var currentPage = pdf.startPage(pageInfo)
+        var canvas = currentPage.canvas
+
+        val paintTitle = Paint().apply {
+            color = android.graphics.Color.rgb(41, 128, 185)
+            textSize = 18f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
+        val paintText = Paint().apply {
+            color = android.graphics.Color.BLACK
+            textSize = 10f
+        }
+        val paintHeader = Paint().apply {
+            color = android.graphics.Color.rgb(100, 100, 100)
+            textSize = 9f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+        val paintLine = Paint().apply {
+            color = android.graphics.Color.rgb(200, 200, 200)
+            strokeWidth = 1f
+        }
+
+        var y = margin
+
+        // Cabecera primera página
+        canvas.drawText("Catálogo de Medicamentos - Sanidad App", margin.toFloat(), y.toFloat(), paintTitle)
+        y += 25
+        val fechaStr = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+        canvas.drawText("Generado: $fechaStr", margin.toFloat(), y.toFloat(), paintText)
+        y += 20
+        canvas.drawLine(margin.toFloat(), y.toFloat(), (pageWidth - margin).toFloat(), y.toFloat(), paintLine)
+        y += 20
+
+        canvas.drawText("Medicamento", margin.toFloat(), y.toFloat(), paintHeader)
+        canvas.drawText("Reg. Sanitario", 200f, y.toFloat(), paintHeader)
+        canvas.drawText("Fabricante", 300f, y.toFloat(), paintHeader)
+        canvas.drawText("Precio", 450f, y.toFloat(), paintHeader)
+        canvas.drawText("Estado", 510f, y.toFloat(), paintHeader)
+        y += 10
+        canvas.drawLine(margin.toFloat(), y.toFloat(), (pageWidth - margin).toFloat(), y.toFloat(), paintLine)
+        y += 15
+
+        for (m in medicamentos) {
+            canvas.drawText(m.nombre, margin.toFloat(), y.toFloat(), paintText)
+            canvas.drawText(m.registroSanitario, 200f, y.toFloat(), paintText)
+            canvas.drawText(m.fabricante ?: "N/A", 300f, y.toFloat(), paintText)
+            canvas.drawText("C$ ${"%.2f".format(m.precioUnitario)}", 450f, y.toFloat(), paintText)
+            canvas.drawText(if (m.activo) "Activo" else "Inactivo", 510f, y.toFloat(), paintText)
+            y += 20
+
+            if (y > pageHeight - margin) {
+                pdf.finishPage(currentPage)
+                currentPage = pdf.startPage(pageInfo)
+                canvas = currentPage.canvas
+                y = margin
+                // repetir cabecera en nueva página
+                canvas.drawText("Catálogo de Medicamentos - Sanidad App (continuación)", margin.toFloat(), y.toFloat(), paintTitle)
+                y += 25
+                canvas.drawLine(margin.toFloat(), y.toFloat(), (pageWidth - margin).toFloat(), y.toFloat(), paintLine)
+                y += 20
+                canvas.drawText("Medicamento", margin.toFloat(), y.toFloat(), paintHeader)
+                canvas.drawText("Reg. Sanitario", 200f, y.toFloat(), paintHeader)
+                canvas.drawText("Fabricante", 300f, y.toFloat(), paintHeader)
+                canvas.drawText("Precio", 450f, y.toFloat(), paintHeader)
+                canvas.drawText("Estado", 510f, y.toFloat(), paintHeader)
+                y += 10
+                canvas.drawLine(margin.toFloat(), y.toFloat(), (pageWidth - margin).toFloat(), y.toFloat(), paintLine)
+                y += 15
+            }
+        }
+        pdf.finishPage(currentPage)
+
+        val file = File(context.cacheDir, "Reporte_Medicamentos_${System.currentTimeMillis()}.pdf")
+        FileOutputStream(file).use { pdf.writeTo(it) }
+        pdf.close()
+        file
+    }
+
+    private fun filtrarMedicamentos(lista: List<MedicamentoResponse>, query: String): List<MedicamentoResponse> {
+        if (query.isBlank()) return lista
+        val term = query.lowercase().trim()
+        return lista.filter {
+            it.nombre.lowercase().contains(term) ||
+                    it.fabricante?.lowercase()?.contains(term) == true ||
+                    it.registroSanitario.lowercase().contains(term)
+        }
+    }
+
+    private fun calcularTotalPaginas(total: Int) = if (total == 0) 1 else (total + rowsPerPage - 1) / rowsPerPage
+
+    val medicamentosFiltrados: List<MedicamentoResponse>
+        get() = filtrarMedicamentos(_uiState.value.medicamentos, _uiState.value.searchQuery)
+
+    val paginatedMedicamentos: List<MedicamentoResponse>
+        get() {
+            val start = (_uiState.value.currentPage - 1) * rowsPerPage
+            val end = minOf(start + rowsPerPage, medicamentosFiltrados.size)
+            if (start >= end) return emptyList()
+            return medicamentosFiltrados.subList(start, end)
+        }
+
+    fun limpiarError() {
+        _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    private fun actualizarPaginacion() {
+        val total = medicamentosFiltrados.size
+        _uiState.value = _uiState.value.copy(totalPages = calcularTotalPaginas(total))
     }
 }
-
-data class FormState(
-    var registroSanitario: String = "",
-    var nombre: String = "",
-    var presentacion: String = "Tableta",
-    var via: String = "ORAL",
-    var fabricante: String = "",
-    var tipoVenta: String = "LIBRE",
-    var precioUnitario: String = "",
-    var receta: Boolean = false
-)
