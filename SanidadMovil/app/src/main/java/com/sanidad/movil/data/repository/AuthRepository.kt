@@ -8,6 +8,7 @@ import com.sanidad.movil.data.remote.dto.LoginResponse
 import com.sanidad.movil.data.remote.safeApiCall
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import com.sanidad.movil.data.remote.ApiResult
 
 class AuthRepository(
     private val api: ApiService = NetworkModule.apiService,

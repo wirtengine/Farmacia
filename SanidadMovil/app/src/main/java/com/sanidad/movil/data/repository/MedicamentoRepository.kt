@@ -6,6 +6,7 @@ import com.sanidad.movil.data.remote.dto.*
 import com.sanidad.movil.data.remote.safeApiCall
 import com.sanidad.movil.data.remote.safeApiCallUnit
 import com.sanidad.movil.data.remote.safeApiCallString
+import com.sanidad.movil.data.remote.ApiResult
 
 class MedicamentoRepository(private val api: ApiService = NetworkModule.apiService) {
 

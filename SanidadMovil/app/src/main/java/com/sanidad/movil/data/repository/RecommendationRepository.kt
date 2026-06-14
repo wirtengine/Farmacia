@@ -5,6 +5,7 @@ import com.sanidad.movil.data.remote.api.ApiService
 import com.sanidad.movil.data.remote.dto.RecommendationResponse
 import com.sanidad.movil.data.remote.safeApiCall
 import com.sanidad.movil.data.remote.safeApiCallUnit
+import com.sanidad.movil.data.remote.ApiResult
 
 class RecommendationRepository(private val api: ApiService = NetworkModule.apiService) {
 

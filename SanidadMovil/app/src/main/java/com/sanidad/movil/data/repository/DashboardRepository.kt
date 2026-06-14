@@ -4,6 +4,7 @@ import com.sanidad.movil.data.remote.NetworkModule
 import com.sanidad.movil.data.remote.api.ApiService
 import com.sanidad.movil.data.remote.dto.DashboardResponseDTO
 import com.sanidad.movil.data.remote.safeApiCall
+import com.sanidad.movil.data.remote.ApiResult
 
 class DashboardRepository(private val api: ApiService = NetworkModule.apiService) {
 
