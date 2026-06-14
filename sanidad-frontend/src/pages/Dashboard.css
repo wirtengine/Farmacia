@@ -453,7 +453,7 @@ LOADING & ERROR
 }
 
 .bottom-grid-three {
-    grid-template-columns: 1.3fr 1fr 1.3fr;
+    grid-template-columns: repeat(4, 1fr);
 }
 
 /* =========================

@@ -113,6 +113,25 @@ public class DashboardService {
             );
         }
 
+        List<ProductoRotacionDTO> productosMayorRotacion = Collections.emptyList();
+
+        if (esAdmin) {
+            String sqlRotacion = """
+        SELECT nombre, unidades_vendidas, cantidad_ventas, total_generado
+        FROM vw_productos_mayor_rotacion
+        LIMIT 5
+    """;
+
+            productosMayorRotacion = jdbcTemplate.query(sqlRotacion, (rs, rowNum) ->
+                    new ProductoRotacionDTO(
+                            rs.getString("nombre"),
+                            rs.getInt("unidades_vendidas"),
+                            rs.getInt("cantidad_ventas"),
+                            rs.getBigDecimal("total_generado")
+                    )
+            );
+        }
+
         return new DashboardResponseDTO(
                 ventasDelDia,
                 productosMasRentables,
@@ -120,7 +139,8 @@ public class DashboardService {
                 rankingVendedores,
                 ventasMesActual != null ? ventasMesActual : BigDecimal.ZERO,
                 ventasMesAnterior != null ? ventasMesAnterior : BigDecimal.ZERO,
-                productosSinMovimiento
+                productosSinMovimiento,
+                productosMayorRotacion
         );
     }
 }

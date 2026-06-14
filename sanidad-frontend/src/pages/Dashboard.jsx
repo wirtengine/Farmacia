@@ -281,6 +281,30 @@ export default function Dashboard() {
                                 </table>
                             </div>
                         </div>
+
+                        <div className="table-card">
+                            <h3>Productos con mayor rotación</h3>
+                            <div className="table-scroll">
+                                <table className="ranking-table">
+                                    <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Unidades</th>
+                                        <th>Ventas</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    {data.productosMayorRotacion?.map((p, i) => (
+                                        <tr key={i}>
+                                            <td>{p.nombre}</td>
+                                            <td>{p.unidadesVendidas}</td>
+                                            <td>{p.cantidadVentas}</td>
+                                        </tr>
+                                    ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
