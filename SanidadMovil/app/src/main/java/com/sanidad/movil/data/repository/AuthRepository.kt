@@ -5,6 +5,7 @@ import com.sanidad.movil.data.remote.NetworkModule
 import com.sanidad.movil.data.remote.api.ApiService
 import com.sanidad.movil.data.remote.dto.LoginRequest
 import com.sanidad.movil.data.remote.dto.LoginResponse
+import com.sanidad.movil.data.remote.safeApiCall
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -12,20 +13,15 @@ class AuthRepository(
     private val api: ApiService = NetworkModule.apiService,
     private val tokenDataStore: TokenDataStore
 ) {
-    suspend fun login(username: String, password: String): Result<LoginResponse> {
-        return try {
-            val response = api.login(LoginRequest(username, password))
-            if (response.isSuccessful) {
-                val loginResponse = response.body()!!
-                tokenDataStore.saveToken(loginResponse.token)
-                NetworkModule.setToken(loginResponse.token)
-                Result.success(loginResponse)
-            } else {
-                Result.failure(Exception("Error ${response.code()}: ${response.message()}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
+    suspend fun login(username: String, password: String): ApiResult<LoginResponse> {
+        val result = safeApiCall {
+            api.login(LoginRequest(username, password))
         }
+        if (result is ApiResult.Success) {
+            tokenDataStore.saveToken(result.data.token)
+            NetworkModule.setToken(result.data.token)
+        }
+        return result
     }
 
     suspend fun logout() {

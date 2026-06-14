@@ -3,24 +3,23 @@ package com.sanidad.movil.data.repository
 import com.sanidad.movil.data.remote.NetworkModule
 import com.sanidad.movil.data.remote.api.ApiService
 import com.sanidad.movil.data.remote.dto.*
-import com.sanidad.movil.data.remote.runCatchingApiCall
-import com.sanidad.movil.data.remote.runCatchingApiCallUnit
+import com.sanidad.movil.data.remote.safeApiCall
 
 class PerdidasRepository(private val api: ApiService = NetworkModule.apiService) {
 
-    suspend fun getProductosVencidos(): Result<List<ProductoVencidoDTO>> = runCatchingApiCall {
+    suspend fun getProductosVencidos(): ApiResult<List<ProductoVencidoDTO>> = safeApiCall {
         api.obtenerProductosVencidos()
     }
 
-    suspend fun getProductosInmoviles(): Result<List<ProductoInmovilDTO>> = runCatchingApiCall {
+    suspend fun getProductosInmoviles(): ApiResult<List<ProductoInmovilDTO>> = safeApiCall {
         api.obtenerProductosInmoviles()
     }
 
-    suspend fun getInconsistenciasStock(): Result<List<InconsistenciaStockDTO>> = runCatchingApiCall {
+    suspend fun getInconsistenciasStock(): ApiResult<List<InconsistenciaStockDTO>> = safeApiCall {
         api.obtenerInconsistenciasStock()
     }
 
-    suspend fun getResumenPerdidas(): Result<ResumenPerdidasDTO> = runCatchingApiCall {
+    suspend fun getResumenPerdidas(): ApiResult<ResumenPerdidasDTO> = safeApiCall {
         api.obtenerResumenPerdidas()
     }
 }

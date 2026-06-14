@@ -3,28 +3,28 @@ package com.sanidad.movil.data.repository
 import com.sanidad.movil.data.remote.NetworkModule
 import com.sanidad.movil.data.remote.api.ApiService
 import com.sanidad.movil.data.remote.dto.*
-import com.sanidad.movil.data.remote.runCatchingApiCall
-import com.sanidad.movil.data.remote.runCatchingApiCallUnit
+import com.sanidad.movil.data.remote.safeApiCall
+import com.sanidad.movil.data.remote.safeApiCallUnit
 
 class UbicacionRepository(private val api: ApiService = NetworkModule.apiService) {
 
-    suspend fun getTodasUbicaciones(): Result<List<UbicacionLoteResponse>> = runCatchingApiCall {
+    suspend fun getTodasUbicaciones(): ApiResult<List<UbicacionLoteResponse>> = safeApiCall {
         api.obtenerUbicaciones()
     }
 
-    suspend fun getUbicacionesPorRack(rackId: Long): Result<List<UbicacionLoteResponse>> = runCatchingApiCall {
+    suspend fun getUbicacionesPorRack(rackId: Long): ApiResult<List<UbicacionLoteResponse>> = safeApiCall {
         api.obtenerUbicacionesPorRack(rackId)
     }
 
-    suspend fun getUbicacion(id: Long): Result<UbicacionLoteResponse> = runCatchingApiCall {
+    suspend fun getUbicacion(id: Long): ApiResult<UbicacionLoteResponse> = safeApiCall {
         api.obtenerUbicacion(id)
     }
 
-    suspend fun asignarUbicacion(request: UbicacionLoteRequest): Result<UbicacionLoteResponse> = runCatchingApiCall {
+    suspend fun asignarUbicacion(request: UbicacionLoteRequest): ApiResult<UbicacionLoteResponse> = safeApiCall {
         api.asignarUbicacion(request)
     }
 
-    suspend fun eliminarUbicacion(id: Long): Result<Unit> = runCatchingApiCallUnit {
+    suspend fun eliminarUbicacion(id: Long): ApiResult<Unit> = safeApiCallUnit {
         api.eliminarUbicacion(id)
     }
 }

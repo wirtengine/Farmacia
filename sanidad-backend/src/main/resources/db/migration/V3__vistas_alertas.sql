@@ -1,4 +1,3 @@
-
 -- Stock actual por medicamento (solo lotes activos)
 CREATE OR REPLACE VIEW vw_stock_actual_por_medicamento AS
 SELECT

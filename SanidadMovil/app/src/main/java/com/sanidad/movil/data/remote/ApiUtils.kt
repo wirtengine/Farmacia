@@ -1,43 +1,61 @@
 package com.sanidad.movil.data.remote
 
 import retrofit2.Response
+import java.io.IOException
 
-suspend fun <T> runCatchingApiCall(block: suspend () -> Response<T>): Result<T> {
+sealed class ApiResult<out T> {
+    object Loading : ApiResult<Nothing>()
+    data class Success<T>(val data: T) : ApiResult<T>()
+    data class Error(val message: String, val exception: Throwable? = null) : ApiResult<Nothing>()
+}
+
+suspend fun <T> safeApiCall(apiCall: suspend () -> Response<T>): ApiResult<T> {
     return try {
-        val response = block()
+        val response = apiCall()
         if (response.isSuccessful) {
-            Result.success(response.body()!!)
+            val body = response.body()
+            if (body != null) {
+                ApiResult.Success(body)
+            } else {
+                @Suppress("UNCHECKED_CAST")
+                ApiResult.Success(Unit as T)
+            }
         } else {
-            Result.failure(Exception("Error ${response.code()}: ${response.message()}"))
+            ApiResult.Error("Error ${response.code()}: ${response.message()}")
         }
+    } catch (e: IOException) {
+        ApiResult.Error("Error de conexión: ${e.localizedMessage}", e)
     } catch (e: Exception) {
-        Result.failure(e)
+        ApiResult.Error("Error inesperado: ${e.localizedMessage}", e)
     }
 }
 
-suspend fun runCatchingApiCallUnit(block: suspend () -> Response<Void>): Result<Unit> {
+suspend fun safeApiCallUnit(apiCall: suspend () -> Response<Void>): ApiResult<Unit> {
     return try {
-        val response = block()
+        val response = apiCall()
         if (response.isSuccessful) {
-            Result.success(Unit)
+            ApiResult.Success(Unit)
         } else {
-            Result.failure(Exception("Error ${response.code()}: ${response.message()}"))
+            ApiResult.Error("Error ${response.code()}: ${response.message()}")
         }
+    } catch (e: IOException) {
+        ApiResult.Error("Error de conexión: ${e.localizedMessage}", e)
     } catch (e: Exception) {
-        Result.failure(e)
+        ApiResult.Error("Error inesperado: ${e.localizedMessage}", e)
     }
 }
 
-// Para endpoints que devuelven String (como crearUsuario)
-suspend fun runCatchingString(block: suspend () -> Response<String>): Result<String> {
+suspend fun safeApiCallString(apiCall: suspend () -> Response<String>): ApiResult<String> {
     return try {
-        val response = block()
+        val response = apiCall()
         if (response.isSuccessful) {
-            Result.success(response.body() ?: "")
+            ApiResult.Success(response.body() ?: "")
         } else {
-            Result.failure(Exception("Error ${response.code()}: ${response.message()}"))
+            ApiResult.Error("Error ${response.code()}: ${response.message()}")
         }
+    } catch (e: IOException) {
+        ApiResult.Error("Error de conexión: ${e.localizedMessage}", e)
     } catch (e: Exception) {
-        Result.failure(e)
+        ApiResult.Error("Error inesperado: ${e.localizedMessage}", e)
     }
 }

@@ -1,55 +1,62 @@
-package com.sanidad.movil.data.presentation.screens.dashboard
+package com.sanidad.movil.presentation.screens.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sanidad.movil.data.remote.NetworkModule
-import com.sanidad.movil.data.remote.dto.*
+import com.sanidad.movil.data.remote.dto.DashboardResponseDTO
+import com.sanidad.movil.data.repository.AlertRepository
+import com.sanidad.movil.data.repository.DashboardRepository
+import com.sanidad.movil.data.repository.RecommendationRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
-class DashboardViewModel : ViewModel() {
-    private val api = NetworkModule.apiService
+data class DashboardUiState(
+    val dashboard: DashboardResponseDTO? = null,
+    val pendingAlerts: Int = 0,
+    val pendingRecs: Int = 0,
+    val lastUpdated: String? = null,
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
 
-    private val _dashboardData = MutableStateFlow<DashboardResponseDTO?>(null)
-    val dashboardData: StateFlow<DashboardResponseDTO?> = _dashboardData
+class DashboardViewModel(
+    private val dashboardRepo: DashboardRepository,
+    private val alertsRepo: AlertRepository,
+    private val recsRepo: RecommendationRepository
+) : ViewModel() {
 
-    private val _pendingAlerts = MutableStateFlow(0)
-    val pendingAlerts: StateFlow<Int> = _pendingAlerts
+    private val _state = MutableStateFlow(DashboardUiState(isLoading = true))
+    val state: StateFlow<DashboardUiState> = _state.asStateFlow()
 
-    private val _pendingRecs = MutableStateFlow(0)
-    val pendingRecs: StateFlow<Int> = _pendingRecs
+    init { loadData() }
 
-    private val _isLoading = MutableStateFlow(true)
-    val isLoading: StateFlow<Boolean> = _isLoading
-
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error
-
-    private val _lastUpdated = MutableStateFlow<String?>(null)
-    val lastUpdated: StateFlow<String?> = _lastUpdated
-
-    init { cargarDatos() }
-
-    fun cargarDatos() {
+    fun loadData() {
         viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val dashboardRes = api.obtenerDashboard()
-                val alertsRes = api.obtenerAlertas()
-                val recsRes = api.obtenerRecomendaciones()
+            _state.value = _state.value.copy(isLoading = true, error = null)
+            val dashResult = dashboardRepo.obtenerDashboard()
+            val alertsResult = alertsRepo.getAlertas()
+            val recsResult = recsRepo.getRecomendaciones()
 
-                _dashboardData.value = dashboardRes.body()
-                _pendingAlerts.value = alertsRes.body()?.filter { it.status == "PENDING" }?.size ?: 0
-                _pendingRecs.value = recsRes.body()?.size ?: 0
-                _lastUpdated.value = java.text.SimpleDateFormat(
-                    "HH:mm:ss", java.util.Locale.getDefault()
-                ).format(java.util.Date())
-                _error.value = null
-            } catch (e: Exception) {
-                _error.value = "Error al actualizar datos"
-            } finally {
-                _isLoading.value = false
+            val dashboardData = (dashResult as? ApiResult.Success)?.data
+            val alertsCount = (alertsResult as? ApiResult.Success)?.data?.count { it.status == "PENDING" } ?: 0
+            val recsCount = (recsResult as? ApiResult.Success)?.data?.size ?: 0
+
+            val allFailed = dashResult is ApiResult.Error && alertsResult is ApiResult.Error && recsResult is ApiResult.Error
+            _state.value = if (allFailed) {
+                _state.value.copy(isLoading = false, error = "No se pudo cargar la información")
+            } else {
+                val now = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+                _state.value.copy(
+                    dashboard = dashboardData,
+                    pendingAlerts = alertsCount,
+                    pendingRecs = recsCount,
+                    lastUpdated = now,
+                    isLoading = false,
+                    error = null
+                )
             }
         }
     }
