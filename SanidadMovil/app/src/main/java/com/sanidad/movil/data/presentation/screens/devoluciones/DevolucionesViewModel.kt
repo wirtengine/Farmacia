@@ -32,7 +32,6 @@ data class DevolucionesUiState(
     val currentPage: Int = 1,
     val totalPages: Int = 1,
 
-    // Drawer nueva devolución
     val showDrawer: Boolean = false,
     val ventas: List<VentaResponse> = emptyList(),
     val busquedaVenta: String = "",
@@ -40,7 +39,6 @@ data class DevolucionesUiState(
     val itemsDevolucion: List<ItemDevolucion> = emptyList(),
     val motivo: String = "",
 
-    // Diálogos de aprobación
     val showAprobarDialog: Boolean = false,
     val devolucionAprobarId: Long? = null,
     val aprobarAccion: Boolean = true,
@@ -109,7 +107,6 @@ class DevolucionesViewModel(
         }
     }
 
-    // ---- Drawer nueva devolución ----
     fun abrirNuevaDevolucion() {
         _uiState.value = _uiState.value.copy(
             showDrawer = true,
@@ -140,7 +137,7 @@ class DevolucionesViewModel(
                 is ApiResult.Success -> {
                     val ventaConDetalles = res.data
                     val detalles = ventaConDetalles.detalles.map { d ->
-                        val med = _uiState.value.medicamentos.find { it.id == d.medicamentoId }
+                        val med = _uiState.value.medicamentos.find { it.nombre == d.medicamentoNombre }
                         ItemDevolucion(
                             ventaDetalleId = d.id,
                             producto = d.medicamentoNombre,
@@ -200,7 +197,6 @@ class DevolucionesViewModel(
         }
     }
 
-    // ---- Aprobar / Rechazar ----
     fun mostrarAprobarDialog(id: Long, aprobar: Boolean) {
         _uiState.value = _uiState.value.copy(
             showAprobarDialog = true,
@@ -251,7 +247,8 @@ class DevolucionesViewModel(
         }
     }
 
-    // ---- Helpers de filtrado y paginación ----
+    // ---- Funciones auxiliares ----
+
     private fun filtrarDevoluciones(lista: List<DevolucionResponse>, term: String, estado: String): List<DevolucionResponse> {
         val lower = term.lowercase().trim()
         return lista.filter { d ->
@@ -285,11 +282,17 @@ class DevolucionesViewModel(
     fun obtenerMedicamentoDesdeDetalle(det: DevolucionDetalleResponse): MedicamentoResponse? {
         val lotes = _uiState.value.lotes
         val medicamentos = _uiState.value.medicamentos
+
+        // 1. Buscar por loteDetalleId si existe
         if (det.loteDetalleId != null) {
             val loteDet = lotes.flatMap { it.detalles }.find { it.id == det.loteDetalleId }
-            if (loteDet != null) return medicamentos.find { it.id == loteDet.medicamentoId }
+            if (loteDet != null) {
+                return medicamentos.find { it.id == loteDet.medicamentoId }
+            }
         }
-        return medicamentos.find { it.id == det.medicamentoId }
+
+        // 2. Buscar por nombre del medicamento (campo medicamentoNombre)
+        return medicamentos.find { it.nombre.equals(det.medicamentoNombre, ignoreCase = true) }
     }
 
     fun limpiarError() {
