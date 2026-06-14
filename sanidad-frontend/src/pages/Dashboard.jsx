@@ -215,7 +215,7 @@ export default function Dashboard() {
                 </div>
 
                 {esAdmin && data && ( // ← Verificamos que data exista
-                    <div className="bottom-grid">
+                    <div className="bottom-grid bottom-grid-three">
                         <div className="table-card">
                             <h3>Ranking de Vendedores</h3>
                             <div className="table-scroll">
@@ -252,6 +252,34 @@ export default function Dashboard() {
                                     </li>
                                 ))}
                             </ul>
+                        </div>
+
+                        <div className="table-card">
+                            <h3>Productos sin movimiento</h3>
+                            <div className="table-scroll">
+                                <table className="ranking-table">
+                                    <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Stock</th>
+                                        <th>Última venta</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    {data.productosSinMovimiento?.map((p, i) => (
+                                        <tr key={i}>
+                                            <td>{p.nombre}</td>
+                                            <td>{p.stockActual} uds</td>
+                                            <td>
+                                                {p.ultimaFechaVenta
+                                                    ? new Date(p.ultimaFechaVenta).toLocaleDateString()
+                                                    : 'Nunca'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 )}

@@ -92,13 +92,35 @@ public class DashboardService {
             }
         }
 
+        List<ProductoSinMovimientoDTO> productosSinMovimiento = Collections.emptyList();
+
+        if (esAdmin) {
+            String sqlSinMovimiento = """
+        SELECT nombre, stock_actual, ultima_fecha_venta, unidades_vendidas
+        FROM vw_productos_sin_movimiento
+        LIMIT 5
+    """;
+
+            productosSinMovimiento = jdbcTemplate.query(sqlSinMovimiento, (rs, rowNum) ->
+                    new ProductoSinMovimientoDTO(
+                            rs.getString("nombre"),
+                            rs.getInt("stock_actual"),
+                            rs.getTimestamp("ultima_fecha_venta") != null
+                                    ? rs.getTimestamp("ultima_fecha_venta").toLocalDateTime()
+                                    : null,
+                            rs.getInt("unidades_vendidas")
+                    )
+            );
+        }
+
         return new DashboardResponseDTO(
                 ventasDelDia,
                 productosMasRentables,
                 productosBajoStock,
                 rankingVendedores,
                 ventasMesActual != null ? ventasMesActual : BigDecimal.ZERO,
-                ventasMesAnterior != null ? ventasMesAnterior : BigDecimal.ZERO
+                ventasMesAnterior != null ? ventasMesAnterior : BigDecimal.ZERO,
+                productosSinMovimiento
         );
     }
 }

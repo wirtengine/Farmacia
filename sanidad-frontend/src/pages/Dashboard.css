@@ -452,6 +452,10 @@ LOADING & ERROR
     color: #ef4444;
 }
 
+.bottom-grid-three {
+    grid-template-columns: 1.3fr 1fr 1.3fr;
+}
+
 /* =========================
 RESPONSIVE
 ========================= */
@@ -483,6 +487,10 @@ RESPONSIVE
 
     .pie-content {
         flex-direction: column;
+    }
+
+    .bottom-grid-three {
+        grid-template-columns: 1fr;
     }
 }
 

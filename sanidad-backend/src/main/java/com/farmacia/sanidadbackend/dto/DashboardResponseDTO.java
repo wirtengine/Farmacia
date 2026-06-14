@@ -17,4 +17,5 @@ public class DashboardResponseDTO {
     private List<VendedorRankingDTO> rankingVendedores;      // todos ordenados
     private BigDecimal ventasMesActual;
     private BigDecimal ventasMesAnterior;
+    private List<ProductoSinMovimientoDTO> productosSinMovimiento;
 }
