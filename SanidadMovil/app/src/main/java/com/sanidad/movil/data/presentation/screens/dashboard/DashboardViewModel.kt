@@ -2,6 +2,7 @@ package com.sanidad.movil.presentation.screens.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sanidad.movil.data.remote.ApiResult
 import com.sanidad.movil.data.remote.dto.DashboardResponseDTO
 import com.sanidad.movil.data.repository.AlertRepository
 import com.sanidad.movil.data.repository.DashboardRepository
@@ -40,13 +41,28 @@ class DashboardViewModel(
             val alertsResult = alertsRepo.getAlertas()
             val recsResult = recsRepo.getRecomendaciones()
 
-            val dashboardData = (dashResult as? ApiResult.Success)?.data
-            val alertsCount = (alertsResult as? ApiResult.Success)?.data?.count { it.status == "PENDING" } ?: 0
-            val recsCount = (recsResult as? ApiResult.Success)?.data?.size ?: 0
+            val dashboardData = when (dashResult) {
+                is ApiResult.Success -> dashResult.data
+                else -> null
+            }
+            val alertsCount = when (alertsResult) {
+                is ApiResult.Success -> alertsResult.data.count { it.status == "PENDING" }
+                else -> 0
+            }
+            val recsCount = when (recsResult) {
+                is ApiResult.Success -> recsResult.data.size
+                else -> 0
+            }
 
-            val allFailed = dashResult is ApiResult.Error && alertsResult is ApiResult.Error && recsResult is ApiResult.Error
+            val allFailed = dashResult is ApiResult.Error &&
+                    alertsResult is ApiResult.Error &&
+                    recsResult is ApiResult.Error
+
             _state.value = if (allFailed) {
-                _state.value.copy(isLoading = false, error = "No se pudo cargar la información")
+                _state.value.copy(
+                    isLoading = false,
+                    error = "No se pudo cargar la información"
+                )
             } else {
                 val now = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
                 _state.value.copy(
