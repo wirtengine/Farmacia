@@ -92,6 +92,12 @@ export default function Dashboard() {
         { name: 'Mes Actual', ventas: data.ventasMesActual || 0 }
     ];
 
+    const clientesFrecuentes = (data.clientesFrecuentes || []).map(c => ({
+        name: c.nombreCliente,
+        compras: c.cantidadCompras,
+        totalGastado: c.totalGastado
+    }));
+
     const COLORS = ['#10b981', '#3b82f6', '#6366f1', '#f59e0b', '#ef4444'];
 
     return (
@@ -201,7 +207,7 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    <div className="chart-card full">
+                    <div className="chart-card">
                         <h3>Tendencia de Ventas (Comparativa Mensual)</h3>
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={tendenciaMensual}>
@@ -212,6 +218,36 @@ export default function Dashboard() {
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
+
+                    <div className="chart-card">
+                        <h3>Clientes Frecuentes</h3>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                                data={clientesFrecuentes}
+                                layout="vertical"
+                                margin={{ top: 10, right: 30, left: 30, bottom: 10 }}
+                            >
+                                <XAxis type="number" />
+                                <YAxis
+                                    dataKey="name"
+                                    type="category"
+                                    width={100}
+                                    tick={{ fontSize: 11 }}
+                                />
+                                <Tooltip
+                                    formatter={(value, name, props) => {
+                                        if (name === 'compras') {
+                                            return [`${value} compras`, 'Compras'];
+                                        }
+                                        return [value, name];
+                                    }}
+                                    labelFormatter={(label) => `Cliente: ${label}`}
+                                />
+                                <Bar dataKey="compras" fill="#10b981" radius={[0, 6, 6, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
                 </div>
 
                 {esAdmin && data && ( // ← Verificamos que data exista

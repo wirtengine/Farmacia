@@ -19,4 +19,5 @@ public class DashboardResponseDTO {
     private BigDecimal ventasMesAnterior;
     private List<ProductoSinMovimientoDTO> productosSinMovimiento;
     private List<ProductoRotacionDTO> productosMayorRotacion;
+    private List<ClienteFrecuenteDTO> clientesFrecuentes;
 }

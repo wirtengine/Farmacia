@@ -132,6 +132,27 @@ public class DashboardService {
             );
         }
 
+        List<ClienteFrecuenteDTO> clientesFrecuentes = Collections.emptyList();
+
+        if (esAdmin) {
+            String sqlClientes = """
+        SELECT nombre_cliente, cantidad_compras, total_gastado, ultima_compra
+        FROM vw_clientes_frecuentes
+        LIMIT 5
+    """;
+
+            clientesFrecuentes = jdbcTemplate.query(sqlClientes, (rs, rowNum) ->
+                    new ClienteFrecuenteDTO(
+                            rs.getString("nombre_cliente"),
+                            rs.getInt("cantidad_compras"),
+                            rs.getBigDecimal("total_gastado"),
+                            rs.getTimestamp("ultima_compra") != null
+                                    ? rs.getTimestamp("ultima_compra").toLocalDateTime()
+                                    : null
+                    )
+            );
+        }
+
         return new DashboardResponseDTO(
                 ventasDelDia,
                 productosMasRentables,
@@ -140,7 +161,8 @@ public class DashboardService {
                 ventasMesActual != null ? ventasMesActual : BigDecimal.ZERO,
                 ventasMesAnterior != null ? ventasMesAnterior : BigDecimal.ZERO,
                 productosSinMovimiento,
-                productosMayorRotacion
+                productosMayorRotacion,
+                clientesFrecuentes
         );
     }
 }
