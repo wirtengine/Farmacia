@@ -1,57 +1,94 @@
-package com.sanidad.movil.data.presentation.screens.perdidas
+package com.sanidad.movil.presentation.screens.perdidas
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sanidad.movil.data.remote.NetworkModule
+import com.sanidad.movil.data.remote.ApiResult
 import com.sanidad.movil.data.remote.dto.*
+import com.sanidad.movil.data.repository.PerdidasRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
+import java.util.Locale
 
-class PerdidasViewModel : ViewModel() {
-    private val api = NetworkModule.apiService
+data class PerdidasUiState(
+    val vencidos: List<ProductoVencidoDTO> = emptyList(),
+    val inmoviles: List<ProductoInmovilDTO> = emptyList(),
+    val inconsistencias: List<InconsistenciaStockDTO> = emptyList(),
+    val resumen: ResumenPerdidasDTO? = null,
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val activeTab: Int = 0 // 0 = vencidos, 1 = inmoviles, 2 = inconsistencias
+)
 
-    private val _vencidos = MutableStateFlow<List<ProductoVencidoDTO>>(emptyList())
-    val vencidos: StateFlow<List<ProductoVencidoDTO>> = _vencidos
+class PerdidasViewModel(
+    private val perdidasRepo: PerdidasRepository
+) : ViewModel() {
 
-    private val _inmoviles = MutableStateFlow<List<ProductoInmovilDTO>>(emptyList())
-    val inmoviles: StateFlow<List<ProductoInmovilDTO>> = _inmoviles
+    private val _uiState = MutableStateFlow(PerdidasUiState())
+    val uiState: StateFlow<PerdidasUiState> = _uiState
 
-    private val _inconsistencias = MutableStateFlow<List<InconsistenciaStockDTO>>(emptyList())
-    val inconsistencias: StateFlow<List<InconsistenciaStockDTO>> = _inconsistencias
-
-    private val _resumen = MutableStateFlow<ResumenPerdidasDTO?>(null)
-    val resumen: StateFlow<ResumenPerdidasDTO?> = _resumen
-
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
-
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error
+    init { cargarDatos() }
 
     fun cargarDatos() {
         viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            try {
-                val resVencidos = api.obtenerProductosVencidos()
-                val resInmoviles = api.obtenerProductosInmoviles()
-                val resInconsistencias = api.obtenerInconsistenciasStock()
-                val resResumen = api.obtenerResumenPerdidas()
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
-                _vencidos.value = resVencidos.body() ?: emptyList()
-                _inmoviles.value = resInmoviles.body() ?: emptyList()
-                _inconsistencias.value = resInconsistencias.body() ?: emptyList()
-                _resumen.value = resResumen.body()
-            } catch (e: Exception) {
-                _error.value = "Error al sincronizar el análisis de pérdidas operativas."
-            } finally {
-                _isLoading.value = false
+            val vencidosResult = perdidasRepo.getProductosVencidos()
+            val inmovilesResult = perdidasRepo.getProductosInmoviles()
+            val inconsistenciasResult = perdidasRepo.getInconsistenciasStock()
+            val resumenResult = perdidasRepo.getResumenPerdidas()
+
+            val vencidos = when (vencidosResult) {
+                is ApiResult.Success -> vencidosResult.data
+                else -> emptyList()
+            }
+            val inmoviles = when (inmovilesResult) {
+                is ApiResult.Success -> inmovilesResult.data
+                else -> emptyList()
+            }
+            val inconsistencias = when (inconsistenciasResult) {
+                is ApiResult.Success -> inconsistenciasResult.data
+                else -> emptyList()
+            }
+            val resumen = when (resumenResult) {
+                is ApiResult.Success -> resumenResult.data
+                else -> null
+            }
+
+            val allFailed = vencidosResult is ApiResult.Error &&
+                    inmovilesResult is ApiResult.Error &&
+                    inconsistenciasResult is ApiResult.Error &&
+                    resumenResult is ApiResult.Error
+
+            _uiState.value = if (allFailed) {
+                _uiState.value.copy(
+                    isLoading = false,
+                    error = "Error al sincronizar el análisis de pérdidas operativas."
+                )
+            } else {
+                _uiState.value.copy(
+                    vencidos = vencidos,
+                    inmoviles = inmoviles,
+                    inconsistencias = inconsistencias,
+                    resumen = resumen,
+                    isLoading = false,
+                    error = null
+                )
             }
         }
     }
 
+    fun setActiveTab(tab: Int) {
+        _uiState.value = _uiState.value.copy(activeTab = tab)
+    }
+
+    fun limpiarError() {
+        _uiState.value = _uiState.value.copy(error = null)
+    }
+
     fun formatCurrency(value: Double): String {
-        return "C$ ${String.format("%.2f", value)}"
+        val format = NumberFormat.getCurrencyInstance(Locale("es", "NI"))
+        return format.format(value)
     }
 }
