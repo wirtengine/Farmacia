@@ -1,12 +1,21 @@
-package com.sanidad.movil.data.presentation.screens.ventas
+package com.sanidad.movil.presentation.screens.ventas
 
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.graphics.pdf.PdfDocument
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sanidad.movil.data.remote.NetworkModule
+import com.sanidad.movil.MyApplication
+import com.sanidad.movil.data.remote.ApiResult
 import com.sanidad.movil.data.remote.dto.*
+import com.sanidad.movil.data.repository.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 
 data class CarritoItem(
     val loteDetalleId: Long,
@@ -15,297 +24,6 @@ data class CarritoItem(
     var cantidad: Int,
     val imagen: String? = null
 )
-
-class VentaCreateViewModel : ViewModel() {
-    private val api = NetworkModule.apiService
-
-    // Datos maestros
-    private val _medicamentos = MutableStateFlow<List<MedicamentoResponse>>(emptyList())
-    val medicamentos: StateFlow<List<MedicamentoResponse>> = _medicamentos
-
-    private val _clientes = MutableStateFlow<List<ClienteResponse>>(emptyList())
-    val clientes: StateFlow<List<ClienteResponse>> = _clientes
-
-    private val _lotes = MutableStateFlow<List<LoteResponse>>(emptyList())
-    val lotes: StateFlow<List<LoteResponse>> = _lotes
-
-    private val _recetasDisponibles = MutableStateFlow<List<RecetaResponse>>(emptyList())
-    val recetasDisponibles: StateFlow<List<RecetaResponse>> = _recetasDisponibles
-
-    // Búsqueda
-    private val _query = MutableStateFlow("")
-    val query: StateFlow<String> = _query
-
-    // Resultados de búsqueda con stock
-    private val _resultadosBusqueda = MutableStateFlow<List<LoteDetalleParaVenta>>(emptyList())
-    val resultadosBusqueda: StateFlow<List<LoteDetalleParaVenta>> = _resultadosBusqueda
-
-    // FIFO
-    private val _loteFIFO = MutableStateFlow<LoteDetalleParaVenta?>(null)
-    val loteFIFO: StateFlow<LoteDetalleParaVenta?> = _loteFIFO
-
-    // Complementarios
-    private val _complementarios = MutableStateFlow<List<SugerenciaProductoDTO>>(emptyList())
-    val complementarios: StateFlow<List<SugerenciaProductoDTO>> = _complementarios
-
-    // Contexto del cliente
-    private val _contextoCliente = MutableStateFlow<Any?>(null) // Simplificado
-    val contextoCliente: StateFlow<Any?> = _contextoCliente
-
-    // Carrito
-    private val _carrito = MutableStateFlow<List<CarritoItem>>(emptyList())
-    val carrito: StateFlow<List<CarritoItem>> = _carrito
-
-    // Cliente seleccionado
-    private val _clienteSeleccionado = MutableStateFlow<ClienteResponse?>(null)
-    val clienteSeleccionado: StateFlow<ClienteResponse?> = _clienteSeleccionado
-
-    // Receta seleccionada
-    private val _recetaSeleccionada = MutableStateFlow<RecetaResponse?>(null)
-    val recetaSeleccionada: StateFlow<RecetaResponse?> = _recetaSeleccionada
-
-    // Pagos
-    private val _montoEfectivo = MutableStateFlow(0.0)
-    val montoEfectivo: StateFlow<Double> = _montoEfectivo
-
-    private val _montoUsadoSaldo = MutableStateFlow(0.0)
-    val montoUsadoSaldo: StateFlow<Double> = _montoUsadoSaldo
-
-    // Tipo de venta
-    private val _tipoVenta = MutableStateFlow("rapida")
-    val tipoVenta: StateFlow<String> = _tipoVenta
-
-    // Usuario actual
-    var usuarioId: Long = 0L
-
-    // Carga inicial de datos
-    fun cargarDatosIniciales() {
-        viewModelScope.launch {
-            try {
-                val resM = api.obtenerMedicamentos()
-                val resC = api.obtenerClientes()
-                val resL = api.obtenerLotes()
-                val resR = api.obtenerRecetasDisponibles()
-
-                if (resM.isSuccessful) _medicamentos.value = resM.body() ?: emptyList()
-                if (resC.isSuccessful) _clientes.value = resC.body() ?: emptyList()
-                if (resL.isSuccessful) _lotes.value = resL.body() ?: emptyList()
-                if (resR.isSuccessful) _recetasDisponibles.value = resR.body() ?: emptyList()
-
-                // Cliente por defecto "Consumidor Final"
-                val consumidor = _clientes.value.find { it.nombre.contains("consumidor", ignoreCase = true) }
-                if (consumidor != null) _clienteSeleccionado.value = consumidor
-            } catch (_: Exception) { }
-        }
-    }
-
-    // Búsqueda con inteligencia
-    fun buscarMedicamento(query: String) {
-        _query.value = query
-        if (query.length < 2) {
-            _resultadosBusqueda.value = emptyList()
-            _loteFIFO.value = null
-            _complementarios.value = emptyList()
-            return
-        }
-        viewModelScope.launch {
-            // Buscar medicamento por nombre
-            val medEncontrado = _medicamentos.value.find {
-                it.nombre.contains(query, ignoreCase = true)
-            }
-            if (medEncontrado != null) {
-                // Obtener FIFO
-                try {
-                    val fifoRes = api.obtenerLotesMedicamento(medEncontrado.id)
-                    if (fifoRes.isSuccessful) {
-                        val lotesDTO = fifoRes.body()
-                        // Buscar el lote detalle con FIFO (más próximo a vencer)
-                        val detalles = _lotes.value.flatMap { lote ->
-                            lote.detalles.filter { it.medicamentoId == medEncontrado.id && it.cantidad > 0 }
-                        }
-                        val fifo = detalles.minByOrNull { it.id } // Simplificación, debería ser por fecha
-                        if (fifo != null) {
-                            _loteFIFO.value = LoteDetalleParaVenta(
-                                id = fifo.id,
-                                medicamentoId = medEncontrado.id,
-                                medicamentoNombre = medEncontrado.nombre,
-                                presentacion = medEncontrado.presentacion,
-                                precioUnitario = medEncontrado.precioUnitario.toDouble(),
-                                stockVenta = fifo.cantidad,
-                                imagen = medEncontrado.imagen
-                            )
-                        }
-                    }
-                } catch (_: Exception) { }
-
-                // Complementarios (simulado, ya que no existe endpoint directo en tu API)
-                _complementarios.value = emptyList() // Podrías implementarlo si agregas el endpoint
-            }
-
-            // Resultados de búsqueda con stock
-            val resultados = _lotes.value.flatMap { lote ->
-                lote.detalles
-                    .filter { detalle ->
-                        val med = _medicamentos.value.find { it.id == detalle.medicamentoId }
-                        med != null && med.nombre.contains(query, ignoreCase = true) && detalle.cantidad > 0
-                    }
-                    .map { detalle ->
-                        val med = _medicamentos.value.find { it.id == detalle.medicamentoId }!!
-                        LoteDetalleParaVenta(
-                            id = detalle.id,
-                            medicamentoId = med.id,
-                            medicamentoNombre = med.nombre,
-                            presentacion = med.presentacion,
-                            precioUnitario = med.precioUnitario.toDouble(),
-                            stockVenta = detalle.cantidad,
-                            imagen = med.imagen,
-                            loteNum = lote.numeroLote
-                        )
-                    }
-            }
-            _resultadosBusqueda.value = resultados.take(6)
-        }
-    }
-
-    // Agregar al carrito
-    fun agregarAlCarrito(item: LoteDetalleParaVenta) {
-        val carrito = _carrito.value.toMutableList()
-        val existente = carrito.find { it.loteDetalleId == item.id }
-        if (existente != null) {
-            if (existente.cantidad < item.stockVenta) {
-                existente.cantidad++
-            }
-        } else {
-            carrito.add(
-                CarritoItem(
-                    loteDetalleId = item.id,
-                    medicamentoNombre = item.medicamentoNombre,
-                    precioUnitario = item.precioUnitario,
-                    cantidad = 1,
-                    imagen = item.imagen
-                )
-            )
-        }
-        _carrito.value = carrito
-        // Limpiar búsqueda
-        _query.value = ""
-        _resultadosBusqueda.value = emptyList()
-        _loteFIFO.value = null
-    }
-
-    fun eliminarDelCarrito(index: Int) {
-        val carrito = _carrito.value.toMutableList()
-        carrito.removeAt(index)
-        _carrito.value = carrito
-    }
-
-    fun actualizarCantidadCarrito(index: Int, nuevaCantidad: Int) {
-        val carrito = _carrito.value.toMutableList()
-        if (index in carrito.indices) {
-            val item = carrito[index]
-            val stock = getStockVenta(item.loteDetalleId)
-            if (nuevaCantidad <= stock) {
-                carrito[index] = item.copy(cantidad = nuevaCantidad)
-                _carrito.value = carrito
-            }
-        }
-    }
-
-    // Stock de venta
-    private fun getStockVenta(loteDetalleId: Long): Int {
-        for (lote in _lotes.value) {
-            val detalle = lote.detalles.find { it.id == loteDetalleId }
-            if (detalle != null) return detalle.cantidad
-        }
-        return 0
-    }
-
-    // Seleccionar cliente
-    fun seleccionarCliente(cliente: ClienteResponse?) {
-        _clienteSeleccionado.value = cliente
-        if (cliente != null) {
-            _tipoVenta.value = "cliente"
-            // Cargar contexto del cliente (si tienes endpoint)
-        } else {
-            _tipoVenta.value = "rapida"
-        }
-    }
-
-    fun seleccionarReceta(receta: RecetaResponse?) {
-        _recetaSeleccionada.value = receta
-    }
-
-    // Calcular totales
-    val subtotal: Double
-        get() = _carrito.value.sumOf { it.precioUnitario * it.cantidad }
-
-    val iva: Double
-        get() = subtotal * 0.15
-
-    val total: Double
-        get() = subtotal + iva
-
-    val cambio: Double
-        get() = ((_montoEfectivo.value + _montoUsadoSaldo.value) - total).coerceAtLeast(0.0)
-
-    // ¿Requiere receta?
-    val requiereReceta: Boolean
-        get() {
-            val medicamentosEnCarrito = _carrito.value.mapNotNull { item ->
-                _lotes.value.flatMap { it.detalles }
-                    .find { detalle -> detalle.id == item.loteDetalleId }
-                    ?.let { detalle -> _medicamentos.value.find { it.id == detalle.medicamentoId } }
-            }
-            return medicamentosEnCarrito.any { it.receta == true }
-        }
-
-    // Crear venta
-    fun crearVenta(onSuccess: (VentaResponse) -> Unit, onError: (String) -> Unit) {
-        viewModelScope.launch {
-            try {
-                // Verificar stock
-                for (item in _carrito.value) {
-                    val stock = getStockVenta(item.loteDetalleId)
-                    if (item.cantidad > stock) {
-                        onError("Stock insuficiente para ${item.medicamentoNombre}. Disponible: $stock")
-                        return@launch
-                    }
-                }
-
-                val detalles = _carrito.value.map {
-                    VentaDetalleRequest(loteDetalleId = it.loteDetalleId, cantidad = it.cantidad)
-                }
-
-                val request = VentaRequest(
-                    clienteId = _clienteSeleccionado.value?.id,
-                    usuarioId = usuarioId,
-                    detalles = detalles,
-                    recetaId = _recetaSeleccionada.value?.id,
-                    montoUsadoSaldo = _montoUsadoSaldo.value,
-                    montoEfectivo = _montoEfectivo.value
-                )
-
-                val response = api.crearVenta(request)
-                if (response.isSuccessful) {
-                    val venta = response.body()!!
-                    onSuccess(venta)
-                    // Limpiar
-                    _carrito.value = emptyList()
-                    _montoEfectivo.value = 0.0
-                    _montoUsadoSaldo.value = 0.0
-                    _recetaSeleccionada.value = null
-                } else {
-                    onError("Error ${response.code()}: ${response.message()}")
-                }
-            } catch (e: Exception) {
-                onError(e.message ?: "Error de conexión")
-            }
-        }
-    }
-
-    fun setMontoEfectivo(monto: Double) { _montoEfectivo.value = monto }
-    fun setMontoUsadoSaldo(monto: Double) { _montoUsadoSaldo.value = monto }
-}
 
 data class LoteDetalleParaVenta(
     val id: Long,
@@ -317,3 +35,312 @@ data class LoteDetalleParaVenta(
     val imagen: String? = null,
     val loteNum: String? = null
 )
+
+data class VentaCreateUiState(
+    val medicamentos: List<MedicamentoResponse> = emptyList(),
+    val clientes: List<ClienteResponse> = emptyList(),
+    val lotes: List<LoteResponse> = emptyList(),
+    val recetasDisponibles: List<RecetaResponse> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val query: String = "",
+    val resultadosBusqueda: List<LoteDetalleParaVenta> = emptyList(),
+    val loteFIFO: LoteDetalleParaVenta? = null,
+    val complementarios: List<SugerenciaProductoDTO> = emptyList(),
+    val contextoCliente: Any? = null, // simplificado
+    val carrito: List<CarritoItem> = emptyList(),
+    val clienteSeleccionado: ClienteResponse? = null,
+    val recetaSeleccionada: RecetaResponse? = null,
+    val montoEfectivo: Double = 0.0,
+    val montoUsadoSaldo: Double = 0.0,
+    val tipoVenta: String = "rapida",
+    val subtotal: Double = 0.0,
+    val total: Double = 0.0,
+    val cambio: Double = 0.0,
+    val requiereReceta: Boolean = false,
+    val showClienteDialog: Boolean = false,
+    val showRecetaDialog: Boolean = false
+)
+
+class VentaCreateViewModel(
+    private val medicamentoRepo: MedicamentoRepository,
+    private val clienteRepo: ClienteRepository,
+    private val loteRepo: LoteRepository,
+    private val recetaRepo: RecetaRepository,
+    private val ventaRepo: VentaRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(VentaCreateUiState())
+    val uiState: StateFlow<VentaCreateUiState> = _uiState
+
+    var usuarioId: Long = 0L
+
+    fun cargarDatosIniciales() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            val medRes = medicamentoRepo.getMedicamentos()
+            val cliRes = clienteRepo.getClientes()
+            val lotRes = loteRepo.getLotes()
+            val recRes = recetaRepo.getRecetasDisponibles()
+
+            val medicamentos = (medRes as? ApiResult.Success)?.data ?: emptyList()
+            val clientes = (cliRes as? ApiResult.Success)?.data ?: emptyList()
+            val lotes = (lotRes as? ApiResult.Success)?.data ?: emptyList()
+            val recetas = (recRes as? ApiResult.Success)?.data ?: emptyList()
+
+            val consumidor = clientes.find { it.nombre.contains("consumidor", ignoreCase = true) }
+            _uiState.value = _uiState.value.copy(
+                medicamentos = medicamentos,
+                clientes = clientes,
+                lotes = lotes,
+                recetasDisponibles = recetas,
+                isLoading = false,
+                clienteSeleccionado = consumidor
+            )
+            actualizarTotales()
+        }
+    }
+
+    fun buscarMedicamento(query: String) {
+        _uiState.value = _uiState.value.copy(query = query)
+        if (query.length < 2) {
+            _uiState.value = _uiState.value.copy(
+                resultadosBusqueda = emptyList(),
+                loteFIFO = null,
+                complementarios = emptyList()
+            )
+            return
+        }
+        viewModelScope.launch {
+            val medEncontrado = _uiState.value.medicamentos.find {
+                it.nombre.contains(query, ignoreCase = true)
+            }
+            if (medEncontrado != null) {
+                // FIFO (simplificado: primer detalle con stock)
+                val fifoDetalle = _uiState.value.lotes
+                    .flatMap { l -> l.detalles.filter { it.medicamentoId == medEncontrado.id && it.cantidad > 0 } }
+                    .minByOrNull { it.id }
+                if (fifoDetalle != null) {
+                    _uiState.value = _uiState.value.copy(
+                        loteFIFO = LoteDetalleParaVenta(
+                            id = fifoDetalle.id,
+                            medicamentoId = medEncontrado.id,
+                            medicamentoNombre = medEncontrado.nombre,
+                            presentacion = medEncontrado.presentacion ?: "",
+                            precioUnitario = medEncontrado.precioUnitario.toDouble(),
+                            stockVenta = fifoDetalle.cantidad,
+                            imagen = medEncontrado.imagen
+                        )
+                    )
+                }
+                // Complementarios (placeholder)
+                _uiState.value = _uiState.value.copy(complementarios = emptyList())
+            }
+            // Resultados de búsqueda
+            val resultados = _uiState.value.lotes.flatMap { l ->
+                l.detalles.filter { det ->
+                    val med = _uiState.value.medicamentos.find { it.id == det.medicamentoId }
+                    med != null && med.nombre.contains(query, ignoreCase = true) && det.cantidad > 0
+                }.map { det ->
+                    val med = _uiState.value.medicamentos.find { it.id == det.medicamentoId }!!
+                    LoteDetalleParaVenta(
+                        id = det.id,
+                        medicamentoId = med.id,
+                        medicamentoNombre = med.nombre,
+                        presentacion = med.presentacion ?: "",
+                        precioUnitario = med.precioUnitario.toDouble(),
+                        stockVenta = det.cantidad,
+                        imagen = med.imagen,
+                        loteNum = l.numeroLote
+                    )
+                }
+            }
+            _uiState.value = _uiState.value.copy(resultadosBusqueda = resultados.take(6))
+        }
+    }
+
+    fun agregarAlCarrito(item: LoteDetalleParaVenta) {
+        val carrito = _uiState.value.carrito.toMutableList()
+        val existente = carrito.find { it.loteDetalleId == item.id }
+        if (existente != null) {
+            if (existente.cantidad < item.stockVenta) existente.cantidad++
+        } else {
+            carrito.add(CarritoItem(
+                loteDetalleId = item.id,
+                medicamentoNombre = item.medicamentoNombre,
+                precioUnitario = item.precioUnitario,
+                cantidad = 1,
+                imagen = item.imagen
+            ))
+        }
+        _uiState.value = _uiState.value.copy(
+            carrito = carrito,
+            query = "",
+            resultadosBusqueda = emptyList(),
+            loteFIFO = null
+        )
+        actualizarTotales()
+    }
+
+    fun eliminarDelCarrito(index: Int) {
+        val carrito = _uiState.value.carrito.toMutableList()
+        carrito.removeAt(index)
+        _uiState.value = _uiState.value.copy(carrito = carrito)
+        actualizarTotales()
+    }
+
+    fun actualizarCantidadCarrito(index: Int, nuevaCantidad: Int) {
+        val carrito = _uiState.value.carrito.toMutableList()
+        if (index in carrito.indices) {
+            val item = carrito[index]
+            val stock = getStockVenta(item.loteDetalleId)
+            if (nuevaCantidad <= stock) {
+                carrito[index] = item.copy(cantidad = nuevaCantidad)
+                _uiState.value = _uiState.value.copy(carrito = carrito)
+                actualizarTotales()
+            }
+        }
+    }
+
+    private fun getStockVenta(loteDetalleId: Long): Int {
+        for (lote in _uiState.value.lotes) {
+            val det = lote.detalles.find { it.id == loteDetalleId }
+            if (det != null) return det.cantidad
+        }
+        return 0
+    }
+
+    fun seleccionarCliente(cliente: ClienteResponse?) {
+        _uiState.value = _uiState.value.copy(
+            clienteSeleccionado = cliente,
+            tipoVenta = if (cliente != null) "cliente" else "rapida",
+            showClienteDialog = false,
+            contextoCliente = null // podrías cargar contexto aquí
+        )
+    }
+
+    fun seleccionarReceta(receta: RecetaResponse?) {
+        _uiState.value = _uiState.value.copy(recetaSeleccionada = receta, showRecetaDialog = false)
+    }
+
+    fun setMontoEfectivo(monto: Double) {
+        _uiState.value = _uiState.value.copy(montoEfectivo = monto)
+        actualizarTotales()
+    }
+
+    fun setMontoUsadoSaldo(monto: Double) {
+        _uiState.value = _uiState.value.copy(montoUsadoSaldo = monto)
+        actualizarTotales()
+    }
+
+    fun crearVenta(onSuccess: (VentaResponse) -> Unit) {
+        val state = _uiState.value
+        if (state.carrito.isEmpty()) {
+            _uiState.value = state.copy(error = "El carrito está vacío")
+            return
+        }
+        // Verificar stock
+        for (item in state.carrito) {
+            val stock = getStockVenta(item.loteDetalleId)
+            if (item.cantidad > stock) {
+                _uiState.value = state.copy(error = "Stock insuficiente para ${item.medicamentoNombre}. Disponible: $stock")
+                return
+            }
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            val detalles = state.carrito.map {
+                VentaDetalleRequest(loteDetalleId = it.loteDetalleId, cantidad = it.cantidad)
+            }
+            val request = VentaRequest(
+                clienteId = state.clienteSeleccionado?.id,
+                usuarioId = usuarioId,
+                detalles = detalles,
+                recetaId = state.recetaSeleccionada?.id,
+                montoUsadoSaldo = state.montoUsadoSaldo,
+                montoEfectivo = state.montoEfectivo
+            )
+            when (val result = ventaRepo.crearVenta(request)) {
+                is ApiResult.Success -> {
+                    val venta = result.data
+                    // Generar PDF ticket
+                    generarTicket(venta, state.carrito, state.medicamentos)
+                    // Limpiar
+                    _uiState.value = _uiState.value.copy(
+                        carrito = emptyList(),
+                        montoEfectivo = 0.0,
+                        montoUsadoSaldo = 0.0,
+                        recetaSeleccionada = null,
+                        isLoading = false
+                    )
+                    onSuccess(venta)
+                }
+                is ApiResult.Error -> {
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = result.message)
+                }
+                else -> _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
+    }
+
+    private fun actualizarTotales() {
+        val subtotal = _uiState.value.carrito.sumOf { it.precioUnitario * it.cantidad }
+        val total = subtotal * 1.15
+        val cambio = ((_uiState.value.montoEfectivo + _uiState.value.montoUsadoSaldo) - total).coerceAtLeast(0.0)
+        val requiereReceta = _uiState.value.carrito.any { item ->
+            val det = _uiState.value.lotes.flatMap { it.detalles }.find { it.id == item.loteDetalleId }
+            val med = det?.let { _uiState.value.medicamentos.find { m -> m.id == it.medicamentoId } }
+            med?.receta == true
+        }
+        _uiState.value = _uiState.value.copy(
+            subtotal = subtotal,
+            total = total,
+            cambio = cambio,
+            requiereReceta = requiereReceta
+        )
+    }
+
+    private suspend fun generarTicket(venta: VentaResponse, items: List<CarritoItem>, medicamentos: List<MedicamentoResponse>) =
+        withContext(Dispatchers.IO) {
+            val context = MyApplication.instance
+            val pdf = PdfDocument()
+            val pageInfo = PdfDocument.PageInfo.Builder(227, 400, 1).create() // 80mm ancho aprox
+            val page = pdf.startPage(pageInfo)
+            val canvas = page.canvas
+            val paint = Paint().apply { textSize = 9f; typeface = Typeface.DEFAULT_BOLD }
+            var y = 20
+            canvas.drawText("FARMACIA SANIDAD", 113.5f, y.toFloat(), paint.apply { textAlign = Paint.Align.CENTER })
+            y += 12
+            paint.textSize = 7f
+            canvas.drawText("Factura: ${venta.numeroFactura}", 10f, y.toFloat(), paint)
+            y += 10
+            canvas.drawText("Cliente: ${venta.clienteNombre ?: "Consumidor Final"}", 10f, y.toFloat(), paint)
+            y += 10
+            canvas.drawText("--------------------------------", 10f, y.toFloat(), paint)
+            y += 10
+            for (item in items) {
+                canvas.drawText("${item.medicamentoNombre} x${item.cantidad}", 10f, y.toFloat(), paint)
+                canvas.drawText("C$ ${"%.2f".format(item.precioUnitario * item.cantidad)}", 180f, y.toFloat(), paint.apply { textAlign = Paint.Align.RIGHT })
+                y += 10
+            }
+            canvas.drawText("--------------------------------", 10f, y.toFloat(), paint)
+            y += 10
+            canvas.drawText("TOTAL: C$ ${"%.2f".format(venta.total)}", 10f, y.toFloat(), paint)
+            pdf.finishPage(page)
+            val file = File(context.cacheDir, "Venta_${venta.numeroFactura}.pdf")
+            FileOutputStream(file).use { pdf.writeTo(it) }
+            pdf.close()
+        }
+
+    fun setShowClienteDialog(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showClienteDialog = show)
+    }
+
+    fun setShowRecetaDialog(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showRecetaDialog = show)
+    }
+
+    fun limpiarError() {
+        _uiState.value = _uiState.value.copy(error = null)
+    }
+}
