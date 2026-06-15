@@ -1,392 +1,15 @@
-package com.sanidad.movil.data.presentation.screens.ubicaciones
+package com.sanidad.movil.presentation.screens.ubicaciones
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sanidad.movil.data.remote.NetworkModule
+import com.sanidad.movil.data.remote.ApiResult
 import com.sanidad.movil.data.remote.dto.*
+import com.sanidad.movil.data.repository.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class UbicacionesViewModel : ViewModel() {
-    private val api = NetworkModule.apiService
-
-    // ====================== DATOS MAESTROS ======================
-    private val _racks = MutableStateFlow<List<RackResponse>>(emptyList())
-    val racks: StateFlow<List<RackResponse>> = _racks
-
-    private val _lotes = MutableStateFlow<List<LoteResponse>>(emptyList())
-    val lotes: StateFlow<List<LoteResponse>> = _lotes
-
-    private val _medicamentos = MutableStateFlow<List<MedicamentoResponse>>(emptyList())
-    val medicamentos: StateFlow<List<MedicamentoResponse>> = _medicamentos
-
-    private val _todasUbicaciones = MutableStateFlow<List<UbicacionLoteResponse>>(emptyList())
-    val todasUbicaciones: StateFlow<List<UbicacionLoteResponse>> = _todasUbicaciones
-
-    // ====================== RACK SELECCIONADO ======================
-    private val _rackSeleccionado = MutableStateFlow<RackResponse?>(null)
-    val rackSeleccionado: StateFlow<RackResponse?> = _rackSeleccionado
-
-    private val _ubicacionesRack = MutableStateFlow<List<UbicacionLoteResponse>>(emptyList())
-    val ubicacionesRack: StateFlow<List<UbicacionLoteResponse>> = _ubicacionesRack
-
-    // ====================== ESTADOS DE UI ======================
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
-
-    private val _searchTerm = MutableStateFlow("")
-    val searchTerm: StateFlow<String> = _searchTerm
-
-    private val _celdaSeleccionada = MutableStateFlow<Celda?>(null)
-    val celdaSeleccionada: StateFlow<Celda?> = _celdaSeleccionada
-
-    private val _detalleSeleccionado = MutableStateFlow<LoteDetalleResponse?>(null)
-    val detalleSeleccionado: StateFlow<LoteDetalleResponse?> = _detalleSeleccionado
-
-    private val _cantidad = MutableStateFlow(1)
-    val cantidad: StateFlow<Int> = _cantidad
-
-    private val _modoMovimiento = MutableStateFlow(false)
-    val modoMovimiento: StateFlow<Boolean> = _modoMovimiento
-
-    private val _origenMovimiento = MutableStateFlow<OrigenMovimiento?>(null)
-    val origenMovimiento: StateFlow<OrigenMovimiento?> = _origenMovimiento
-
-    // ====================== FORMULARIO NUEVO RACK ======================
-    private val _showNuevoRackDialog = MutableStateFlow(false)
-    val showNuevoRackDialog: StateFlow<Boolean> = _showNuevoRackDialog
-
-    private val _nuevoRack = MutableStateFlow(NuevoRackState())
-    val nuevoRack: StateFlow<NuevoRackState> = _nuevoRack
-
-    // ====================== INFO CELDA OCUPADA ======================
-    val infoCelda: StateFlow<InfoCeldaOcupada?> = combine(
-        _celdaSeleccionada,
-        _ubicacionesRack,
-        _lotes,
-        _medicamentos
-    ) { celda: Celda?,
-        ubicaciones: List<UbicacionLoteResponse>,
-        lotes: List<LoteResponse>,
-        medicamentos: List<MedicamentoResponse> ->
-        if (celda == null) {
-            null
-        } else {
-            val u = ubicaciones.firstOrNull {
-                it.nivel == celda.nivel && it.columna == celda.columna && it.profundidadIndex == celda.profundidadIndex
-            }
-            if (u != null) {
-                val lote = lotes.firstOrNull { l -> l.detalles.any { d -> d.id == u.loteDetalleId } }
-                val det = lote?.detalles?.firstOrNull { it.id == u.loteDetalleId }
-                val med = medicamentos.firstOrNull { it.id == det?.medicamentoId }
-                InfoCeldaOcupada(
-                    ubicacionId = u.id,
-                    medicamentoNombre = med?.nombre ?: "Desconocido",
-                    factura = lote?.factura,
-                    vence = lote?.fechaVencimiento,
-                    loteDetalleId = u.loteDetalleId
-                )
-            } else {
-                null
-            }
-        }
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
-
-    // ====================== LOTES CON STOCK REAL ======================
-    val lotesConStockReal: StateFlow<List<LoteConDetalles>> = combine(
-        _lotes,
-        _todasUbicaciones,
-        _medicamentos,
-        _searchTerm
-    ) { lotes: List<LoteResponse>,
-        todasUbi: List<UbicacionLoteResponse>,
-        medicamentos: List<MedicamentoResponse>,
-        search: String ->
-        lotes.filter { lote ->
-            lote.activo && lote.detalles.any { det ->
-                val yaUbicado = todasUbi.filter { it.loteDetalleId == det.id }.sumOf { it.cantidad }
-                val stock = det.cantidad - yaUbicado
-                stock > 0
-            }
-        }.map { lote ->
-            val detallesCalc = lote.detalles.mapNotNull { det ->
-                val yaUbicado = todasUbi.filter { it.loteDetalleId == det.id }.sumOf { it.cantidad }
-                val stock = det.cantidad - yaUbicado
-                if (stock > 0) {
-                    LoteDetalleResponse(
-                        id = det.id,
-                        medicamentoId = det.medicamentoId,
-                        medicamentoNombre = det.medicamentoNombre,
-                        medicamentoPresentacion = det.medicamentoPresentacion,
-                        fabricante = det.fabricante,
-                        cantidad = stock,
-                        precioUnitario = det.precioUnitario
-                    )
-                } else null
-            }
-            LoteConDetalles(lote = lote, detallesDisponibles = detallesCalc)
-        }.filter { loteCon ->
-            val term = search.lowercase().trim()
-            if (term.isEmpty()) true
-            else {
-                loteCon.lote.factura?.lowercase()?.contains(term) == true ||
-                        loteCon.detallesDisponibles.any { det ->
-                            medicamentos.firstOrNull { it.id == det.medicamentoId }?.nombre?.lowercase()?.contains(term) == true
-                        }
-            }
-        }
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-
-    // ====================== CARGAR DATOS INICIALES ======================
-    fun cargarDatosBase() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val racksRes = api.obtenerRacks()
-                val lotesRes = api.obtenerLotes()
-                val medsRes = api.obtenerMedicamentos()
-                val todasUbiRes = api.obtenerUbicaciones()
-                _racks.value = racksRes.body() ?: emptyList()
-                _lotes.value = lotesRes.body() ?: emptyList()
-                _medicamentos.value = medsRes.body() ?: emptyList()
-                _todasUbicaciones.value = todasUbiRes.body() ?: emptyList()
-            } catch (_: Exception) {
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun seleccionarRack(rackId: Long) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val rackRes = api.obtenerRack(rackId)
-                if (rackRes.isSuccessful) {
-                    _rackSeleccionado.value = rackRes.body()
-                    val ubicRes = api.obtenerUbicacionesPorRack(rackId)
-                    if (ubicRes.isSuccessful) {
-                        _ubicacionesRack.value = ubicRes.body() ?: emptyList()
-                    }
-                }
-                resetearSeleccion()
-            } catch (_: Exception) {
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    // ====================== MANEJO DE CELDAS ======================
-    fun onCeldaClick(nivel: Int, columna: Int, profundidadIndex: Int) {
-        val ocupada = _ubicacionesRack.value.firstOrNull {
-            it.nivel == nivel && it.columna == columna && it.profundidadIndex == profundidadIndex
-        }
-
-        if (_modoMovimiento.value && _origenMovimiento.value != null) {
-            if (ocupada != null) return
-            realizarMovimiento(
-                origen = _origenMovimiento.value!!,
-                destinoNivel = nivel,
-                destinoCol = columna,
-                destinoProf = profundidadIndex
-            )
-            return
-        }
-
-        if (ocupada != null) {
-            _modoMovimiento.value = true
-            _origenMovimiento.value = OrigenMovimiento(
-                ubicacionId = ocupada.id,
-                loteDetalleId = ocupada.loteDetalleId,
-                cantidad = ocupada.cantidad,
-                nivel = nivel,
-                columna = columna,
-                profundidadIndex = profundidadIndex,
-                medicamentoNombre = obtenerNombreMedicamento(ocupada.loteDetalleId)
-            )
-            _celdaSeleccionada.value = null
-        } else {
-            _celdaSeleccionada.value = Celda(nivel, columna, profundidadIndex)
-            _detalleSeleccionado.value = null
-            _cantidad.value = 1
-            _modoMovimiento.value = false
-            _origenMovimiento.value = null
-        }
-    }
-
-    private fun obtenerNombreMedicamento(loteDetalleId: Long): String {
-        val lote = _lotes.value.firstOrNull { it.detalles.any { d -> d.id == loteDetalleId } }
-        val det = lote?.detalles?.firstOrNull { it.id == loteDetalleId }
-        val med = _medicamentos.value.firstOrNull { it.id == det?.medicamentoId }
-        return med?.nombre ?: "Producto"
-    }
-
-    private fun realizarMovimiento(origen: OrigenMovimiento, destinoNivel: Int, destinoCol: Int, destinoProf: Int) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                api.eliminarUbicacion(origen.ubicacionId)
-                val request = UbicacionLoteRequest(
-                    loteDetalleId = origen.loteDetalleId,
-                    rackId = _rackSeleccionado.value!!.id,
-                    nivel = destinoNivel,
-                    columna = destinoCol,
-                    profundidadIndex = destinoProf,
-                    cantidad = origen.cantidad
-                )
-                api.asignarUbicacion(request)
-                cargarDatosBase()
-                seleccionarRack(_rackSeleccionado.value!!.id)
-                resetearSeleccion()
-            } catch (_: Exception) {
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun cancelarMovimiento() {
-        _modoMovimiento.value = false
-        _origenMovimiento.value = null
-    }
-
-    fun asignarEnCascada() {
-        val celda = _celdaSeleccionada.value ?: return
-        val detalle = _detalleSeleccionado.value ?: return
-        val rack = _rackSeleccionado.value ?: return
-        val cantidad = _cantidad.value
-
-        val stockDisponible = detalle.cantidad
-        if (cantidad > stockDisponible) return
-
-        viewModelScope.launch {
-            _isLoading.value = true
-            var restantes = cantidad
-            var n = celda.nivel
-            var c = celda.columna
-            var p = celda.profundidadIndex
-            val slots = mutableListOf<UbicacionLoteRequest>()
-
-            while (restantes > 0) {
-                val ocupada = _ubicacionesRack.value.any {
-                    it.nivel == n && it.columna == c && it.profundidadIndex == p && it.activo
-                }
-                if (!ocupada) {
-                    slots.add(
-                        UbicacionLoteRequest(
-                            loteDetalleId = detalle.id,
-                            rackId = rack.id,
-                            nivel = n,
-                            columna = c,
-                            profundidadIndex = p,
-                            cantidad = 1
-                        )
-                    )
-                    restantes--
-                }
-                p++
-                if (p >= rack.profundidad) { p = 0; c++ }
-                if (c >= rack.ancho) { c = 0; n++ }
-                if (n >= rack.alto) break
-            }
-
-            try {
-                slots.forEach { api.asignarUbicacion(it) }
-                cargarDatosBase()
-                seleccionarRack(rack.id)
-                resetearSeleccion()
-            } catch (_: Exception) {
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun eliminarUbicacion(ubicacionId: Long) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                api.eliminarUbicacion(ubicacionId)
-                cargarDatosBase()
-                if (_rackSeleccionado.value != null) {
-                    seleccionarRack(_rackSeleccionado.value!!.id)
-                }
-            } catch (_: Exception) {
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    // ====================== NUEVO RACK ======================
-    fun actualizarNuevoRack(campo: String, valor: Any) {
-        _nuevoRack.value = when (campo) {
-            "nombre" -> _nuevoRack.value.copy(nombre = valor as String)
-            "ancho" -> _nuevoRack.value.copy(ancho = valor as Int)
-            "alto" -> _nuevoRack.value.copy(alto = valor as Int)
-            "profundidad" -> _nuevoRack.value.copy(profundidad = valor as Int)
-            else -> _nuevoRack.value
-        }
-    }
-
-    fun crearRack(onSuccess: () -> Unit) {
-        viewModelScope.launch {
-            val r = _nuevoRack.value
-            try {
-                api.crearRack(
-                    RackRequest(
-                        nombre = r.nombre,
-                        ancho = r.ancho,
-                        alto = r.alto,
-                        profundidad = r.profundidad,
-                        descripcion = null
-                    )
-                )
-                cargarDatosBase()
-                _showNuevoRackDialog.value = false
-                _nuevoRack.value = NuevoRackState()
-                onSuccess()
-            } catch (_: Exception) {
-            }
-        }
-    }
-
-    fun eliminarRack(rackId: Long) {
-        viewModelScope.launch {
-            try {
-                api.eliminarRack(rackId)
-                if (_rackSeleccionado.value?.id == rackId) {
-                    _rackSeleccionado.value = null
-                    _ubicacionesRack.value = emptyList()
-                }
-                cargarDatosBase()
-            } catch (_: Exception) {
-            }
-        }
-    }
-
-    // ====================== MÉTODOS PÚBLICOS PARA MODIFICAR ESTADOS DESDE LA UI ======================
-    fun setSearchTerm(term: String) { _searchTerm.value = term }
-    fun abrirNuevoRackDialog() { _showNuevoRackDialog.value = true }
-    fun cerrarNuevoRackDialog() { _showNuevoRackDialog.value = false }
-    fun setDetalleSeleccionado(det: LoteDetalleResponse?) { _detalleSeleccionado.value = det }
-    fun setCantidad(cant: Int) { _cantidad.value = cant }
-
-    fun resetearSeleccion() {
-        _celdaSeleccionada.value = null
-        _detalleSeleccionado.value = null
-        _cantidad.value = 1
-        _searchTerm.value = ""
-        _modoMovimiento.value = false
-        _origenMovimiento.value = null
-    }
-}
-
+// ---------- Clases de datos auxiliares ----------
 data class Celda(val nivel: Int, val columna: Int, val profundidadIndex: Int)
 data class OrigenMovimiento(
     val ubicacionId: Long,
@@ -411,3 +34,374 @@ data class InfoCeldaOcupada(
     val vence: String?,
     val loteDetalleId: Long
 )
+
+data class UbicacionesUiState(
+    val racks: List<RackResponse> = emptyList(),
+    val lotes: List<LoteResponse> = emptyList(),
+    val medicamentos: List<MedicamentoResponse> = emptyList(),
+    val todasUbicaciones: List<UbicacionLoteResponse> = emptyList(),
+    val rackSeleccionado: RackResponse? = null,
+    val ubicacionesRack: List<UbicacionLoteResponse> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val searchTerm: String = "",
+    val celdaSeleccionada: Celda? = null,
+    val detalleSeleccionado: LoteDetalleResponse? = null,
+    val cantidad: Int = 1,
+    val modoMovimiento: Boolean = false,
+    val origenMovimiento: OrigenMovimiento? = null,
+    val showNuevoRackDialog: Boolean = false,
+    val nuevoRack: NuevoRackState = NuevoRackState(),
+    // paneles de asignación/movimiento visibles
+    val showAsignarPanel: Boolean = false,
+    val showMoverPanel: Boolean = false
+) {
+    // ── Info de la celda seleccionada ──
+    val infoCelda: InfoCeldaOcupada? get() {
+        val celda = celdaSeleccionada ?: return null
+        val u = ubicacionesRack.firstOrNull {
+            it.nivel == celda.nivel && it.columna == celda.columna && it.profundidadIndex == celda.profundidadIndex
+        } ?: return null
+        val lote = lotes.firstOrNull { l -> l.detalles.any { d -> d.id == u.loteDetalleId } }
+        val det = lote?.detalles?.firstOrNull { it.id == u.loteDetalleId }
+        val med = medicamentos.firstOrNull { it.id == det?.medicamentoId }
+        return InfoCeldaOcupada(
+            ubicacionId = u.id,
+            medicamentoNombre = med?.nombre ?: "Desconocido",
+            factura = lote?.factura,
+            vence = lote?.fechaVencimiento,
+            loteDetalleId = u.loteDetalleId
+        )
+    }
+
+    // ── Lotes con stock real disponible (considera todas las ubicaciones del sistema) ──
+    val lotesConStockReal: List<LoteConDetalles> get() {
+        val term = searchTerm.lowercase().trim()
+        return lotes.filter { lote ->
+            lote.activo && lote.detalles.any { det ->
+                val yaUbicado = todasUbicaciones.filter { it.loteDetalleId == det.id }.sumOf { it.cantidad }
+                det.cantidad - yaUbicado > 0
+            }
+        }.map { lote ->
+            val detallesCalc = lote.detalles.mapNotNull { det ->
+                val yaUbicado = todasUbicaciones.filter { it.loteDetalleId == det.id }.sumOf { it.cantidad }
+                val stock = det.cantidad - yaUbicado
+                if (stock > 0) det.copy(cantidad = stock) else null
+            }
+            LoteConDetalles(lote = lote, detallesDisponibles = detallesCalc)
+        }.filter { lc ->
+            if (term.isEmpty()) true
+            else {
+                lc.lote.factura?.lowercase()?.contains(term) == true ||
+                        lc.detallesDisponibles.any { det ->
+                            medicamentos.firstOrNull { it.id == det.medicamentoId }?.nombre?.lowercase()?.contains(term) == true
+                        }
+            }
+        }
+    }
+}
+
+class UbicacionesViewModel(
+    private val rackRepo: RackRepository,
+    private val ubicacionRepo: UbicacionRepository,
+    private val loteRepo: LoteRepository,
+    private val medicamentoRepo: MedicamentoRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(UbicacionesUiState())
+    val uiState: StateFlow<UbicacionesUiState> = _uiState
+
+    init { cargarDatosBase() }
+
+    // ── CARGA INICIAL ──
+    fun cargarDatosBase() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val racksRes = rackRepo.getRacks()
+            val lotesRes = loteRepo.getLotes()
+            val medsRes = medicamentoRepo.getMedicamentos()
+            val todasUbiRes = ubicacionRepo.getTodasUbicaciones()
+
+            val racks = (racksRes as? ApiResult.Success)?.data ?: emptyList()
+            val lotes = (lotesRes as? ApiResult.Success)?.data ?: emptyList()
+            val meds = (medsRes as? ApiResult.Success)?.data ?: emptyList()
+            val todasUbi = (todasUbiRes as? ApiResult.Success)?.data ?: emptyList()
+
+            _uiState.value = _uiState.value.copy(
+                racks = racks,
+                lotes = lotes,
+                medicamentos = meds,
+                todasUbicaciones = todasUbi,
+                isLoading = false
+            )
+        }
+    }
+
+    // ── SELECCIONAR RACK ──
+    fun seleccionarRack(rackId: Long) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            val rackRes = rackRepo.getRack(rackId)
+            val ubicRes = ubicacionRepo.getUbicacionesPorRack(rackId)
+            val rack = (rackRes as? ApiResult.Success)?.data
+            val ubicaciones = (ubicRes as? ApiResult.Success)?.data ?: emptyList()
+            _uiState.value = _uiState.value.copy(
+                rackSeleccionado = rack,
+                ubicacionesRack = ubicaciones,
+                isLoading = false
+            )
+            resetearSeleccion()
+        }
+    }
+
+    // ── CLICK EN CELDA ──
+    fun onCeldaClick(nivel: Int, columna: Int, profundidadIndex: Int) {
+        val state = _uiState.value
+        val ocupada = state.ubicacionesRack.firstOrNull {
+            it.nivel == nivel && it.columna == columna && it.profundidadIndex == profundidadIndex
+        }
+
+        // MODO MOVIMIENTO: intentar mover
+        if (state.modoMovimiento && state.origenMovimiento != null) {
+            if (ocupada != null) {
+                _uiState.value = state.copy(error = "La celda destino está ocupada")
+                return
+            }
+            realizarMovimiento(
+                origen = state.origenMovimiento!!,
+                destinoNivel = nivel,
+                destinoCol = columna,
+                destinoProf = profundidadIndex
+            )
+            return
+        }
+
+        // MODO NORMAL
+        if (ocupada != null) {
+            // Celda ocupada → abrir panel de mover (o iniciar modo movimiento)
+            _uiState.value = state.copy(
+                modoMovimiento = true,
+                origenMovimiento = OrigenMovimiento(
+                    ubicacionId = ocupada.id,
+                    loteDetalleId = ocupada.loteDetalleId,
+                    cantidad = ocupada.cantidad,
+                    nivel = nivel,
+                    columna = columna,
+                    profundidadIndex = profundidadIndex,
+                    medicamentoNombre = obtenerNombreMedicamento(ocupada.loteDetalleId)
+                ),
+                celdaSeleccionada = null,
+                showAsignarPanel = false
+            )
+        } else {
+            // Celda libre → abrir panel de asignación
+            _uiState.value = state.copy(
+                celdaSeleccionada = Celda(nivel, columna, profundidadIndex),
+                detalleSeleccionado = null,
+                cantidad = 1,
+                modoMovimiento = false,
+                origenMovimiento = null,
+                showAsignarPanel = true
+            )
+        }
+    }
+
+    private fun obtenerNombreMedicamento(loteDetalleId: Long): String {
+        val state = _uiState.value
+        val lote = state.lotes.firstOrNull { it.detalles.any { d -> d.id == loteDetalleId } }
+        val det = lote?.detalles?.firstOrNull { it.id == loteDetalleId }
+        val med = state.medicamentos.firstOrNull { it.id == det?.medicamentoId }
+        return med?.nombre ?: "Producto"
+    }
+
+    private fun realizarMovimiento(origen: OrigenMovimiento, destinoNivel: Int, destinoCol: Int, destinoProf: Int) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            val rackId = _uiState.value.rackSeleccionado?.id ?: return@launch
+
+            // 1. Eliminar origen
+            val delRes = ubicacionRepo.eliminarUbicacion(origen.ubicacionId)
+            if (delRes is ApiResult.Error) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = delRes.message)
+                return@launch
+            }
+
+            // 2. Asignar destino
+            val request = UbicacionLoteRequest(
+                loteDetalleId = origen.loteDetalleId,
+                rackId = rackId,
+                nivel = destinoNivel,
+                columna = destinoCol,
+                profundidadIndex = destinoProf,
+                cantidad = origen.cantidad
+            )
+            val asignRes = ubicacionRepo.asignarUbicacion(request)
+            if (asignRes is ApiResult.Error) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = asignRes.message)
+                return@launch
+            }
+
+            // 3. Recargar
+            cargarDatosBase()
+            seleccionarRack(rackId)
+            resetearSeleccion()
+        }
+    }
+
+    fun cancelarMovimiento() {
+        _uiState.value = _uiState.value.copy(modoMovimiento = false, origenMovimiento = null)
+    }
+
+    // ── ASIGNAR EN CASCADA ──
+    fun asignarEnCascada() {
+        val state = _uiState.value
+        val celda = state.celdaSeleccionada ?: return
+        val detalle = state.detalleSeleccionado ?: return
+        val rack = state.rackSeleccionado ?: return
+        val cantidad = state.cantidad
+
+        val stockDisponible = detalle.cantidad
+        if (cantidad > stockDisponible) {
+            _uiState.value = state.copy(error = "Stock insuficiente. Solo hay $stockDisponible unidades.")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            var restantes = cantidad
+            var n = celda.nivel
+            var c = celda.columna
+            var p = celda.profundidadIndex
+            val maxIntentos = rack.alto * rack.ancho * rack.profundidad
+            var intentos = 0
+            var asignadas = 0
+
+            while (restantes > 0 && intentos < maxIntentos) {
+                val ocupada = state.ubicacionesRack.any {
+                    it.nivel == n && it.columna == c && it.profundidadIndex == p && it.activo
+                }
+                if (!ocupada) {
+                    val request = UbicacionLoteRequest(
+                        loteDetalleId = detalle.id,
+                        rackId = rack.id,
+                        nivel = n,
+                        columna = c,
+                        profundidadIndex = p,
+                        cantidad = 1
+                    )
+                    when (val res = ubicacionRepo.asignarUbicacion(request)) {
+                        is ApiResult.Success -> asignadas++
+                        is ApiResult.Error -> {} // continuar
+                        else -> {}
+                    }
+                    restantes--
+                }
+                p++
+                if (p >= rack.profundidad) { p = 0; c++ }
+                if (c >= rack.ancho) { c = 0; n++ }
+                if (n >= rack.alto) break
+                intentos++
+            }
+
+            cargarDatosBase()
+            seleccionarRack(rack.id)
+            resetearSeleccion()
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = if (restantes > 0) "Faltaron $restantes unidades por ubicar." else null
+            )
+        }
+    }
+
+    // ── ELIMINAR UBICACIÓN ──
+    fun eliminarUbicacion(ubicacionId: Long) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            when (val res = ubicacionRepo.eliminarUbicacion(ubicacionId)) {
+                is ApiResult.Success -> {
+                    cargarDatosBase()
+                    _uiState.value.rackSeleccionado?.let { seleccionarRack(it.id) }
+                    resetearSeleccion()
+                }
+                is ApiResult.Error -> _uiState.value = _uiState.value.copy(isLoading = false, error = res.message)
+                else -> _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
+    }
+
+    // ── NUEVO RACK ──
+    fun actualizarNuevoRack(campo: String, valor: Any) {
+        val r = _uiState.value.nuevoRack
+        _uiState.value = _uiState.value.copy(nuevoRack = when (campo) {
+            "nombre" -> r.copy(nombre = valor as String)
+            "ancho" -> r.copy(ancho = valor as Int)
+            "alto" -> r.copy(alto = valor as Int)
+            "profundidad" -> r.copy(profundidad = valor as Int)
+            else -> r
+        })
+    }
+
+    fun crearRack() {
+        viewModelScope.launch {
+            val r = _uiState.value.nuevoRack
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            val request = RackRequest(
+                nombre = r.nombre,
+                ancho = r.ancho,
+                alto = r.alto,
+                profundidad = r.profundidad,
+                descripcion = null
+            )
+            when (val res = rackRepo.crearRack(request)) {
+                is ApiResult.Success -> {
+                    cargarDatosBase()
+                    _uiState.value = _uiState.value.copy(
+                        showNuevoRackDialog = false,
+                        nuevoRack = NuevoRackState(),
+                        isLoading = false
+                    )
+                }
+                is ApiResult.Error -> _uiState.value = _uiState.value.copy(isLoading = false, error = res.message)
+                else -> _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
+    }
+
+    fun eliminarRack(rackId: Long) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            when (val res = rackRepo.eliminarRack(rackId)) {
+                is ApiResult.Success -> {
+                    if (_uiState.value.rackSeleccionado?.id == rackId) {
+                        _uiState.value = _uiState.value.copy(rackSeleccionado = null, ubicacionesRack = emptyList())
+                    }
+                    cargarDatosBase()
+                }
+                is ApiResult.Error -> _uiState.value = _uiState.value.copy(isLoading = false, error = res.message)
+                else -> _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
+    }
+
+    // ── MÉTODOS PÚBLICOS SIMPLES ──
+    fun setSearchTerm(term: String) { _uiState.value = _uiState.value.copy(searchTerm = term) }
+    fun abrirNuevoRackDialog() { _uiState.value = _uiState.value.copy(showNuevoRackDialog = true) }
+    fun cerrarNuevoRackDialog() { _uiState.value = _uiState.value.copy(showNuevoRackDialog = false) }
+    fun setDetalleSeleccionado(det: LoteDetalleResponse?) { _uiState.value = _uiState.value.copy(detalleSeleccionado = det) }
+    fun setCantidad(cant: Int) { _uiState.value = _uiState.value.copy(cantidad = cant) }
+    fun cerrarPanelAsignar() { _uiState.value = _uiState.value.copy(showAsignarPanel = false, celdaSeleccionada = null) }
+    fun limpiarError() { _uiState.value = _uiState.value.copy(error = null) }
+
+    fun resetearSeleccion() {
+        _uiState.value = _uiState.value.copy(
+            celdaSeleccionada = null,
+            detalleSeleccionado = null,
+            cantidad = 1,
+            searchTerm = "",
+            modoMovimiento = false,
+            origenMovimiento = null,
+            showAsignarPanel = false,
+            showMoverPanel = false
+        )
+    }
+}
