@@ -6,7 +6,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -30,23 +29,23 @@ import com.sanidad.movil.data.UserSession
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-// Paleta fiel al CSS
-private val Primary = Color(0xFF3B82F6)
-private val Success = Color(0xFF22C55E)
+// Paleta unificada
+private val Primary = Color(0xFF4F46E5)
+private val Success = Color(0xFF10B981)
 private val Danger = Color(0xFFEF4444)
 private val Warning = Color(0xFFF59E0B)
 private val Slate900 = Color(0xFF0F172A)
-private val Slate800 = Color(0xFF1E293B)
 private val Slate700 = Color(0xFF334155)
+private val Slate600 = Color(0xFF475569)
 private val Slate500 = Color(0xFF64748B)
 private val Slate400 = Color(0xFF94A3B8)
 private val Slate300 = Color(0xFFCBD5E1)
 private val Slate200 = Color(0xFFE2E8F0)
 private val Slate100 = Color(0xFFF1F5F9)
 private val Slate50 = Color(0xFFF8FAFC)
-private val Slate600 = Color(0xFF475569)
 private val White = Color.White
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecetasScreen(viewModel: RecetasViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsState()
@@ -81,23 +80,28 @@ fun RecetasScreen(viewModel: RecetasViewModel = viewModel()) {
         Column(
             modifier = Modifier
                 .padding(padding)
-                .padding(horizontal = 24.dp, vertical = 16.dp)
                 .fillMaxSize()
         ) {
-            // Header
-            Text("📄 Gestión de Recetas", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
-            Text("Validación y control de recetas médicas", fontSize = 14.sp, color = Slate500)
-            Spacer(Modifier.height(24.dp))
+            // Header unificado (sin botón duplicado)
+            RecetasHeader(
+                mostrarTodas = state.mostrarTodas,
+                esAdmin = esAdmin,
+                onToggleMostrarTodas = { viewModel.toggleMostrarTodas() }
+            )
 
-            // Tarjeta de subida
+            Spacer(Modifier.height(16.dp))
+
+            // Tarjeta de subida (único lugar para subir)
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = White),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
             ) {
-                Column(modifier = Modifier.padding(22.dp)) {
-                    Text("📤 Subir nueva receta", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Slate800)
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text("📤 Subir nueva receta", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Slate900)
                     Text("Formato permitido: JPG, PNG", fontSize = 12.sp, color = Slate500)
                     Spacer(Modifier.height(16.dp))
 
@@ -106,20 +110,21 @@ fun RecetasScreen(viewModel: RecetasViewModel = viewModel()) {
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(50.dp)
-                                .border(2.dp, Slate300, RoundedCornerShape(14.dp))
-                                .background(Slate50, RoundedCornerShape(14.dp))
-                                .clickable { launcher.launch("image/*") },
-                            contentAlignment = Alignment.Center
+                        // Selector de imagen como OutlinedButton
+                        OutlinedButton(
+                            onClick = { launcher.launch("image/*") },
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Slate300)
                         ) {
+                            Icon(Icons.Default.Image, null, modifier = Modifier.size(18.dp), tint = Slate500)
+                            Spacer(Modifier.width(8.dp))
                             Text(
                                 text = state.selectedImageUri?.let { uri -> uri.lastPathSegment ?: "Imagen seleccionada" } ?: "Seleccionar imagen",
                                 color = if (state.selectedImageUri != null) Slate700 else Slate400,
                                 fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1
                             )
                         }
 
@@ -127,7 +132,7 @@ fun RecetasScreen(viewModel: RecetasViewModel = viewModel()) {
                             value = state.codigoMinsa,
                             onValueChange = { viewModel.setCodigoMinsa(it) },
                             placeholder = { Text("Código MINSA") },
-                            modifier = Modifier.weight(0.8f),
+                            modifier = Modifier.weight(1f).height(48.dp),
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -144,12 +149,13 @@ fun RecetasScreen(viewModel: RecetasViewModel = viewModel()) {
                                 containerColor = Primary,
                                 disabledContainerColor = Slate300
                             ),
-                            modifier = Modifier.height(50.dp)
+                            modifier = Modifier.height(48.dp),
+                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 0.dp)
                         ) {
                             if (state.isLoading) {
                                 CircularProgressIndicator(color = White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             } else {
-                                Text("Subir Receta", fontWeight = FontWeight.Bold)
+                                Text("Subir", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                             }
                         }
                     }
@@ -165,43 +171,17 @@ fun RecetasScreen(viewModel: RecetasViewModel = viewModel()) {
 
             Spacer(Modifier.height(22.dp))
 
-            // Tarjeta de listado
+            // Listado de recetas (ocupa el resto de la pantalla)
             Card(
-                modifier = Modifier.fillMaxWidth().weight(1f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(horizontal = 24.dp),
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = White),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
             ) {
-                Column(modifier = Modifier.padding(22.dp).fillMaxSize()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (state.mostrarTodas) "📋 Historial completo" else if (esAdmin) "🧾 Recetas pendientes" else "📚 Mis recetas",
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 16.sp,
-                            color = Slate800
-                        )
-                        TextButton(
-                            onClick = { viewModel.toggleMostrarTodas() },
-                            shape = RoundedCornerShape(40.dp),
-                            colors = ButtonDefaults.textButtonColors(
-                                contentColor = if (state.mostrarTodas) Primary else Slate500
-                            ),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, if (state.mostrarTodas) Primary else Slate200)
-                        ) {
-                            Text(
-                                if (state.mostrarTodas) "Ver pendientes / propias" else "Ver todas",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-
+                Column(modifier = Modifier.padding(20.dp).fillMaxSize()) {
                     when {
                         state.isLoading && state.recetas.isEmpty() -> {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -232,7 +212,7 @@ fun RecetasScreen(viewModel: RecetasViewModel = viewModel()) {
                         }
                         else -> {
                             LazyVerticalGrid(
-                                columns = GridCells.Adaptive(minSize = 250.dp),
+                                columns = GridCells.Adaptive(minSize = 300.dp),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
                                 modifier = Modifier.fillMaxSize()
@@ -254,6 +234,44 @@ fun RecetasScreen(viewModel: RecetasViewModel = viewModel()) {
     }
 }
 
+// ──── Header con toggle de vista ────
+@Composable
+private fun RecetasHeader(
+    mostrarTodas: Boolean,
+    esAdmin: Boolean,
+    onToggleMostrarTodas: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text("Gestión de Recetas", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
+            Text("Validación y control de recetas médicas", fontSize = 14.sp, color = Slate500)
+        }
+        // Toggle de vista como FilterChip
+        FilterChip(
+            selected = mostrarTodas,
+            onClick = onToggleMostrarTodas,
+            label = {
+                Text(
+                    if (mostrarTodas) "📋 Todas" else if (esAdmin) "🧾 Pendientes" else "📚 Mías",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            },
+            colors = FilterChipDefaults.filterChipColors(
+                selectedContainerColor = Primary.copy(alpha = 0.15f),
+                selectedLabelColor = Primary
+            )
+        )
+    }
+}
+
+// ──── Tarjeta de receta mejorada ────
 @Composable
 private fun RecetaCard(
     receta: com.sanidad.movil.data.remote.dto.RecetaResponse,
@@ -268,7 +286,7 @@ private fun RecetaCard(
         border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
     ) {
         Column {
-            Box(modifier = Modifier.fillMaxWidth().height(170.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().height(160.dp)) {
                 if (receta.imagenUrl != null) {
                     AsyncImage(
                         model = "http://172.16.66.6:8080${receta.imagenUrl}",
@@ -316,7 +334,7 @@ private fun RecetaCard(
                     fontSize = 12.sp,
                     color = Slate500
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Código MINSA:", fontSize = 12.sp, color = Slate600)
                     Spacer(Modifier.width(6.dp))
@@ -341,21 +359,29 @@ private fun RecetaCard(
 
             if (puedeValidar && receta.estado == "PENDIENTE") {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
                         onClick = onAprobar,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(44.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Success),
-                        shape = RoundedCornerShape(10.dp)
-                    ) { Text("✅ Aprobar", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("Aprobar", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = White)
+                    }
                     Button(
                         onClick = onRechazar,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(44.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Danger),
-                        shape = RoundedCornerShape(10.dp)
-                    ) { Text("❌ Rechazar", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("Rechazar", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = White)
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
             }

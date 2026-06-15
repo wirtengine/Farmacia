@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -60,125 +61,115 @@ fun DevolucionesProveedorScreen(viewModel: DevolucionesProveedorViewModel = view
             dismissButton = { TextButton(onClick = { viewModel.ocultarAprobarDialog() }) { Text("Cancelar") } }
         )
     }
-    // Si en el futuro agregas rechazo, descomenta este bloque y las variables de estado en el ViewModel
-    /*
-    if (uiState.showRechazarDialog) {
-        AlertDialog(
-            onDismissRequest = { viewModel.ocultarRechazarDialog() },
-            title = { Text("Motivo del rechazo") },
-            text = {
-                OutlinedTextField(
-                    value = uiState.motivoRechazo,
-                    onValueChange = { viewModel.setMotivoRechazo(it) },
-                    label = { Text("Escriba el motivo...") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { viewModel.confirmarRechazar(usuarioId) }) { Text("Rechazar") }
-            },
-            dismissButton = { TextButton(onClick = { viewModel.ocultarRechazarDialog() }) { Text("Cancelar") } }
-        )
-    }
-    */
 
-    Scaffold(
-        containerColor = Slate50,
-        topBar = { TopAppBar(title = { Text("Devoluciones a Proveedores") }) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.abrirNuevaDevolucion() }) {
-                Icon(Icons.Default.Add, "Nueva solicitud")
-            }
-        }
-    ) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(16.dp)) {
-            // Buscador
-            OutlinedTextField(
-                value = uiState.searchTerm,
-                onValueChange = { viewModel.setSearch(it) },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Buscar solicitud, factura o proveedor...") },
-                leadingIcon = { Icon(Icons.Default.Search, null) }
+    Scaffold(containerColor = Slate50) { padding ->
+        Column(modifier = Modifier.padding(padding)) {
+            // Header personalizado
+            DevolucionesProveedorHeader(
+                searchTerm = uiState.searchTerm,
+                onSearchChange = { viewModel.setSearch(it) },
+                estadoFiltro = uiState.estadoFiltro,
+                onEstadoChange = { viewModel.setEstadoFiltro(it) },
+                onAdd = { viewModel.abrirNuevaDevolucion() }
             )
-            Spacer(modifier = Modifier.height(8.dp))
 
-            // Filtros
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                listOf("TODOS", "PENDIENTE", "APROBADA", "RECHAZADA").forEach { estado ->
-                    FilterChip(
-                        selected = uiState.estadoFiltro == estado,
-                        onClick = { viewModel.setEstadoFiltro(estado) },
-                        label = { Text(estado) }
-                    )
+            // Mensaje de error
+            AnimatedVisibility(visible = uiState.error != null) {
+                uiState.error?.let { error ->
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFEE2E2),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Danger)
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Warning, null, tint = Danger)
+                            Spacer(Modifier.width(8.dp))
+                            Text(error, color = Color(0xFF991B1B))
+                            Spacer(Modifier.weight(1f))
+                            IconButton(onClick = { viewModel.limpiarError() }, modifier = Modifier.size(20.dp)) {
+                                Icon(Icons.Default.Close, null, tint = Danger)
+                            }
+                        }
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
 
-            // Error
-            uiState.error?.let {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                    Text(it, modifier = Modifier.padding(8.dp))
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+            // Detección de ancho
+            val configuration = LocalConfiguration.current
+            val wideMode = configuration.screenWidthDp > 600
 
-            // Tabla
             Card(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(16.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = White),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
             ) {
-                Column {
-                    // Encabezados
-                    Row(
-                        modifier = Modifier.fillMaxWidth().background(Slate50).padding(horizontal = 20.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        TableHeader("N° Solicitud", Modifier.weight(1.5f))
-                        TableHeader("Factura Lote", Modifier.weight(1.5f))
-                        TableHeader("Proveedor", Modifier.weight(1.5f))
-                        TableHeader("Productos", Modifier.weight(2.5f))
-                        TableHeader("Estado", Modifier.weight(1f))
-                        TableHeader("Acciones", Modifier.weight(2f), alignEnd = true)
+                if (uiState.isLoading && uiState.devoluciones.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Primary)
                     }
-                    Divider(color = Slate200)
+                } else if (uiState.devoluciones.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No se encontraron solicitudes.", color = Slate400)
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        // Encabezados de tabla solo en modo ancho
+                        if (wideMode) {
+                            item {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Slate50)
+                                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    TableHeader("N° Solicitud", Modifier.weight(1.5f))
+                                    TableHeader("Factura Lote", Modifier.weight(1.5f))
+                                    TableHeader("Proveedor", Modifier.weight(1.5f))
+                                    TableHeader("Productos", Modifier.weight(2.5f))
+                                    TableHeader("Estado", Modifier.weight(1f))
+                                    TableHeader("Acciones", Modifier.weight(2f), alignEnd = true)
+                                }
+                                Divider(color = Slate200)
+                            }
+                        }
 
-                    if (uiState.isLoading && uiState.devoluciones.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = Primary)
-                        }
-                    } else if (uiState.devoluciones.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No se encontraron solicitudes.", color = Slate400)
-                        }
-                    } else {
-                        LazyColumn(modifier = Modifier.weight(1f)) {
-                            items(viewModel.paginatedDevoluciones, key = { it.id }) { dev ->
+                        items(viewModel.paginatedDevoluciones, key = { it.id }) { dev ->
+                            if (wideMode) {
                                 DevolucionProveedorRow(
                                     devolucion = dev,
                                     isAdmin = isAdmin,
                                     onAprobar = { viewModel.mostrarAprobarDialog(dev.id) },
-                                    // onRechazar comentado porque no existe en backend
+                                    onRechazar = {},
+                                    onImprimir = { viewModel.imprimirPDF(dev) },
+                                    onWhatsApp = { viewModel.enviarWhatsApp(dev) }
+                                )
+                            } else {
+                                DevolucionProveedorCardCompact(
+                                    devolucion = dev,
+                                    isAdmin = isAdmin,
+                                    onAprobar = { viewModel.mostrarAprobarDialog(dev.id) },
                                     onRechazar = {},
                                     onImprimir = { viewModel.imprimirPDF(dev) },
                                     onWhatsApp = { viewModel.enviarWhatsApp(dev) }
                                 )
                             }
                         }
-                    }
 
-                    // Paginación
-                    if (uiState.totalPages > 1) {
-                        Divider(color = Slate200)
-                        PaginationBar(
-                            currentPage = uiState.currentPage,
-                            totalPages = uiState.totalPages,
-                            onPage = { viewModel.setPage(it) }
-                        )
+                        if (uiState.totalPages > 1) {
+                            item {
+                                Divider(color = Slate200)
+                                PaginationBar(
+                                    currentPage = uiState.currentPage,
+                                    totalPages = uiState.totalPages,
+                                    onPage = { viewModel.setPage(it) }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -212,6 +203,54 @@ fun DevolucionesProveedorScreen(viewModel: DevolucionesProveedorViewModel = view
     }
 }
 
+// ---------- Header personalizado ----------
+@Composable
+private fun DevolucionesProveedorHeader(
+    searchTerm: String,
+    onSearchChange: (String) -> Unit,
+    estadoFiltro: String,
+    onEstadoChange: (String) -> Unit,
+    onAdd: () -> Unit
+) {
+    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
+        Text("Devoluciones a Proveedores", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
+        Spacer(Modifier.height(12.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = searchTerm,
+                onValueChange = onSearchChange,
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Buscar solicitud, factura o proveedor...") },
+                leadingIcon = { Icon(Icons.Default.Search, null, tint = Slate400) },
+                singleLine = true,
+                shape = RoundedCornerShape(40.dp),
+                colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Slate200, focusedBorderColor = Primary)
+            )
+            Button(
+                onClick = onAdd,
+                shape = RoundedCornerShape(40.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+            ) { Text("＋ Nueva Solicitud") }
+        }
+        Spacer(Modifier.height(8.dp))
+        // Filtros de estado
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf("TODOS", "PENDIENTE", "APROBADA", "RECHAZADA").forEach { estado ->
+                FilterChip(
+                    selected = estadoFiltro == estado,
+                    onClick = { onEstadoChange(estado) },
+                    label = { Text(estado.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 12.sp) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Primary.copy(alpha = 0.15f))
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun TableHeader(text: String, modifier: Modifier, alignEnd: Boolean = false) {
     Text(
@@ -224,6 +263,7 @@ private fun TableHeader(text: String, modifier: Modifier, alignEnd: Boolean = fa
     )
 }
 
+// ---------- Modo Tabla (ancho) ----------
 @Composable
 private fun DevolucionProveedorRow(
     devolucion: DevolucionProveedorResponse,
@@ -252,38 +292,156 @@ private fun DevolucionProveedorRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // CORRECCIÓN: numeroDevolucion ahora es String?, usamos ?: "Pendiente"
+            // N° Solicitud
             Text(devolucion.numeroDevolucion ?: "Pendiente", Modifier.weight(1.5f), fontWeight = FontWeight.Bold, color = Slate900, fontSize = 14.sp)
+            // Factura Lote
             Text(devolucion.numeroFacturaLote ?: "N/A", Modifier.weight(1.5f), color = Slate700, fontSize = 14.sp)
+            // Proveedor
             Surface(shape = RoundedCornerShape(6.dp), color = Primary.copy(alpha = 0.1f)) {
                 Text(devolucion.proveedorNombre, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     color = Primary, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
             }
+            // Productos (chips, máximo 2)
             Row(Modifier.weight(2.5f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                devolucion.detalles.take(3).forEach { det ->
+                devolucion.detalles.take(2).forEach { det ->
                     Surface(shape = RoundedCornerShape(8.dp), color = Slate100, border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                            Text(det.medicamentoNombre, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                            Text(" x${det.cantidadDevuelta}", fontSize = 12.sp, color = Primary)
-                        }
+                        Text(
+                            "${det.medicamentoNombre} x${det.cantidadDevuelta}",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
-                if (devolucion.detalles.size > 3) Text("+${devolucion.detalles.size - 3}", color = Slate400, fontSize = 12.sp)
+                if (devolucion.detalles.size > 2) Text("+${devolucion.detalles.size - 2}", fontSize = 12.sp, color = Slate400)
             }
+            // Estado
             Surface(shape = RoundedCornerShape(40.dp), color = estadoBg, modifier = Modifier.weight(1f)) {
                 Text(devolucion.estado, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     color = estadoColor, fontWeight = FontWeight.Bold, fontSize = 11.sp)
             }
+            // Acciones
             Row(Modifier.weight(2f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                 if (isAdmin && devolucion.estado == "PENDIENTE") {
                     IconButton(onClick = onAprobar, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Check, null, tint = Success) }
-                    // IconButton(onClick = onRechazar, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Close, null, tint = Danger) }
                 }
                 IconButton(onClick = onImprimir, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Print, null, tint = Slate400) }
                 IconButton(onClick = onWhatsApp, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Share, null, tint = Color(0xFF25D366)) }
             }
         }
         Divider(color = Slate100)
+    }
+}
+
+// ---------- Tarjeta Compacta (vertical) ----------
+@Composable
+private fun DevolucionProveedorCardCompact(
+    devolucion: DevolucionProveedorResponse,
+    isAdmin: Boolean,
+    onAprobar: () -> Unit,
+    onRechazar: () -> Unit,
+    onImprimir: () -> Unit,
+    onWhatsApp: () -> Unit
+) {
+    val estadoColor = when (devolucion.estado) {
+        "PENDIENTE" -> Warning
+        "APROBADA" -> Success
+        "RECHAZADA" -> Danger
+        else -> Slate500
+    }
+    val estadoBg = when (devolucion.estado) {
+        "PENDIENTE" -> Color(0xFFFEF3C7)
+        "APROBADA" -> Color(0xFFD1FAE5)
+        "RECHAZADA" -> Color(0xFFFEE2E2)
+        else -> Slate100
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = White),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            // Línea 1: N° Solicitud, factura y estado
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = devolucion.numeroDevolucion ?: "Pendiente",
+                        fontWeight = FontWeight.Bold,
+                        color = Slate900,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Factura: ${devolucion.numeroFacturaLote ?: "N/A"}",
+                        fontSize = 13.sp,
+                        color = Slate500
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Surface(shape = RoundedCornerShape(20.dp), color = estadoBg) {
+                    Text(
+                        devolucion.estado,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = estadoColor
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Línea 2: Proveedor y acciones principales
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = RoundedCornerShape(6.dp), color = Primary.copy(alpha = 0.1f)) {
+                    Text(
+                        devolucion.proveedorNombre,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        color = Primary,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 11.sp
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                if (isAdmin && devolucion.estado == "PENDIENTE") {
+                    IconButton(onClick = onAprobar, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Check, null, tint = Success)
+                    }
+                }
+                IconButton(onClick = onImprimir, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Print, null, tint = Slate400)
+                }
+                IconButton(onClick = onWhatsApp, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Share, null, tint = Color(0xFF25D366))
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Línea 3: Chips de productos
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                devolucion.detalles.take(2).forEach { det ->
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Slate100,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+                    ) {
+                        Text(
+                            "${det.medicamentoNombre} x${det.cantidadDevuelta}",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+                if (devolucion.detalles.size > 2) {
+                    Text("+${devolucion.detalles.size - 2}", fontSize = 11.sp, color = Slate400)
+                }
+            }
+        }
     }
 }
 

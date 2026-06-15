@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -27,14 +28,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-// Paleta fiel al CSS
+// ── Paleta de colores unificada ──
 private val Primary = Color(0xFF4F46E5)
-private val PrimaryHover = Color(0xFF4338CA)
 private val Success = Color(0xFF10B981)
 private val Danger = Color(0xFFEF4444)
-private val Warning = Color(0xFFF59E0B)
 private val Slate900 = Color(0xFF0F172A)
-private val Slate800 = Color(0xFF1E293B)
 private val Slate700 = Color(0xFF334155)
 private val Slate600 = Color(0xFF475569)
 private val Slate500 = Color(0xFF64748B)
@@ -83,7 +81,10 @@ fun UsuariosScreen(viewModel: UsuariosViewModel = viewModel()) {
                 }
             }
 
-            // Tabla
+            // Detección de ancho (sin BoxWithConstraints)
+            val configuration = LocalConfiguration.current
+            val wideMode = configuration.screenWidthDp > 600
+
             Card(
                 modifier = Modifier
                     .weight(1f)
@@ -92,52 +93,62 @@ fun UsuariosScreen(viewModel: UsuariosViewModel = viewModel()) {
                 colors = CardDefaults.cardColors(containerColor = White),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
             ) {
-                Column {
-                    // Encabezados de tabla
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Slate50)
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        TableHeader("Usuario", Modifier.weight(2f))
-                        TableHeader("Rol / Permisos", Modifier.weight(2f))
-                        TableHeader("Estado", Modifier.weight(1.5f))
-                        TableHeader("Acciones", Modifier.weight(1f), alignEnd = true)
+                if (state.isLoading && state.usuarios.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Primary)
                     }
-                    Divider(color = Slate200)
+                } else if (state.usuarios.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No se encontraron usuarios.", color = Slate400)
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        // Encabezados solo en modo ancho
+                        if (wideMode) {
+                            item {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Slate50)
+                                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    TableHeader("Usuario", Modifier.weight(2f))
+                                    TableHeader("Rol / Permisos", Modifier.weight(2f))
+                                    TableHeader("Estado", Modifier.weight(1.5f))
+                                    TableHeader("Acciones", Modifier.weight(1f), alignEnd = true)
+                                }
+                                Divider(color = Slate200)
+                            }
+                        }
 
-                    if (state.isLoading && state.usuarios.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = Primary)
-                        }
-                    } else if (state.usuarios.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No se encontraron usuarios.", color = Slate400)
-                        }
-                    } else {
-                        LazyColumn(modifier = Modifier.weight(1f)) {
-                            itemsIndexed(
-                                items = viewModel.paginatedUsuarios,
-                                key = { _, u -> u.id }
-                            ) { _, usuario ->
+                        itemsIndexed(
+                            items = viewModel.paginatedUsuarios,
+                            key = { _, u -> u.id }
+                        ) { _, usuario ->
+                            if (wideMode) {
                                 UsuarioRow(
+                                    usuario = usuario,
+                                    onEdit = { viewModel.abrirEdicion(usuario) }
+                                )
+                            } else {
+                                UsuarioCardCompact(
                                     usuario = usuario,
                                     onEdit = { viewModel.abrirEdicion(usuario) }
                                 )
                             }
                         }
-                    }
 
-                    // Paginación
-                    if (state.totalPages > 1) {
-                        Divider(color = Slate200)
-                        PaginationBar(
-                            currentPage = state.currentPage,
-                            totalPages = state.totalPages,
-                            onPage = { viewModel.setPage(it) }
-                        )
+                        if (state.totalPages > 1) {
+                            item {
+                                Divider(color = Slate200)
+                                PaginationBar(
+                                    currentPage = state.currentPage,
+                                    totalPages = state.totalPages,
+                                    onPage = { viewModel.setPage(it) }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -164,8 +175,7 @@ fun UsuariosScreen(viewModel: UsuariosViewModel = viewModel()) {
     }
 }
 
-// ---------- Componentes ----------
-
+// ── Header ──
 @Composable
 private fun UsuariosHeader(
     searchTerm: String,
@@ -173,18 +183,9 @@ private fun UsuariosHeader(
     onAdd: () -> Unit
 ) {
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
-        Text(
-            "Gestión de Personal",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = Slate900
-        )
+        Text("Gestión de Personal", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
         Spacer(Modifier.height(4.dp))
-        Text(
-            "Administra los accesos y roles de la farmacia",
-            fontSize = 14.sp,
-            color = Slate500
-        )
+        Text("Administra los accesos y roles de la farmacia", fontSize = 14.sp, color = Slate500)
         Spacer(Modifier.height(12.dp))
         Row(
             Modifier.fillMaxWidth(),
@@ -195,7 +196,7 @@ private fun UsuariosHeader(
                 value = searchTerm,
                 onValueChange = onSearchChange,
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Buscar por usuario o rol...") },
+                placeholder = { Text("Buscar por usuario o rol...", fontSize = 14.sp, color = Slate400) },
                 leadingIcon = { Icon(Icons.Default.Search, null, tint = Slate400) },
                 singleLine = true,
                 shape = RoundedCornerShape(40.dp),
@@ -207,9 +208,10 @@ private fun UsuariosHeader(
             Button(
                 onClick = onAdd,
                 shape = RoundedCornerShape(40.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
             ) {
-                Text("＋ Nuevo Usuario")
+                Text("＋ Nuevo Usuario", fontWeight = FontWeight.Medium, fontSize = 14.sp)
             }
         }
     }
@@ -218,7 +220,7 @@ private fun UsuariosHeader(
 @Composable
 private fun TableHeader(text: String, modifier: Modifier, alignEnd: Boolean = false) {
     Text(
-        text = text.uppercase(),   // CORREGIDO: usar uppercase en lugar de textTransform
+        text = text.uppercase(),
         modifier = modifier,
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
@@ -227,11 +229,25 @@ private fun TableHeader(text: String, modifier: Modifier, alignEnd: Boolean = fa
     )
 }
 
+// ── Modo Tabla (ancho) ──
 @Composable
 private fun UsuarioRow(
     usuario: com.sanidad.movil.data.remote.dto.UsuarioResponse,
     onEdit: () -> Unit
 ) {
+    val rolColor = when (usuario.rol) {
+        "ADMIN" -> Color(0xFF0369A1)
+        "VENDEDOR" -> Color(0xFF92400E)
+        "FARMACEUTICO" -> Color(0xFF9A3412)
+        else -> Slate500
+    }
+    val rolBg = when (usuario.rol) {
+        "ADMIN" -> Color(0xFFE0F2FE)
+        "VENDEDOR" -> Color(0xFFFEF3C7)
+        "FARMACEUTICO" -> Color(0xFFFED7AA)
+        else -> Slate100
+    }
+
     Column {
         Row(
             modifier = Modifier
@@ -240,23 +256,22 @@ private fun UsuarioRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar con inicial
+            // Avatar
             Box(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Success),
+                    .background(Primary.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = usuario.username.firstOrNull()?.uppercase() ?: "U",
-                    color = White,
+                    color = Primary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
             }
-            Spacer(Modifier.width(12.dp))
-            // Nombre de usuario
+            // Nombre
             Text(
                 text = usuario.username,
                 modifier = Modifier.weight(2f),
@@ -264,53 +279,37 @@ private fun UsuarioRow(
                 color = Slate900,
                 fontSize = 14.sp
             )
-            // Rol
-            val rolColor = when (usuario.rol) {
-                "ADMIN" -> Color(0xFF0369A1)
-                "VENDEDOR" -> Color(0xFF92400E)
-                "FARMACEUTICO" -> Color(0xFF9A3412)
-                else -> Slate500
+            // Rol chip
+            Box(modifier = Modifier.weight(2f)) {
+                Surface(shape = RoundedCornerShape(20.dp), color = rolBg) {
+                    Text(
+                        text = usuario.rol,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = rolColor
+                    )
+                }
             }
-            val rolBg = when (usuario.rol) {
-                "ADMIN" -> Color(0xFFE0F2FE)
-                "VENDEDOR" -> Color(0xFFFEF3C7)
-                "FARMACEUTICO" -> Color(0xFFFED7AA)
-                else -> Slate100
+            // Estado badge
+            Box(modifier = Modifier.weight(1.5f)) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFFD1FAE5)
+                ) {
+                    Text(
+                        text = "Activo",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF065F46)
+                    )
+                }
             }
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = rolBg,
-                modifier = Modifier.weight(2f)
-            ) {
-                Text(
-                    text = usuario.rol,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = rolColor
-                )
-            }
-            // Estado (siempre Activo)
-            Row(
-                modifier = Modifier.weight(1.5f),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Success)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text("Activo", color = Success, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            }
-            // Acción editar
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.CenterEnd
-            ) {
+            // Editar
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                 IconButton(onClick = onEdit, modifier = Modifier.size(34.dp)) {
-                    Icon(Icons.Default.Edit, null, tint = Primary, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Edit, null, tint = Primary)
                 }
             }
         }
@@ -318,6 +317,90 @@ private fun UsuarioRow(
     }
 }
 
+// ── Tarjeta Compacta (vertical) ──
+@Composable
+private fun UsuarioCardCompact(
+    usuario: com.sanidad.movil.data.remote.dto.UsuarioResponse,
+    onEdit: () -> Unit
+) {
+    val rolColor = when (usuario.rol) {
+        "ADMIN" -> Color(0xFF0369A1)
+        "VENDEDOR" -> Color(0xFF92400E)
+        "FARMACEUTICO" -> Color(0xFF9A3412)
+        else -> Slate500
+    }
+    val rolBg = when (usuario.rol) {
+        "ADMIN" -> Color(0xFFE0F2FE)
+        "VENDEDOR" -> Color(0xFFFEF3C7)
+        "FARMACEUTICO" -> Color(0xFFFED7AA)
+        else -> Slate100
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = White),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+    ) {
+        Box(modifier = Modifier.padding(12.dp)) {
+            // Badge de estado en la esquina superior derecha
+            Surface(
+                modifier = Modifier.align(Alignment.TopEnd),
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFFD1FAE5)
+            ) {
+                Text(
+                    "Activo",
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF065F46)
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Avatar
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Primary.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = usuario.username.firstOrNull()?.uppercase() ?: "U",
+                        color = Primary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                // Info central
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(usuario.username, fontWeight = FontWeight.Bold, color = Slate900, fontSize = 15.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Surface(shape = RoundedCornerShape(20.dp), color = rolBg) {
+                        Text(
+                            usuario.rol,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = rolColor
+                        )
+                    }
+                }
+                // Botón editar
+                IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Edit, null, tint = Primary)
+                }
+            }
+        }
+    }
+}
+
+// ── Paginación ──
 @Composable
 private fun PaginationBar(currentPage: Int, totalPages: Int, onPage: (Int) -> Unit) {
     Row(
@@ -339,9 +422,9 @@ private fun PaginationBar(currentPage: Int, totalPages: Int, onPage: (Int) -> Un
                 modifier = Modifier
                     .size(32.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (isActive) Info else Color.Transparent)
-                    .clickable { onPage(page) },   // CORREGIDO: clickable en lugar de onClick en Surface
-                color = if (isActive) Info else Color.Transparent
+                    .background(if (isActive) Primary else Color.Transparent)
+                    .clickable { onPage(page) },
+                color = if (isActive) Primary else Color.Transparent
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
@@ -359,6 +442,8 @@ private fun PaginationBar(currentPage: Int, totalPages: Int, onPage: (Int) -> Un
     }
 }
 
+// ── Formulario ──
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun UsuarioForm(
     formData: UsuarioFormState,
@@ -380,7 +465,6 @@ private fun UsuarioForm(
         )
         Spacer(Modifier.height(24.dp))
 
-        // Username
         OutlinedTextField(
             value = formData.username,
             onValueChange = { onCampoChange("username", it) },
@@ -397,7 +481,6 @@ private fun UsuarioForm(
         )
         Spacer(Modifier.height(12.dp))
 
-        // Password
         OutlinedTextField(
             value = formData.password,
             onValueChange = { onCampoChange("password", it) },
@@ -410,18 +493,9 @@ private fun UsuarioForm(
         )
         Spacer(Modifier.height(16.dp))
 
-        // Rol
-        Text(
-            "Rol Asignado",
-            fontWeight = FontWeight.Bold,
-            color = Slate600,
-            fontSize = 12.sp
-        )
+        Text("Rol Asignado", fontWeight = FontWeight.Bold, color = Slate600, fontSize = 12.sp)
         Spacer(Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("VENDEDOR", "FARMACEUTICO", "ADMIN").forEach { role ->
                 val isSelected = formData.rol == role
                 Button(
@@ -439,30 +513,22 @@ private fun UsuarioForm(
             }
         }
 
-        // Error del formulario
         if (formError != null) {
             Spacer(Modifier.height(12.dp))
             Text(formError, color = Danger, style = MaterialTheme.typography.bodySmall)
         }
 
         Spacer(Modifier.height(24.dp))
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            OutlinedButton(
-                onClick = onCancel,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(40.dp)
-            ) { Text("Cancelar") }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f), shape = RoundedCornerShape(40.dp)) {
+                Text("Cancelar")
+            }
             Button(
                 onClick = onGuardar,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(40.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Success)
-            ) {
-                Text(if (isEditMode) "Actualizar" else "Guardar")
-            }
+            ) { Text(if (isEditMode) "Actualizar" else "Guardar") }
         }
     }
 }

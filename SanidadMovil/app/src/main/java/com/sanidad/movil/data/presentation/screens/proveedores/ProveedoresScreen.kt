@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -63,11 +64,10 @@ fun ProveedoresScreen(viewModel: ProveedoresViewModel = viewModel()) {
 
     Scaffold(containerColor = Slate50) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            // Header
+            // Header (botón siempre visible)
             ProveedoresHeader(
                 searchQuery = state.searchQuery,
                 onSearchChange = { viewModel.setSearch(it) },
-                isAdmin = isAdmin,
                 onAdd = { viewModel.abrirNuevo() }
             )
 
@@ -93,42 +93,61 @@ fun ProveedoresScreen(viewModel: ProveedoresViewModel = viewModel()) {
                 }
             }
 
-            // Tabla
+            // Detección de ancho
+            val configuration = LocalConfiguration.current
+            val wideMode = configuration.screenWidthDp > 600
+
             Card(
-                modifier = Modifier.weight(1f).padding(16.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(16.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = White),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
             ) {
-                Column {
-                    // Encabezados
-                    Row(
-                        modifier = Modifier.fillMaxWidth().background(Slate50).padding(horizontal = 20.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        TableHeader("RUC", Modifier.weight(1.5f))
-                        TableHeader("Razón Social / Nombre", Modifier.weight(2.5f))
-                        TableHeader("Teléfono", Modifier.weight(1.5f))
-                        TableHeader("Correo", Modifier.weight(2f))
-                        if (isAdmin) TableHeader("Acciones", Modifier.weight(1.5f), alignEnd = true)
+                if (state.isLoading && state.proveedores.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Primary)
                     }
-                    Divider(color = Slate200)
+                } else if (state.proveedores.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No se encontraron proveedores activos.", color = Slate400)
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        // Encabezados solo en modo ancho
+                        if (wideMode) {
+                            item {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Slate50)
+                                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    TableHeader("RUC", Modifier.weight(1.5f))
+                                    TableHeader("Razón Social / Nombre", Modifier.weight(2.5f))
+                                    TableHeader("Teléfono", Modifier.weight(1.5f))
+                                    TableHeader("Correo", Modifier.weight(2f))
+                                    TableHeader("Acciones", Modifier.weight(1.5f), alignEnd = true)
+                                }
+                                Divider(color = Slate200)
+                            }
+                        }
 
-                    if (state.isLoading && state.proveedores.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = Primary)
-                        }
-                    } else if (state.proveedores.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No se encontraron proveedores activos.", color = Slate400)
-                        }
-                    } else {
-                        LazyColumn(modifier = Modifier.weight(1f)) {
-                            itemsIndexed(
-                                items = viewModel.paginatedProveedores,
-                                key = { _, p -> p.id }
-                            ) { _, prov ->
+                        itemsIndexed(
+                            items = viewModel.paginatedProveedores,
+                            key = { _, p -> p.id }
+                        ) { _, prov ->
+                            if (wideMode) {
                                 ProveedorRow(
+                                    proveedor = prov,
+                                    isAdmin = isAdmin,
+                                    onEdit = { viewModel.abrirEdicion(prov) },
+                                    onDesactivar = { viewModel.solicitarDesactivar(prov.id) }
+                                )
+                            } else {
+                                ProveedorCardCompact(
                                     proveedor = prov,
                                     isAdmin = isAdmin,
                                     onEdit = { viewModel.abrirEdicion(prov) },
@@ -136,16 +155,17 @@ fun ProveedoresScreen(viewModel: ProveedoresViewModel = viewModel()) {
                                 )
                             }
                         }
-                    }
 
-                    // Paginación
-                    if (state.totalPages > 1) {
-                        Divider(color = Slate200)
-                        PaginationBar(
-                            currentPage = state.currentPage,
-                            totalPages = state.totalPages,
-                            onPage = { viewModel.setPage(it) }
-                        )
+                        if (state.totalPages > 1) {
+                            item {
+                                Divider(color = Slate200)
+                                PaginationBar(
+                                    currentPage = state.currentPage,
+                                    totalPages = state.totalPages,
+                                    onPage = { viewModel.setPage(it) }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -172,13 +192,11 @@ fun ProveedoresScreen(viewModel: ProveedoresViewModel = viewModel()) {
     }
 }
 
-// ---------- Componentes ----------
-
+// ---------- Header (botón siempre visible) ----------
 @Composable
 private fun ProveedoresHeader(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
-    isAdmin: Boolean,
     onAdd: () -> Unit
 ) {
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
@@ -213,14 +231,13 @@ private fun ProveedoresHeader(
                     focusedBorderColor = Primary
                 )
             )
-            if (isAdmin) {
-                Button(
-                    onClick = onAdd,
-                    shape = RoundedCornerShape(40.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
-                ) {
-                    Text("＋ Nuevo Proveedor")
-                }
+            // ✅ Botón siempre visible
+            Button(
+                onClick = onAdd,
+                shape = RoundedCornerShape(40.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+            ) {
+                Text("＋ Nuevo Proveedor")
             }
         }
     }
@@ -238,6 +255,7 @@ private fun TableHeader(text: String, modifier: Modifier, alignEnd: Boolean = fa
     )
 }
 
+// ---------- Modo Tabla (ancho) ----------
 @Composable
 private fun ProveedorRow(
     proveedor: com.sanidad.movil.data.remote.dto.ProveedorResponse,
@@ -247,23 +265,29 @@ private fun ProveedorRow(
 ) {
     Column {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // RUC
             Text(text = proveedor.ruc, modifier = Modifier.weight(1.5f), fontSize = 13.sp, color = Slate500)
-            // Nombre
             Text(text = proveedor.nombre, modifier = Modifier.weight(2.5f), fontWeight = FontWeight.Bold, color = Slate900, fontSize = 14.sp)
-            // Teléfono
             Text(text = proveedor.telefono ?: "—", modifier = Modifier.weight(1.5f), color = Slate700, fontSize = 14.sp)
-            // Correo
             Text(text = proveedor.email ?: "—", modifier = Modifier.weight(2f), color = Slate700, fontSize = 14.sp)
             // Acciones
-            if (isAdmin) {
-                Row(modifier = Modifier.weight(1.5f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Edit, null, tint = Primary) }
-                    IconButton(onClick = onDesactivar, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Delete, null, tint = Danger) }
+            Row(
+                modifier = Modifier.weight(1.5f),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isAdmin) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Edit, null, tint = Primary)
+                    }
+                    IconButton(onClick = onDesactivar, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Delete, null, tint = Danger)
+                    }
                 }
             }
         }
@@ -271,19 +295,77 @@ private fun ProveedorRow(
     }
 }
 
+// ---------- Tarjeta Compacta (vertical) ----------
+@Composable
+private fun ProveedorCardCompact(
+    proveedor: com.sanidad.movil.data.remote.dto.ProveedorResponse,
+    isAdmin: Boolean,
+    onEdit: () -> Unit,
+    onDesactivar: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = White),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(proveedor.nombre, fontWeight = FontWeight.Bold, color = Slate900, fontSize = 15.sp)
+                    Text(proveedor.ruc, fontSize = 13.sp, color = Slate500)
+                }
+                if (isAdmin) {
+                    Row {
+                        IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Edit, null, tint = Primary)
+                        }
+                        IconButton(onClick = onDesactivar, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Delete, null, tint = Danger)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    InfoLabel("Teléfono")
+                    Text(proveedor.telefono ?: "—", fontSize = 13.sp, color = Slate700)
+                }
+                Column {
+                    InfoLabel("Correo")
+                    Text(proveedor.email ?: "—", fontSize = 13.sp, color = Slate700)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoLabel(text: String) {
+    Text(text, fontSize = 10.sp, color = Slate400, fontWeight = FontWeight.Medium)
+}
+
+// ---------- Paginación ----------
 @Composable
 private fun PaginationBar(currentPage: Int, totalPages: Int, onPage: (Int) -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(Slate50).padding(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Slate50)
+            .padding(16.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TextButton(onClick = { onPage(currentPage - 1) }, enabled = currentPage > 1) { Text("← Anterior") }
+        TextButton(onClick = { onPage(currentPage - 1) }, enabled = currentPage > 1) {
+            Text("← Anterior")
+        }
         val start = maxOf(1, currentPage - 2)
         val end = minOf(totalPages, currentPage + 2)
         for (page in start..end) {
             val isActive = page == currentPage
-            // CORRECCIÓN: Surface con Modifier.clickable y sin onClick
             Surface(
                 modifier = Modifier
                     .size(32.dp)
@@ -293,15 +375,22 @@ private fun PaginationBar(currentPage: Int, totalPages: Int, onPage: (Int) -> Un
                 color = if (isActive) Primary else Color.Transparent
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(page.toString(), color = if (isActive) White else Slate500, fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal)
+                    Text(
+                        page.toString(),
+                        color = if (isActive) White else Slate500,
+                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
+                    )
                 }
             }
             Spacer(Modifier.width(4.dp))
         }
-        TextButton(onClick = { onPage(currentPage + 1) }, enabled = currentPage < totalPages) { Text("Siguiente →") }
+        TextButton(onClick = { onPage(currentPage + 1) }, enabled = currentPage < totalPages) {
+            Text("Siguiente →")
+        }
     }
 }
 
+// ---------- Formulario (sin cambios) ----------
 @Composable
 private fun ProveedorForm(
     formData: ProveedorFormState,
@@ -312,7 +401,9 @@ private fun ProveedorForm(
     onCancel: () -> Unit
 ) {
     Column(
-        modifier = Modifier.verticalScroll(rememberScrollState()).padding(24.dp)
+        modifier = Modifier
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp)
     ) {
         Text(
             text = if (isEditMode) "Editar Proveedor" else "Nuevo Proveedor",
@@ -371,8 +462,15 @@ private fun ProveedorForm(
 
         Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f), shape = RoundedCornerShape(40.dp)) { Text("Cancelar") }
-            Button(onClick = onGuardar, modifier = Modifier.weight(1f), shape = RoundedCornerShape(40.dp), colors = ButtonDefaults.buttonColors(containerColor = Success)) {
+            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f), shape = RoundedCornerShape(40.dp)) {
+                Text("Cancelar")
+            }
+            Button(
+                onClick = onGuardar,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(40.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Success)
+            ) {
                 Text(if (isEditMode) "Actualizar" else "Guardar")
             }
         }

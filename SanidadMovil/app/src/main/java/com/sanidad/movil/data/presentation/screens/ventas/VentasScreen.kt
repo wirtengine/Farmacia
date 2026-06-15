@@ -16,13 +16,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
 import com.sanidad.movil.data.UserSession
 import com.sanidad.movil.data.remote.dto.VentaResponse
 import java.text.NumberFormat
@@ -51,7 +50,6 @@ fun VentasScreen(
 
     Scaffold(containerColor = Slate50) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            // Header
             VentasHeader(
                 searchQuery = state.searchQuery,
                 onSearchChange = { viewModel.setSearch(it) },
@@ -62,7 +60,6 @@ fun VentasScreen(
                 onNuevaVenta = onNuevaVenta
             )
 
-            // Error
             AnimatedVisibility(visible = state.error != null) {
                 state.error?.let { error ->
                     Surface(
@@ -84,33 +81,21 @@ fun VentasScreen(
                 }
             }
 
-            // Tabla de ventas
-            Card(
+            // Contenedor principal adaptativo (sin BoxWithConstraints)
+            val configuration = LocalConfiguration.current
+            val wideMode = configuration.screenWidthDp > 600
+
+            Box(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = White),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+                    .padding(16.dp)
             ) {
-                Column {
-                    // Encabezados
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Slate50)
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        TableHeader("Factura", Modifier.weight(1f))
-                        TableHeader("Vendedor", Modifier.weight(1.2f))
-                        TableHeader("Cliente", Modifier.weight(1.5f))
-                        TableHeader("Medicamentos", Modifier.weight(3f))
-                        TableHeader("Total", Modifier.weight(1f))
-                        TableHeader("Acción", Modifier.weight(0.8f), alignEnd = true)
-                    }
-                    Divider(color = Slate200)
-
+                Card(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = White),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+                ) {
                     if (state.isLoading && state.ventas.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = Primary)
@@ -121,23 +106,48 @@ fun VentasScreen(
                         }
                     } else {
                         LazyColumn(modifier = Modifier.weight(1f)) {
+                            if (wideMode) {
+                                item {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(Slate50)
+                                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        TableHeader("Factura", Modifier.weight(1f))
+                                        TableHeader("Vendedor", Modifier.weight(1.2f))
+                                        TableHeader("Cliente", Modifier.weight(1.5f))
+                                        TableHeader("Medicamentos", Modifier.weight(3f))
+                                        TableHeader("Total", Modifier.weight(1f))
+                                        TableHeader("Acción", Modifier.weight(0.8f), alignEnd = true)
+                                    }
+                                    Divider(color = Slate200)
+                                }
+                            }
+
                             itemsIndexed(
                                 items = viewModel.paginatedVentas,
                                 key = { _, v -> v.id }
                             ) { _, venta ->
-                                VentaRow(venta = venta)
+                                if (wideMode) {
+                                    VentaRow(venta = venta)
+                                } else {
+                                    VentaCardCompact(venta = venta)
+                                }
+                            }
+
+                            if (state.totalPages > 1) {
+                                item {
+                                    Divider(color = Slate200)
+                                    PaginationBar(
+                                        currentPage = state.currentPage,
+                                        totalPages = state.totalPages,
+                                        onPage = { viewModel.setPage(it) }
+                                    )
+                                }
                             }
                         }
-                    }
-
-                    // Paginación
-                    if (state.totalPages > 1) {
-                        Divider(color = Slate200)
-                        PaginationBar(
-                            currentPage = state.currentPage,
-                            totalPages = state.totalPages,
-                            onPage = { viewModel.setPage(it) }
-                        )
                     }
                 }
             }
@@ -145,6 +155,7 @@ fun VentasScreen(
     }
 }
 
+/* ──────────────────── Header (botón siempre visible) ──────────────────── */
 @Composable
 private fun VentasHeader(
     searchQuery: String,
@@ -167,7 +178,7 @@ private fun VentasHeader(
                 value = searchQuery,
                 onValueChange = onSearchChange,
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Buscar factura o cliente...") },
+                placeholder = { Text("Buscar factura o cliente...", fontSize = 14.sp, color = Slate400) },
                 leadingIcon = { Icon(Icons.Default.Search, null, tint = Slate400) },
                 singleLine = true,
                 shape = RoundedCornerShape(40.dp),
@@ -184,7 +195,7 @@ private fun VentasHeader(
                             contentColor = if (empleadoFiltrado != null) White else Slate500
                         )
                     ) {
-                        Text(empleadoFiltrado ?: "Vendedores")
+                        Text(empleadoFiltrado ?: "Vendedores", fontSize = 14.sp)
                     }
                     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                         DropdownMenuItem(
@@ -203,15 +214,15 @@ private fun VentasHeader(
             Button(
                 onClick = onNuevaVenta,
                 shape = RoundedCornerShape(40.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Slate900)
-            ) { Text("＋ Nueva Venta") }
+                colors = ButtonDefaults.buttonColors(containerColor = Slate900),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+            ) { Text("＋ Nueva Venta", fontWeight = FontWeight.Medium, fontSize = 14.sp) }
         }
     }
 }
 
 @Composable
 private fun TableHeader(text: String, modifier: Modifier, alignEnd: Boolean = false) {
-    // CORRECCIÓN: usar .uppercase() en lugar de textTransform
     Text(
         text = text.uppercase(),
         modifier = modifier,
@@ -222,6 +233,7 @@ private fun TableHeader(text: String, modifier: Modifier, alignEnd: Boolean = fa
     )
 }
 
+/* ──────────────────── Modo Tabla (ancho) ──────────────────── */
 @Composable
 private fun VentaRow(venta: VentaResponse) {
     Column {
@@ -233,16 +245,19 @@ private fun VentaRow(venta: VentaResponse) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("#${venta.numeroFactura}", Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Surface(shape = RoundedCornerShape(6.dp), color = Primary.copy(alpha = 0.1f)) {
-                Text(
-                    venta.usuarioUsername,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    color = Primary,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 12.sp
-                )
+            // Vendedor
+            Box(modifier = Modifier.weight(1.2f)) {
+                Surface(shape = RoundedCornerShape(6.dp), color = Primary.copy(alpha = 0.1f)) {
+                    Text(
+                        venta.usuarioUsername,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        color = Primary,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp
+                    )
+                }
             }
-            Spacer(Modifier.width(4.dp))
+            // Cliente
             Text(
                 venta.clienteNombre ?: "Consumidor Final",
                 modifier = Modifier.weight(1.5f),
@@ -267,19 +282,117 @@ private fun VentaRow(venta: VentaResponse) {
                 }
                 if (venta.detalles.size > 3) Text("+${venta.detalles.size - 3}", fontSize = 12.sp, color = Slate400)
             }
+            // Total
             Text(
                 formatCurrency(venta.total ?: 0.0),
                 modifier = Modifier.weight(1f),
                 fontWeight = FontWeight.Bold,
                 color = Success,
-                fontSize = 14.sp
+                fontSize = 14.sp,
+                textAlign = TextAlign.End
             )
-            Icon(Icons.Default.Print, null, tint = Slate400, modifier = Modifier.size(24.dp).weight(0.8f))
+            // Acción
+            Box(modifier = Modifier.weight(0.8f), contentAlignment = Alignment.CenterEnd) {
+                Icon(Icons.Default.Print, null, tint = Slate400, modifier = Modifier.size(24.dp))
+            }
         }
         Divider(color = Slate100)
     }
 }
 
+/* ──────────────────── Tarjeta Compacta mejorada ──────────────────── */
+@Composable
+private fun VentaCardCompact(venta: VentaResponse) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = White),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+    ) {
+        Box(modifier = Modifier.padding(12.dp)) {
+            // Total destacado en la esquina superior derecha
+            Surface(
+                modifier = Modifier.align(Alignment.TopEnd),
+                shape = RoundedCornerShape(20.dp),
+                color = Success.copy(alpha = 0.1f)
+            ) {
+                Text(
+                    formatCurrency(venta.total ?: 0.0),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Success
+                )
+            }
+
+            Column {
+                // Fila 1: Factura + Cliente
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("#${venta.numeroFactura}", fontWeight = FontWeight.Bold, color = Slate900, fontSize = 15.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        venta.clienteNombre ?: "Consumidor Final",
+                        fontSize = 13.sp,
+                        color = Slate500
+                    )
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                // Fila 2: Vendedor
+                Surface(shape = RoundedCornerShape(6.dp), color = Primary.copy(alpha = 0.1f)) {
+                    Text(
+                        venta.usuarioUsername,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        color = Primary,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 11.sp
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // Fila 3: Medicamentos chips
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    venta.detalles.take(3).forEach { det ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Slate100,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+                        ) {
+                            Text(
+                                "${det.medicamentoNombre} x${det.cantidad}",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                    if (venta.detalles.size > 3) {
+                        Text("+${venta.detalles.size - 3}", fontSize = 11.sp, color = Slate400)
+                    }
+                }
+
+                // Fila 4: Acción (imprimir)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton(onClick = { /* Imprimir factura */ }, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Print, null, tint = Slate400)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/* ──────────────────── Paginación ──────────────────── */
 @Composable
 private fun PaginationBar(currentPage: Int, totalPages: Int, onPage: (Int) -> Unit) {
     Row(
@@ -294,7 +407,6 @@ private fun PaginationBar(currentPage: Int, totalPages: Int, onPage: (Int) -> Un
         val end = minOf(totalPages, currentPage + 2)
         for (page in start..end) {
             val isActive = page == currentPage
-            // CORRECCIÓN: usar Modifier.clickable y fondo condicional
             Surface(
                 modifier = Modifier
                     .size(32.dp)

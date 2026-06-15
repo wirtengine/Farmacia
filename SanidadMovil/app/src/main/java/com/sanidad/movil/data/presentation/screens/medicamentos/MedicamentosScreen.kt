@@ -22,9 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -33,6 +35,7 @@ import com.sanidad.movil.data.UserSession
 import java.text.NumberFormat
 import java.util.Locale
 
+// ── Paleta de colores ──
 private val Primary = Color(0xFF4F46E5)
 private val Success = Color(0xFF10B981)
 private val Danger = Color(0xFFEF4444)
@@ -52,7 +55,6 @@ fun MedicamentosScreen(viewModel: MedicamentosViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsState()
     val isAdmin = UserSession.isAdmin()
 
-    // Diálogo de confirmación
     if (state.showConfirmDialog) {
         AlertDialog(
             onDismissRequest = { viewModel.cancelarConfirmacion() },
@@ -69,16 +71,13 @@ fun MedicamentosScreen(viewModel: MedicamentosViewModel = viewModel()) {
 
     Scaffold(containerColor = Slate50) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            // Header
             MedicamentosHeader(
                 searchQuery = state.searchQuery,
                 onSearchChange = { viewModel.setSearch(it) },
-                isAdmin = isAdmin,
                 onAdd = { viewModel.abrirNuevo() },
                 onPDF = { viewModel.generarPDF() }
             )
 
-            // Mensaje de error
             AnimatedVisibility(visible = state.error != null) {
                 state.error?.let { error ->
                     Surface(
@@ -100,31 +99,21 @@ fun MedicamentosScreen(viewModel: MedicamentosViewModel = viewModel()) {
                 }
             }
 
-            // Tabla
-            Card(
-                modifier = Modifier.weight(1f).padding(16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = White),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
-            ) {
-                Column {
-                    // Encabezados
-                    Row(
-                        modifier = Modifier.fillMaxWidth().background(Slate50).padding(horizontal = 20.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        TableHeader("Imagen", Modifier.weight(0.8f))
-                        TableHeader("Medicamento", Modifier.weight(2f))
-                        TableHeader("Registro", Modifier.weight(1.5f))
-                        TableHeader("Fabricante", Modifier.weight(1.5f))
-                        TableHeader("Presentación", Modifier.weight(1f))
-                        TableHeader("Vía", Modifier.weight(0.8f))
-                        TableHeader("Precio", Modifier.weight(1f))
-                        TableHeader("Estado", Modifier.weight(0.8f))
-                        if (isAdmin) TableHeader("Acciones", Modifier.weight(1.2f), alignEnd = true)
-                    }
-                    Divider(color = Slate200)
+            // Contenedor principal adaptativo (sin BoxWithConstraints)
+            val configuration = LocalConfiguration.current
+            val wideMode = configuration.screenWidthDp > 600
 
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(16.dp)
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = White),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+                ) {
                     if (state.isLoading && state.medicamentos.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = Primary)
@@ -135,35 +124,69 @@ fun MedicamentosScreen(viewModel: MedicamentosViewModel = viewModel()) {
                         }
                     } else {
                         LazyColumn(modifier = Modifier.weight(1f)) {
+                            if (wideMode) {
+                                item {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(Slate50)
+                                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        TableHeader("Imagen", Modifier.weight(0.8f))
+                                        TableHeader("Medicamento", Modifier.weight(2f))
+                                        TableHeader("Registro", Modifier.weight(1.5f))
+                                        TableHeader("Fabricante", Modifier.weight(1.5f))
+                                        TableHeader("Presentación", Modifier.weight(1f))
+                                        TableHeader("Vía", Modifier.weight(0.8f))
+                                        TableHeader("Precio", Modifier.weight(1f))
+                                        TableHeader("Estado", Modifier.weight(0.8f))
+                                        if (isAdmin) TableHeader("Acciones", Modifier.weight(1.2f), alignEnd = true)
+                                    }
+                                    Divider(color = Slate200)
+                                }
+                            }
+
                             itemsIndexed(
                                 items = viewModel.paginatedMedicamentos,
                                 key = { _, m -> m.id }
-                            ) { _, med ->
-                                MedicamentoRow(
-                                    medicamento = med,
-                                    isAdmin = isAdmin,
-                                    onEdit = { viewModel.abrirEdicion(med) },
-                                    onDesactivar = { viewModel.solicitarDesactivar(med.id) },
-                                    onReactivar = { viewModel.solicitarReactivar(med.id) }
-                                )
+                            ) { index, med ->
+                                if (wideMode) {
+                                    MedicamentoRow(
+                                        medicamento = med,
+                                        isAdmin = isAdmin,
+                                        onEdit = { viewModel.abrirEdicion(med) },
+                                        onDesactivar = { viewModel.solicitarDesactivar(med.id) },
+                                        onReactivar = { viewModel.solicitarReactivar(med.id) }
+                                    )
+                                } else {
+                                    MedicamentoCardCompact(
+                                        medicamento = med,
+                                        isAdmin = isAdmin,
+                                        onEdit = { viewModel.abrirEdicion(med) },
+                                        onDesactivar = { viewModel.solicitarDesactivar(med.id) },
+                                        onReactivar = { viewModel.solicitarReactivar(med.id) }
+                                    )
+                                }
+                            }
+
+                            if (state.totalPages > 1) {
+                                item {
+                                    Divider(color = Slate200)
+                                    PaginationBar(
+                                        currentPage = state.currentPage,
+                                        totalPages = state.totalPages,
+                                        onPage = { viewModel.setPage(it) }
+                                    )
+                                }
                             }
                         }
-                    }
-
-                    if (state.totalPages > 1) {
-                        Divider(color = Slate200)
-                        PaginationBar(
-                            currentPage = state.currentPage,
-                            totalPages = state.totalPages,
-                            onPage = { viewModel.setPage(it) }
-                        )
                     }
                 }
             }
         }
     }
 
-    // Bottom Sheet formulario
     if (state.showSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
@@ -184,11 +207,11 @@ fun MedicamentosScreen(viewModel: MedicamentosViewModel = viewModel()) {
     }
 }
 
+/* ──────────────────── Header ──────────────────── */
 @Composable
 private fun MedicamentosHeader(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
-    isAdmin: Boolean,
     onAdd: () -> Unit,
     onPDF: () -> Unit
 ) {
@@ -204,7 +227,7 @@ private fun MedicamentosHeader(
                 value = searchQuery,
                 onValueChange = onSearchChange,
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Buscar medicamento...") },
+                placeholder = { Text("Buscar medicamento...", fontSize = 14.sp, color = Slate400) },
                 leadingIcon = { Icon(Icons.Default.Search, null, tint = Slate400) },
                 singleLine = true,
                 shape = RoundedCornerShape(40.dp),
@@ -217,15 +240,14 @@ private fun MedicamentosHeader(
             ) {
                 Icon(Icons.Default.PictureAsPdf, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("PDF")
+                Text("PDF", fontSize = 14.sp)
             }
-            if (isAdmin) {
-                Button(
-                    onClick = onAdd,
-                    shape = RoundedCornerShape(40.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
-                ) { Text("＋ Nuevo") }
-            }
+            Button(
+                onClick = onAdd,
+                shape = RoundedCornerShape(40.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+            ) { Text("＋ Nuevo", fontWeight = FontWeight.Medium, fontSize = 14.sp) }
         }
     }
 }
@@ -242,6 +264,7 @@ private fun TableHeader(text: String, modifier: Modifier, alignEnd: Boolean = fa
     )
 }
 
+/* ──────────────────── Modo Tabla ──────────────────── */
 @Composable
 private fun MedicamentoRow(
     medicamento: com.sanidad.movil.data.remote.dto.MedicamentoResponse,
@@ -256,7 +279,6 @@ private fun MedicamentoRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Imagen
             Box(modifier = Modifier.weight(0.8f), contentAlignment = Alignment.CenterStart) {
                 if (medicamento.imagen != null) {
                     AsyncImage(
@@ -269,25 +291,18 @@ private fun MedicamentoRow(
                     Text("—", color = Slate400)
                 }
             }
-            // Nombre
             Text(medicamento.nombre, modifier = Modifier.weight(2f), fontWeight = FontWeight.Bold, color = Slate900, fontSize = 14.sp)
-            // Registro
             Text(medicamento.registroSanitario, modifier = Modifier.weight(1.5f), color = Slate500, fontSize = 13.sp)
-            // Fabricante
             Text(medicamento.fabricante ?: "—", modifier = Modifier.weight(1.5f), color = Slate700, fontSize = 13.sp)
-            // Presentación
             Surface(shape = RoundedCornerShape(40.dp), color = Slate100) {
                 Text(medicamento.presentacion ?: "Tableta", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
             }
-            // Vía
             Surface(shape = RoundedCornerShape(40.dp), color = Primary.copy(alpha = 0.1f)) {
                 Text(medicamento.via ?: "ORAL", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Primary)
             }
-            // Precio
             Text(formatCurrency(medicamento.precioUnitario), modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Primary, fontSize = 14.sp)
-            // Estado
             val (statusText, statusBg, statusColor) = if (medicamento.activo) {
                 Triple("Activo", Color(0xFFD1FAE5), Color(0xFF065F46))
             } else {
@@ -297,7 +312,6 @@ private fun MedicamentoRow(
                 Text(statusText, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     fontSize = 11.sp, fontWeight = FontWeight.Bold, color = statusColor)
             }
-            // Acciones
             if (isAdmin) {
                 Row(modifier = Modifier.weight(1.2f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Edit, null, tint = Primary) }
@@ -315,6 +329,169 @@ private fun MedicamentoRow(
     }
 }
 
+/* ──────────────────── Tarjeta Compacta mejorada ──────────────────── */
+@Composable
+private fun MedicamentoCardCompact(
+    medicamento: com.sanidad.movil.data.remote.dto.MedicamentoResponse,
+    isAdmin: Boolean,
+    onEdit: () -> Unit,
+    onDesactivar: () -> Unit,
+    onReactivar: () -> Unit
+) {
+    val (statusText, statusBg, statusColor) = if (medicamento.activo) {
+        Triple("Activo", Color(0xFFD1FAE5), Color(0xFF065F46))
+    } else {
+        Triple("Inactivo", Color(0xFFFEE2E2), Color(0xFF991B1B))
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = White),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+    ) {
+        Box(modifier = Modifier.padding(12.dp)) {
+            // Badge de estado en esquina superior derecha
+            Surface(
+                modifier = Modifier.align(Alignment.TopEnd),
+                shape = RoundedCornerShape(20.dp),
+                color = statusBg
+            ) {
+                Text(
+                    statusText,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = statusColor
+                )
+            }
+
+            Column {
+                // Fila 1: Imagen + Nombre + Badges
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (medicamento.imagen != null) {
+                        AsyncImage(
+                            model = "http://172.16.66.6:8080/${medicamento.imagen.replace("\\", "/")}",
+                            contentDescription = null,
+                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(Slate100),
+                            contentAlignment = Alignment.Center
+                        ) { Text("—", color = Slate400) }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(medicamento.nombre, fontWeight = FontWeight.Bold, color = Slate900, fontSize = 15.sp)
+                        Spacer(Modifier.height(2.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Surface(shape = RoundedCornerShape(20.dp), color = Slate100) {
+                                Text(
+                                    medicamento.presentacion ?: "Tableta",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    fontSize = 11.sp, color = Slate700
+                                )
+                            }
+                            Surface(shape = RoundedCornerShape(20.dp), color = Primary.copy(alpha = 0.1f)) {
+                                Text(
+                                    medicamento.via ?: "ORAL",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    fontSize = 11.sp, color = Primary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                // Fila 2: Datos secundarios uniformes (Registro, Fabricante, Precio)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        InfoLabel("Registro")
+                        Text(
+                            medicamento.registroSanitario,
+                            fontSize = 13.sp,
+                            color = Slate700,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        InfoLabel("Fabricante")
+                        Text(
+                            medicamento.fabricante ?: "—",
+                            fontSize = 13.sp,
+                            color = Slate700,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        InfoLabel("Precio")
+                        Text(
+                            formatCurrency(medicamento.precioUnitario),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Primary,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                // Acciones de admin
+                if (isAdmin) {
+                    Spacer(Modifier.height(8.dp))
+                    Divider(color = Slate100)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = onEdit) {
+                            Icon(Icons.Default.Edit, null, tint = Primary, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Editar", color = Primary, fontSize = 13.sp)
+                        }
+                        if (medicamento.activo) {
+                            TextButton(onClick = onDesactivar) {
+                                Icon(Icons.Default.Delete, null, tint = Danger, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Desactivar", color = Danger, fontSize = 13.sp)
+                            }
+                        } else {
+                            TextButton(onClick = onReactivar) {
+                                Icon(Icons.Default.Refresh, null, tint = Success, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Reactivar", color = Success, fontSize = 13.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoLabel(text: String) {
+    Text(text, fontSize = 11.sp, color = Slate500, fontWeight = FontWeight.Medium)
+}
+
+/* ──────────────────── Paginación ──────────────────── */
 @Composable
 private fun PaginationBar(currentPage: Int, totalPages: Int, onPage: (Int) -> Unit) {
     Row(
@@ -345,6 +522,7 @@ private fun PaginationBar(currentPage: Int, totalPages: Int, onPage: (Int) -> Un
     }
 }
 
+/* ──────────────────── Formulario ──────────────────── */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MedicamentoForm(

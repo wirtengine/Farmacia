@@ -2,6 +2,7 @@ package com.sanidad.movil.data.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.sanidad.movil.data.remote.NetworkModule
 import com.sanidad.movil.data.repository.*
 import com.sanidad.movil.presentation.screens.alerts.AlertsViewModel
 import com.sanidad.movil.presentation.screens.clientes.ClientesViewModel
@@ -23,14 +24,15 @@ import com.sanidad.movil.presentation.screens.ventas.VentasViewModel
 
 object AppViewModelFactory {
 
-    // ── Dashboard ──
-    fun dashboard() = object : ViewModelProvider.Factory {
+    // ── Dashboard (corregido) ──
+    fun dashboard(): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            val api = NetworkModule.apiService
             return DashboardViewModel(
-                DashboardRepository(),
-                AlertRepository(),
-                RecommendationRepository()
+                DashboardRepository(api),
+                AlertRepository(api),
+                RecommendationRepository(api)
             ) as T
         }
     }

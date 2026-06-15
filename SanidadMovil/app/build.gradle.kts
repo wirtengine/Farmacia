@@ -142,7 +142,7 @@ dependencies {
 
     implementation("androidx.compose.material3:material3:1.3.2")
     implementation("androidx.compose.material:material-icons-extended")
-
+    implementation("com.patrykandpatrick.vico:compose-m3:1.13.1")
 
 
 

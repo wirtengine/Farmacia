@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -26,41 +27,55 @@ import com.sanidad.movil.data.remote.dto.RecommendationResponse
 import java.text.SimpleDateFormat
 import java.util.*
 
-// Paleta fiel al CSS
-private val TextMain = Color(0xFF0F172A)
-private val TextMuted = Color(0xFF64748B)
-private val BorderColor = Color(0xFFE2E8F0)
-private val BgLight = Color(0xFFF8FAFC)
-private val Primary = Color(0xFF4F46E5)
-private val Success = Color(0xFF10B981)
-private val Warning = Color(0xFFF59E0B)
-private val Danger = Color(0xFFEF4444)
-private val Slate100 = Color(0xFFF1F5F9)
-private val Slate500 = Color(0xFF64748B)
-private val Slate700 = Color(0xFF334155)
+// ── Paleta refinada (igual que Pérdidas) ─────────────────────────────────────
+private val Indigo950  = Color(0xFF1E1B4B)
+private val Indigo600  = Color(0xFF4F46E5)
+private val Indigo100  = Color(0xFFE0E7FF)
+private val Emerald600 = Color(0xFF059669)
+private val Emerald50  = Color(0xFFECFDF5)
+private val Rose600    = Color(0xFFDC2626)
+private val Rose50     = Color(0xFFFFF1F2)
+private val Amber600   = Color(0xFFD97706)
+private val Amber50    = Color(0xFFFFFBEB)
+private val Slate900   = Color(0xFF0F172A)
+private val Slate600   = Color(0xFF475569)
+private val Slate400   = Color(0xFF94A3B8)
+private val Slate200   = Color(0xFFE2E8F0)
+private val Slate100   = Color(0xFFF1F5F9)
+private val Slate50    = Color(0xFFF8FAFC)
+private val White      = Color.White
 
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+private data class TabItem(val label: String, val icon: ImageVector, val key: String)
+private val TABS = listOf(
+    TabItem("Todas",       Icons.Default.List,       "ALL"),
+    TabItem("Pendientes",  Icons.Default.Refresh,    "PENDING"),
+    TabItem("Aplicadas",   Icons.Default.CheckCircle, "ACCEPTED"),
+    TabItem("Descartadas", Icons.Default.Cancel,     "DISMISSED"),
+)
+
+// ── Pantalla principal ────────────────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecommendationsScreen(viewModel: RecommendationsViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsState()
+    val wideMode = LocalConfiguration.current.screenWidthDp > 600
 
-    Scaffold(containerColor = BgLight) { padding ->
+    Scaffold(containerColor = Slate50) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 24.dp, vertical = 32.dp)
         ) {
-            // ---- HEADER ----
+            // Header
             RecommendationsHeader(
                 lastUpdated = state.lastUpdated,
                 onGenerate = { viewModel.generarRecomendaciones() },
                 isLoading = state.isLoading
             )
 
-            Spacer(modifier = Modifier.height(30.dp))
-
-            // ---- KPI GRID ----
-            RecommendationsKpiGrid(
+            // KPI Row
+            RecommendationsKpiRow(
                 total = state.total,
                 pending = state.pending,
                 accepted = state.accepted,
@@ -68,73 +83,46 @@ fun RecommendationsScreen(viewModel: RecommendationsViewModel = viewModel()) {
                 onFilterSelected = { viewModel.setStatusFilter(it) }
             )
 
-            Spacer(modifier = Modifier.height(30.dp))
-
-            // ---- MENSAJE DE ERROR ----
+            // Error banner
             AnimatedVisibility(visible = state.error != null) {
-                state.error?.let { error ->
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFFEF2F2),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Danger)
-                    ) {
-                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Warning, null, tint = Danger, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(error, color = Color(0xFF991B1B), modifier = Modifier.weight(1f))
-                            IconButton(onClick = { viewModel.limpiarError() }, modifier = Modifier.size(20.dp)) {
-                                Icon(Icons.Default.Close, null, tint = Danger)
-                            }
-                        }
-                    }
-                }
+                state.error?.let { ErrorBanner(message = it) { viewModel.generarRecomendaciones() } }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
-            // ---- ÁREA DE CONTENIDO (TABLA) ----
-            Card(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor)
+            // Segmented tab control
+            SegmentedTabBar(
+                tabs       = TABS,
+                activeKey  = state.statusFilter,
+                onSelect   = { viewModel.setStatusFilter(it) },
+                modifier   = Modifier.padding(horizontal = 24.dp)
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            // Contenido
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 24.dp)
             ) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    // Título y filtro desplegable
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Sugerencias Optimizadas",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = TextMain
-                        )
-                        FilterDropdown(
-                            currentFilter = state.statusFilter,
-                            onFilterSelected = { viewModel.setStatusFilter(it) }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    if (state.isLoading && state.recommendations.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = Primary)
+                when {
+                    state.isLoading -> CenteredLoader()
+                    else -> AnimatedContent(
+                        targetState = state.statusFilter,
+                        transitionSpec = {
+                            fadeIn(androidx.compose.animation.core.tween(200)) togetherWith
+                                    fadeOut(androidx.compose.animation.core.tween(150))
                         }
-                    } else if (state.filteredRecs.isEmpty()) {
-                        EmptyState(state.statusFilter)
-                    } else {
-                        RecommendationsTable(
+                    ) { filter ->
+                        RecommendationsContent(
                             recs = state.filteredRecs,
                             onAccept = { viewModel.aceptarRecomendacion(it) },
                             onDismiss = { viewModel.descartarRecomendacion(it) },
                             getPriorityLabel = { viewModel.getPriorityLabel(it) },
                             getStatusDisplay = { viewModel.getStatusDisplay(it) },
-                            getTypeLabel = { viewModel.getTypeLabel(it) }
+                            getTypeLabel = { viewModel.getTypeLabel(it) },
+                            wideMode = wideMode
                         )
                     }
                 }
@@ -143,8 +131,7 @@ fun RecommendationsScreen(viewModel: RecommendationsViewModel = viewModel()) {
     }
 }
 
-// ---------- COMPONENTES ----------
-
+// ── Header ────────────────────────────────────────────────────────────────────
 @Composable
 private fun RecommendationsHeader(
     lastUpdated: String?,
@@ -152,43 +139,60 @@ private fun RecommendationsHeader(
     isLoading: Boolean
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(White)
+            .padding(horizontal = 24.dp, vertical = 20.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Column {
             Text(
                 "Motor de Recomendaciones",
-                fontSize = 26.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = TextMain
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Indigo950,
+                letterSpacing = (-0.5).sp
             )
             if (lastUpdated != null) {
+                Spacer(Modifier.height(2.dp))
                 Text(
                     "Inteligencia de inventario • $lastUpdated",
-                    fontSize = 14.sp,
-                    color = TextMuted
+                    fontSize = 13.sp,
+                    color = Slate400
                 )
             }
         }
-        Button(
-            onClick = onGenerate,
-            enabled = !isLoading,
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Primary,
-                contentColor = Color.White
-            )
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Emerald50)
+                .clickable { onGenerate() },
+            contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(if (isLoading) "Analizando..." else "Actualizar Análisis", fontWeight = FontWeight.Bold)
+            if (isLoading) {
+                CircularProgressIndicator(
+                    color = Emerald600,
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = "Generar",
+                    tint = Emerald600,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
+    Divider(color = Slate200, thickness = 1.dp)
 }
 
+// ── KPI Row ───────────────────────────────────────────────────────────────────
 @Composable
-private fun RecommendationsKpiGrid(
+private fun RecommendationsKpiRow(
     total: Int,
     pending: Int,
     accepted: Int,
@@ -196,234 +200,227 @@ private fun RecommendationsKpiGrid(
     onFilterSelected: (String) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(White)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         KpiCard(
-            title = "Total Analizado",
+            label = "Total",
             value = total.toString(),
-            icon = Icons.Default.TrendingUp,
-            backgroundColor = Color(0xFFE0F2FE),
-            iconColor = Color(0xFF0284C7),
+            detail = "analizadas",
+            accentColor = Slate600,
+            bgColor = Slate100,
             onClick = { onFilterSelected("ALL") },
             modifier = Modifier.weight(1f)
         )
         KpiCard(
-            title = "Pendientes",
+            label = "Pendientes",
             value = pending.toString(),
-            icon = Icons.Default.Refresh,
-            backgroundColor = if (pending > 0) Color(0xFFFFF3E0) else Color(0xFFE3F2FD),
-            iconColor = if (pending > 0) Warning else Slate500,
+            detail = "por revisar",
+            accentColor = if (pending > 0) Amber600 else Slate600,
+            bgColor = if (pending > 0) Amber50 else Slate100,
             onClick = { onFilterSelected("PENDING") },
             modifier = Modifier.weight(1f)
         )
         KpiCard(
-            title = "Aplicadas",
+            label = "Aplicadas",
             value = accepted.toString(),
-            icon = Icons.Default.CheckCircle,
-            backgroundColor = Color(0xFFE8F5E9),
-            iconColor = Success,
+            detail = "ejecutadas",
+            accentColor = Emerald600,
+            bgColor = Emerald50,
             onClick = { onFilterSelected("ACCEPTED") },
             modifier = Modifier.weight(1f)
         )
         KpiCard(
-            title = "Descartadas",
+            label = "Descartadas",
             value = dismissed.toString(),
-            icon = Icons.Default.Cancel,
-            backgroundColor = Color(0xFFFCE4EC),
-            iconColor = Danger,
+            detail = "ignoradas",
+            accentColor = Rose600,
+            bgColor = Rose50,
             onClick = { onFilterSelected("DISMISSED") },
             modifier = Modifier.weight(1f)
         )
     }
+    Divider(color = Slate200, thickness = 1.dp)
 }
 
 @Composable
 private fun KpiCard(
-    title: String,
+    label: String,
     value: String,
-    icon: ImageVector,
-    backgroundColor: Color,
-    iconColor: Color,
+    detail: String,
+    accentColor: Color,
+    bgColor: Color,
     onClick: () -> Unit,
-    modifier: Modifier
+    modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor)
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(bgColor)
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 14.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column {
+            Text(
+                label.uppercase(),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                color = accentColor,
+                letterSpacing = 0.8.sp
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                value,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Slate900
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                detail,
+                fontSize = 11.sp,
+                color = accentColor,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+// ── Error Banner ──────────────────────────────────────────────────────────────
+@Composable
+private fun ErrorBanner(message: String, onRetry: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Rose50)
+            .border(1.dp, Rose600.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Default.Warning, null, tint = Rose600, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(message, color = Rose600, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(Rose600)
+                .clickable { onRetry() }
+                .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
-            Column {
-                // CORRECCIÓN: título en mayúsculas sin textTransform
-                Text(
-                    text = title.uppercase(),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextMuted
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    value,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = TextMain
-                )
-            }
+            Text("Reintentar", color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+// ── Segmented Tab Bar ─────────────────────────────────────────────────────────
+@Composable
+private fun SegmentedTabBar(
+    tabs: List<TabItem>,
+    activeKey: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Slate100)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        tabs.forEach { tab ->
+            val isActive = tab.key == activeKey
             Box(
                 modifier = Modifier
-                    .size(50.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(backgroundColor),
+                    .weight(1f)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(if (isActive) White else Color.Transparent)
+                    .clickable { onSelect(tab.key) }
+                    .padding(vertical = 10.dp, horizontal = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, null, tint = iconColor, modifier = Modifier.size(24.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        tab.icon,
+                        contentDescription = null,
+                        tint = if (isActive) Indigo600 else Slate400,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        tab.label,
+                        fontSize = 12.sp,
+                        fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (isActive) Indigo600 else Slate400,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
 }
 
+// ── Loader ────────────────────────────────────────────────────────────────────
 @Composable
-private fun FilterDropdown(currentFilter: String, onFilterSelected: (String) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    val options = mapOf(
-        "PENDING" to "Pendientes",
-        "ACCEPTED" to "Aplicadas / Resueltas",
-        "DISMISSED" to "Descartadas",
-        "ALL" to "Ver Todas"
-    )
-    Box {
-        Surface(
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
-                .clickable { expanded = true },
-            color = BgLight
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.FilterList, null, tint = TextMuted, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(options[currentFilter] ?: "Pendientes", color = TextMain)
-                Spacer(Modifier.width(4.dp))
-                Icon(Icons.Default.ArrowDropDown, null, tint = TextMuted)
-            }
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { (key, label) ->
-                DropdownMenuItem(
-                    text = { Text(label) },
-                    onClick = {
-                        onFilterSelected(key)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyState(filter: String) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            Icons.Default.CheckCircle,
-            null,
-            modifier = Modifier.size(48.dp),
-            tint = Success
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            when (filter) {
-                "PENDING" -> "No hay recomendaciones pendientes."
-                "ACCEPTED" -> "No hay recomendaciones aplicadas o resueltas."
-                "DISMISSED" -> "No hay recomendaciones descartadas."
-                else -> "No hay recomendaciones registradas."
-            },
-            color = TextMuted,
-            fontSize = 16.sp,
-            textAlign = TextAlign.Center
+private fun CenteredLoader() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(
+            color = Emerald600,
+            strokeWidth = 2.dp,
+            modifier = Modifier.size(32.dp)
         )
     }
 }
 
+// ── Contenido de Recomendaciones (tabla / tarjetas) ──────────────────────────
 @Composable
-private fun RecommendationsTable(
+private fun RecommendationsContent(
     recs: List<RecommendationResponse>,
     onAccept: (Long) -> Unit,
     onDismiss: (Long) -> Unit,
     getPriorityLabel: (String) -> String,
     getStatusDisplay: (String) -> String,
-    getTypeLabel: (String) -> String
+    getTypeLabel: (String) -> String,
+    wideMode: Boolean
 ) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        item {
-            // Encabezado de tabla
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp)
-                    .border(2.dp, BgLight, RoundedCornerShape(0.dp)),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                TableHeader("Tipo", Modifier.weight(1.5f))
-                TableHeader("Prioridad", Modifier.weight(1f))
-                TableHeader("Detalle", Modifier.weight(2.5f))
-                TableHeader("Sugerencia", Modifier.weight(2f))
-                TableHeader("Fecha", Modifier.weight(1.2f))
-                TableHeader("Estado", Modifier.weight(1f))
-                TableHeader("Acciones", Modifier.weight(1.5f), alignEnd = true)
-            }
-            Spacer(Modifier.height(8.dp))
-        }
+    if (recs.isEmpty()) {
+        EmptyState()
+        return
+    }
 
-        itemsIndexed(recs, key = { _, r -> r.id }) { _, rec ->
-            val normStatus = RecommendationsUiState.normalizeStatus(rec.status)
-            val displayStatus = getStatusDisplay(rec.status)
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+    if (wideMode) {
+        DataTable(
+            headers = listOf(
+                ColDef("Tipo", 1.5f),
+                ColDef("Prioridad", 1f),
+                ColDef("Detalle", 2.5f),
+                ColDef("Sugerencia", 2f),
+                ColDef("Fecha", 1.2f),
+                ColDef("Estado", 1f),
+                ColDef("Acciones", 1.5f, alignEnd = true)
+            )
+        ) {
+            itemsIndexed(recs) { i, rec ->
+                val normStatus = RecommendationsUiState.normalizeStatus(rec.status)
+                DataRow(even = i % 2 == 0) {
                     // Tipo
-                    Row(
-                        modifier = Modifier.weight(1.5f),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val iconBg = when (rec.type.uppercase()) {
-                            "PURCHASE_SUGGESTION" -> Color(0xFFECFDF5)
-                            "AVOID_RESTOCK" -> Color(0xFFFFF7ED)
-                            "PRIORITIZE_SALE" -> Color(0xFFEFF6FF)
-                            else -> Slate100
+                    Row(Modifier.weight(1.5f), verticalAlignment = Alignment.CenterVertically) {
+                        val typeColor = when (rec.type.uppercase()) {
+                            "PURCHASE_SUGGESTION" -> Emerald600
+                            "AVOID_RESTOCK" -> Amber600
+                            "PRIORITIZE_SALE" -> Indigo600
+                            else -> Slate600
                         }
-                        val iconTint = when (rec.type.uppercase()) {
-                            "PURCHASE_SUGGESTION" -> Success
-                            "AVOID_RESTOCK" -> Warning
-                            "PRIORITIZE_SALE" -> Primary
-                            else -> Slate500
-                        }
+                        val typeBg = typeColor.copy(alpha = 0.1f)
                         val typeIcon = when (rec.type.uppercase()) {
                             "PURCHASE_SUGGESTION" -> Icons.Default.ShoppingCart
                             "AVOID_RESTOCK" -> Icons.Default.Warning
@@ -432,60 +429,49 @@ private fun RecommendationsTable(
                         }
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(iconBg),
+                                .size(28.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(typeBg),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(typeIcon, null, tint = iconTint, modifier = Modifier.size(18.dp))
+                            Icon(typeIcon, null, tint = typeColor, modifier = Modifier.size(16.dp))
                         }
-                        Spacer(Modifier.width(8.dp))
-                        Text(getTypeLabel(rec.type), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Spacer(Modifier.width(6.dp))
+                        Text(getTypeLabel(rec.type), fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Slate900)
                     }
 
                     // Prioridad
                     val priorityColor = when (rec.priority.uppercase()) {
-                        "HIGH" -> Color(0xFFEF4444)
-                        "MEDIUM" -> Color(0xFFD97706)
-                        else -> Success
+                        "HIGH" -> Rose600
+                        "MEDIUM" -> Amber600
+                        else -> Emerald600
                     }
-                    val priorityBg = when (rec.priority.uppercase()) {
-                        "HIGH" -> Color(0xFFFEE2E2)
-                        "MEDIUM" -> Color(0xFFFEF3C7)
-                        else -> Color(0xFFDCFCE7)
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = priorityBg,
-                        modifier = Modifier.weight(1f)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(priorityColor.copy(alpha = 0.1f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            getPriorityLabel(rec.priority),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            color = priorityColor,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        )
+                        Text(getPriorityLabel(rec.priority), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = priorityColor)
                     }
 
                     // Detalle
-                    Column(modifier = Modifier.weight(2.5f)) {
-                        Text(rec.title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = TextMain)
-                        Text(rec.description, fontSize = 12.sp, color = TextMuted)
+                    Column(Modifier.weight(2.5f)) {
+                        Text(rec.title, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Slate900)
+                        Text(rec.description, fontSize = 12.sp, color = Slate400)
                     }
 
                     // Sugerencia
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Slate100,
-                        modifier = Modifier.weight(2f)
+                    Box(
+                        modifier = Modifier
+                            .weight(2f)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Slate100)
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
                     ) {
-                        Text(
-                            rec.suggestedAction ?: "",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                            fontSize = 13.sp,
-                            color = Slate700
-                        )
+                        Text(rec.suggestedAction ?: "", fontSize = 13.sp, color = Slate600)
                     }
 
                     // Fecha
@@ -496,58 +482,50 @@ private fun RecommendationsTable(
                         ),
                         modifier = Modifier.weight(1.2f),
                         fontSize = 13.sp,
-                        color = TextMuted
+                        color = Slate400
                     )
 
                     // Estado
                     val statusColor = when (normStatus) {
-                        "PENDING" -> Slate500
-                        "ACCEPTED" -> Color(0xFF15803D)
-                        "DISMISSED" -> Color(0xFFB91C1C)
-                        else -> Slate500
+                        "PENDING" -> Slate600
+                        "ACCEPTED" -> Emerald600
+                        "DISMISSED" -> Rose600
+                        else -> Slate600
                     }
-                    val statusBg = when (normStatus) {
-                        "PENDING" -> Slate100
-                        "ACCEPTED" -> Color(0xFFDCFCE7)
-                        "DISMISSED" -> Color(0xFFFEE2E2)
-                        else -> Slate100
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = statusBg,
-                        modifier = Modifier.weight(1f)
+                    val statusBg = statusColor.copy(alpha = 0.1f)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(statusBg)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            displayStatus,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            color = statusColor,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 11.sp
-                        )
+                        Text(getStatusDisplay(rec.status), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = statusColor)
                     }
 
                     // Acciones
-                    Box(modifier = Modifier.weight(1.5f), contentAlignment = Alignment.CenterEnd) {
+                    Box(Modifier.weight(1.5f), contentAlignment = Alignment.CenterEnd) {
                         if (normStatus == "PENDING") {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 IconButton(
                                     onClick = { onAccept(rec.id) },
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(32.dp)
                                 ) {
-                                    Icon(Icons.Default.CheckCircle, "Aceptar", tint = Success)
+                                    Icon(Icons.Default.CheckCircle, "Aceptar", tint = Emerald600)
                                 }
                                 IconButton(
                                     onClick = { onDismiss(rec.id) },
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(32.dp)
                                 ) {
-                                    Icon(Icons.Default.Cancel, "Descartar", tint = Danger)
+                                    Icon(Icons.Default.Cancel, "Descartar", tint = Rose600)
                                 }
                             }
                         } else {
                             Icon(
                                 if (normStatus == "ACCEPTED") Icons.Default.CheckCircle else Icons.Default.Cancel,
                                 null,
-                                tint = if (normStatus == "ACCEPTED") Success else Danger,
+                                tint = if (normStatus == "ACCEPTED") Emerald600 else Rose600,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -555,18 +533,191 @@ private fun RecommendationsTable(
                 }
             }
         }
+    } else {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            itemsIndexed(recs) { _, rec ->
+                val normStatus = RecommendationsUiState.normalizeStatus(rec.status)
+                val priorityColor = when (rec.priority.uppercase()) {
+                    "HIGH" -> Rose600
+                    "MEDIUM" -> Amber600
+                    else -> Emerald600
+                }
+                ItemCard(
+                    title = rec.title,
+                    subtitle = "${getTypeLabel(rec.type)} · ${rec.description}",
+                    badge = "${getPriorityLabel(rec.priority)} · ${getStatusDisplay(rec.status)}",
+                    value = rec.suggestedAction ?: "",
+                    valueColor = Slate900,
+                    accentLeft = priorityColor,
+                    actions = {
+                        if (normStatus == "PENDING") {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                IconButton(
+                                    onClick = { onAccept(rec.id) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Default.CheckCircle, "Aceptar", tint = Emerald600)
+                                }
+                                IconButton(
+                                    onClick = { onDismiss(rec.id) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Default.Cancel, "Descartar", tint = Rose600)
+                                }
+                            }
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+// ── Componentes de tabla reutilizables (igual que Pérdidas) ──────────────────
+private data class ColDef(val label: String, val weight: Float, val alignEnd: Boolean = false)
+
+@Composable
+private fun DataTable(
+    headers: List<ColDef>,
+    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxSize(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+    ) {
+        LazyColumn {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Slate50)
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    headers.forEach { col ->
+                        Text(
+                            col.label.uppercase(),
+                            modifier = Modifier.weight(col.weight),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate400,
+                            letterSpacing = 0.6.sp,
+                            textAlign = if (col.alignEnd) TextAlign.End else TextAlign.Start
+                        )
+                    }
+                }
+                Divider(color = Slate200)
+            }
+            content()
+        }
     }
 }
 
 @Composable
-private fun TableHeader(text: String, modifier: Modifier, alignEnd: Boolean = false) {
-    // CORRECCIÓN: texto en mayúsculas sin textTransform
-    Text(
-        text = text.uppercase(),
-        modifier = modifier,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Bold,
-        color = TextMuted,
-        textAlign = if (alignEnd) TextAlign.End else TextAlign.Start
+private fun DataRow(even: Boolean, content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(if (even) White else Slate50.copy(alpha = 0.5f))
+            .padding(horizontal = 20.dp, vertical = 13.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content
     )
+    Divider(color = Slate100)
+}
+
+// ── Item Card (modo vertical) ─────────────────────────────────────────────────
+@Composable
+private fun ItemCard(
+    title: String,
+    subtitle: String,
+    badge: String,
+    value: String,
+    valueColor: Color,
+    accentLeft: Color,
+    actions: @Composable (() -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(White)
+            .border(1.dp, Slate200, RoundedCornerShape(12.dp))
+    ) {
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .fillMaxHeight()
+                .background(accentLeft)
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    title,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    color = Slate900,
+                    modifier = Modifier.weight(1f)
+                )
+                if (actions != null) {
+                    actions()
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(subtitle, fontSize = 12.sp, color = Slate400)
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(accentLeft.copy(alpha = 0.1f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(badge, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = accentLeft)
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(value, fontSize = 13.sp, color = valueColor, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+// ── Empty State ────────────────────────────────────────────────────────────────
+@Composable
+private fun EmptyState() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Emerald50),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.CheckCircle, null, tint = Emerald600, modifier = Modifier.size(32.dp))
+            }
+            Text(
+                "No hay recomendaciones en esta vista.",
+                color = Slate400,
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
 }
