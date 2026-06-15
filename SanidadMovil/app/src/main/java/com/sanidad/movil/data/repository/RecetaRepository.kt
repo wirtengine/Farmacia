@@ -5,8 +5,18 @@ import com.sanidad.movil.data.remote.api.ApiService
 import com.sanidad.movil.data.remote.dto.*
 import com.sanidad.movil.data.remote.safeApiCall
 import com.sanidad.movil.data.remote.ApiResult
+import okhttp3.MultipartBody
 
 class RecetaRepository(private val api: ApiService = NetworkModule.apiService) {
+
+    // Método faltante: subir receta con imagen
+    suspend fun subirReceta(
+        codigoMinsa: String,
+        farmaceuticoId: Long,
+        file: MultipartBody.Part
+    ): ApiResult<RecetaResponse> = safeApiCall {
+        api.subirReceta(codigoMinsa, farmaceuticoId, file)
+    }
 
     suspend fun validarReceta(recetaId: Long, aprobar: Boolean, farmaceuticoId: Long?): ApiResult<RecetaResponse> = safeApiCall {
         api.validarReceta(recetaId, aprobar, farmaceuticoId)

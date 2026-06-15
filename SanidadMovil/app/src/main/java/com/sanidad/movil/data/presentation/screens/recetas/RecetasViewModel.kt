@@ -1,141 +1,199 @@
-package com.sanidad.movil.data.presentation.screens.recetas
+package com.sanidad.movil.presentation.screens.recetas
 
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sanidad.movil.MyApplication
-import com.sanidad.movil.data.remote.NetworkModule
+import com.sanidad.movil.data.remote.ApiResult
 import com.sanidad.movil.data.remote.dto.RecetaResponse
+import com.sanidad.movil.data.repository.RecetaRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 import java.io.FileOutputStream
-import okhttp3.RequestBody.Companion.asRequestBody
 
-class RecetasViewModel : ViewModel() {
-    private val api = NetworkModule.apiService
+data class RecetasUiState(
+    val recetas: List<RecetaResponse> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val mostrarTodas: Boolean = false,
+    val selectedImageUri: Uri? = null,
+    val codigoMinsa: String = "",
+    val uploadError: String? = null,
+    val showValidarDialog: Boolean = false,
+    val recetaIdToAction: Long? = null,
+    val aprobarAction: Boolean = true
+)
 
-    // ====================== DATOS ======================
-    private val _recetas = MutableStateFlow<List<RecetaResponse>>(emptyList())
-    val recetas: StateFlow<List<RecetaResponse>> = _recetas
+class RecetasViewModel(
+    private val recetaRepo: RecetaRepository
+) : ViewModel() {
 
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
+    private val _uiState = MutableStateFlow(RecetasUiState())
+    val uiState: StateFlow<RecetasUiState> = _uiState
 
-    // ====================== TOGGLE ======================
-    private val _mostrarTodas = MutableStateFlow(false)
-    val mostrarTodas: StateFlow<Boolean> = _mostrarTodas
-
-    // ====================== FORMULARIO SUBIDA ======================
-    private val _selectedImageUri = MutableStateFlow<Uri?>(null)
-    val selectedImageUri: StateFlow<Uri?> = _selectedImageUri
-
-    private val _codigoMinsa = MutableStateFlow("")
-    val codigoMinsa: StateFlow<String> = _codigoMinsa
-
-    // ====================== CARGA DE DATOS ======================
     fun cargarRecetas(esAdmin: Boolean, farmaceuticoId: Long) {
         viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = if (esAdmin) {
-                    if (_mostrarTodas.value) api.obtenerTodasLasRecetas()
-                    else api.obtenerRecetasPendientes()
-                } else {
-                    if (_mostrarTodas.value) api.obtenerTodasLasRecetas()
-                    else api.obtenerRecetasPorFarmaceutico(farmaceuticoId)
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val result = if (esAdmin) {
+                if (_uiState.value.mostrarTodas) recetaRepo.getTodasLasRecetas()
+                else recetaRepo.getRecetasPendientes()
+            } else {
+                if (_uiState.value.mostrarTodas) recetaRepo.getTodasLasRecetas()
+                else recetaRepo.getRecetasPorFarmaceutico(farmaceuticoId)
+            }
+            when (result) {
+                is ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        recetas = result.data,
+                        isLoading = false
+                    )
                 }
-                if (response.isSuccessful) {
-                    _recetas.value = response.body() ?: emptyList()
+                is ApiResult.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message,
+                        recetas = emptyList()
+                    )
                 }
-            } catch (_: Exception) {
-            } finally {
-                _isLoading.value = false
+                else -> {}
             }
         }
     }
 
     fun toggleMostrarTodas() {
-        _mostrarTodas.value = !_mostrarTodas.value
+        _uiState.value = _uiState.value.copy(mostrarTodas = !_uiState.value.mostrarTodas)
     }
 
     fun setImageUri(uri: Uri?) {
-        _selectedImageUri.value = uri
+        _uiState.value = _uiState.value.copy(selectedImageUri = uri, uploadError = null)
     }
 
     fun setCodigoMinsa(codigo: String) {
-        _codigoMinsa.value = codigo
+        _uiState.value = _uiState.value.copy(codigoMinsa = codigo, uploadError = null)
     }
 
-    // ====================== SUBIR RECETA ======================
-    fun subirReceta(farmaceuticoId: Long, onSuccess: () -> Unit, onError: (String) -> Unit) {
-        val uri = _selectedImageUri.value
+    fun subirReceta(farmaceuticoId: Long) {
+        val uri = _uiState.value.selectedImageUri
         if (uri == null) {
-            onError("Selecciona una imagen")
+            _uiState.value = _uiState.value.copy(uploadError = "Selecciona una imagen")
             return
         }
-        if (_codigoMinsa.value.isBlank()) {
-            onError("El Código MINSA es obligatorio")
+        if (_uiState.value.codigoMinsa.isBlank()) {
+            _uiState.value = _uiState.value.copy(uploadError = "El Código MINSA es obligatorio")
             return
         }
 
         viewModelScope.launch {
-            _isLoading.value = true
+            _uiState.value = _uiState.value.copy(isLoading = true)
             try {
-                val context = MyApplication.instance
-                val inputStream = context.contentResolver.openInputStream(uri)
-                val file = File(context.cacheDir, "receta_upload.jpg")
-                inputStream?.use { input ->
-                    FileOutputStream(file).use { output ->
-                        input.copyTo(output)
+                val file = withContext(Dispatchers.IO) {
+                    val context = MyApplication.instance
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                    val tempFile = File(context.cacheDir, "receta_upload.jpg")
+                    inputStream?.use { input ->
+                        FileOutputStream(tempFile).use { output ->
+                            input.copyTo(output)
+                        }
                     }
+                    tempFile
                 }
 
                 val requestBody = file.asRequestBody("image/*".toMediaTypeOrNull())
                 val filePart = MultipartBody.Part.createFormData("file", file.name, requestBody)
-                val minsaBody = _codigoMinsa.value.toRequestBody("text/plain".toMediaTypeOrNull())
-                val farmIdBody = farmaceuticoId.toString().toRequestBody("text/plain".toMediaTypeOrNull())
 
-                val response = api.subirReceta(
-                    codigoMinsa = _codigoMinsa.value,
+                // Llamada al repositorio (ahora el método existe)
+                val result = recetaRepo.subirReceta(
+                    codigoMinsa = _uiState.value.codigoMinsa,
                     farmaceuticoId = farmaceuticoId,
                     file = filePart
                 )
-                // Nota: la interfaz ApiService ya está definida para recibir @Query y @Body MultipartBody.Part.
-                // Si da error, ajustaremos la firma en ApiService para que coincida con el controlador Spring.
-                // Por ahora asumimos que api.subirReceta acepta los parámetros correctos.
-                if (response.isSuccessful) {
-                    _selectedImageUri.value = null
-                    _codigoMinsa.value = ""
-                    onSuccess()
-                } else {
-                    onError("Error ${response.code()}")
+
+                // Manejo correcto de ApiResult con tipo explícito
+                when (result) {
+                    is ApiResult.Success<*> -> {
+                        _uiState.value = _uiState.value.copy(
+                            selectedImageUri = null,
+                            codigoMinsa = "",
+                            isLoading = false,
+                            uploadError = null
+                        )
+                        // Opcional: recargar lista de recetas
+                        cargarRecetas(true, farmaceuticoId) // o según el contexto
+                    }
+                    is ApiResult.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            uploadError = result.message
+                        )
+                    }
+                    else -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            uploadError = "Error desconocido"
+                        )
+                    }
                 }
             } catch (e: Exception) {
-                onError(e.message ?: "Error de conexión")
-            } finally {
-                _isLoading.value = false
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    uploadError = e.message ?: "Error de conexión"
+                )
             }
         }
     }
 
-    // ====================== VALIDAR RECETA ======================
-    fun validarReceta(recetaId: Long, aprobar: Boolean, farmaceuticoId: Long?, onSuccess: () -> Unit) {
+    fun mostrarValidarDialog(recetaId: Long, aprobar: Boolean) {
+        _uiState.value = _uiState.value.copy(
+            showValidarDialog = true,
+            recetaIdToAction = recetaId,
+            aprobarAction = aprobar
+        )
+    }
+
+    fun ocultarValidarDialog() {
+        _uiState.value = _uiState.value.copy(showValidarDialog = false)
+    }
+
+    fun confirmarValidacion(farmaceuticoId: Long?) {
+        val id = _uiState.value.recetaIdToAction ?: return
         viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.validarReceta(recetaId, aprobar, farmaceuticoId)
-                if (response.isSuccessful) {
-                    onSuccess()
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            val result = recetaRepo.validarReceta(id, _uiState.value.aprobarAction, farmaceuticoId)
+            when (result) {
+                is ApiResult.Success<*> -> {
+                    _uiState.value = _uiState.value.copy(
+                        showValidarDialog = false,
+                        isLoading = false
+                    )
+                    // Recargar datos
+                    farmaceuticoId?.let { cargarRecetas(true, it) }
                 }
-            } catch (_: Exception) {
-            } finally {
-                _isLoading.value = false
+                is ApiResult.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message,
+                        showValidarDialog = false
+                    )
+                }
+                else -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Error inesperado",
+                        showValidarDialog = false
+                    )
+                }
             }
         }
+    }
+
+    fun limpiarError() {
+        _uiState.value = _uiState.value.copy(error = null, uploadError = null)
     }
 }

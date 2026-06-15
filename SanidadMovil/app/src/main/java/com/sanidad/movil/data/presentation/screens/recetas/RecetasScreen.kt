@@ -1,12 +1,16 @@
-package com.sanidad.movil.data.presentation.screens.recetas
+package com.sanidad.movil.presentation.screens.recetas
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
+import androidx.compose.animation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -26,169 +30,220 @@ import com.sanidad.movil.data.UserSession
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+// Paleta fiel al CSS
+private val Primary = Color(0xFF3B82F6)
+private val Success = Color(0xFF22C55E)
+private val Danger = Color(0xFFEF4444)
+private val Warning = Color(0xFFF59E0B)
+private val Slate900 = Color(0xFF0F172A)
+private val Slate800 = Color(0xFF1E293B)
+private val Slate700 = Color(0xFF334155)
+private val Slate500 = Color(0xFF64748B)
+private val Slate400 = Color(0xFF94A3B8)
+private val Slate300 = Color(0xFFCBD5E1)
+private val Slate200 = Color(0xFFE2E8F0)
+private val Slate100 = Color(0xFFF1F5F9)
+private val Slate50 = Color(0xFFF8FAFC)
+private val Slate600 = Color(0xFF475569)
+private val White = Color.White
+
 @Composable
 fun RecetasScreen(viewModel: RecetasViewModel = viewModel()) {
-    val recetas by viewModel.recetas.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val mostrarTodas by viewModel.mostrarTodas.collectAsState()
-    val selectedImageUri by viewModel.selectedImageUri.collectAsState()
-    val codigoMinsa by viewModel.codigoMinsa.collectAsState()
-
+    val state by viewModel.uiState.collectAsState()
     val esAdmin = UserSession.rol == "ADMIN"
     val esFarmaceutico = UserSession.rol == "FARMACEUTICO"
-    val farmaceuticoId = UserSession.userId
+    val farmaceuticoId = UserSession.userId ?: 0L
     val puedeValidar = esAdmin || esFarmaceutico
 
-    LaunchedEffect(mostrarTodas) {
+    LaunchedEffect(state.mostrarTodas) {
         viewModel.cargarRecetas(esAdmin, farmaceuticoId)
     }
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         viewModel.setImageUri(uri)
     }
 
-    // Diálogo de confirmación para validar
-    var showConfirmDialog by remember { mutableStateOf(false) }
-    var recetaIdToAction by remember { mutableStateOf<Long?>(null) }
-    var aprobarAction by remember { mutableStateOf(true) }
+    if (state.showValidarDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.ocultarValidarDialog() },
+            title = { Text(if (state.aprobarAction) "Aprobar receta" else "Rechazar receta") },
+            text = { Text(if (state.aprobarAction) "¿Desea aprobar esta receta?" else "¿Desea rechazar esta receta?") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.confirmarValidacion(farmaceuticoId) }) {
+                    Text(if (state.aprobarAction) "Aprobar" else "Rechazar")
+                }
+            },
+            dismissButton = { TextButton(onClick = { viewModel.ocultarValidarDialog() }) { Text("Cancelar") } }
+        )
+    }
 
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("Recetas") }) }
-    ) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(16.dp)) {
-            // Sección de subida
+    Scaffold(containerColor = Slate50) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .fillMaxSize()
+        ) {
+            // Header
+            Text("📄 Gestión de Recetas", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
+            Text("Validación y control de recetas médicas", fontSize = 14.sp, color = Slate500)
+            Spacer(Modifier.height(24.dp))
+
+            // Tarjeta de subida
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = White),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Subir nueva receta", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
+                Column(modifier = Modifier.padding(22.dp)) {
+                    Text("📤 Subir nueva receta", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Slate800)
+                    Text("Formato permitido: JPG, PNG", fontSize = 12.sp, color = Slate500)
+                    Spacer(Modifier.height(16.dp))
 
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedButton(
-                            onClick = { launcher.launch("image/*") },
-                            modifier = Modifier.weight(1f)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                                .border(2.dp, Slate300, RoundedCornerShape(14.dp))
+                                .background(Slate50, RoundedCornerShape(14.dp))
+                                .clickable { launcher.launch("image/*") },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(selectedImageUri?.lastPathSegment ?: "Seleccionar imagen")
+                            Text(
+                                text = state.selectedImageUri?.let { uri -> uri.lastPathSegment ?: "Imagen seleccionada" } ?: "Seleccionar imagen",
+                                color = if (state.selectedImageUri != null) Slate700 else Slate400,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
-                        if (selectedImageUri != null) {
-                            IconButton(onClick = { viewModel.setImageUri(null) }) {
-                                Icon(Icons.Default.Close, "Quitar imagen")
+
+                        OutlinedTextField(
+                            value = state.codigoMinsa,
+                            onValueChange = { viewModel.setCodigoMinsa(it) },
+                            placeholder = { Text("Código MINSA") },
+                            modifier = Modifier.weight(0.8f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = Slate200,
+                                focusedBorderColor = Primary
+                            )
+                        )
+
+                        Button(
+                            onClick = { viewModel.subirReceta(farmaceuticoId) },
+                            enabled = state.selectedImageUri != null && state.codigoMinsa.isNotBlank() && !state.isLoading,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Primary,
+                                disabledContainerColor = Slate300
+                            ),
+                            modifier = Modifier.height(50.dp)
+                        ) {
+                            if (state.isLoading) {
+                                CircularProgressIndicator(color = White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text("Subir Receta", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
 
-                    OutlinedTextField(
-                        value = codigoMinsa,
-                        onValueChange = { viewModel.setCodigoMinsa(it) },
-                        label = { Text("Código MINSA") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Button(
-                        onClick = {
-                            viewModel.subirReceta(
-                                farmaceuticoId = farmaceuticoId,
-                                onSuccess = {
-                                    viewModel.cargarRecetas(esAdmin, farmaceuticoId)
-                                },
-                                onError = { /* mostrar error */ }
-                            )
-                        },
-                        enabled = selectedImageUri != null && codigoMinsa.isNotBlank(),
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("Subir Receta") }
+                    AnimatedVisibility(visible = state.uploadError != null) {
+                        state.uploadError?.let { error ->
+                            Spacer(Modifier.height(8.dp))
+                            Text(error, color = Danger, fontSize = 13.sp)
+                        }
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(22.dp))
 
-            // Toggle y listado
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Tarjeta de listado
+            Card(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = White),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
             ) {
-                Text(
-                    if (mostrarTodas) "Historial completo" else if (esAdmin) "Recetas pendientes" else "Mis recetas",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                TextButton(onClick = { viewModel.toggleMostrarTodas() }) {
-                    Text(if (mostrarTodas) "Ver pendientes/propias" else "Ver todas")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (isLoading) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else if (recetas.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No se encontraron recetas.")
-                }
-            } else {
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(recetas) { receta ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            shape = RoundedCornerShape(12.dp)
+                Column(modifier = Modifier.padding(22.dp).fillMaxSize()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (state.mostrarTodas) "📋 Historial completo" else if (esAdmin) "🧾 Recetas pendientes" else "📚 Mis recetas",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp,
+                            color = Slate800
+                        )
+                        TextButton(
+                            onClick = { viewModel.toggleMostrarTodas() },
+                            shape = RoundedCornerShape(40.dp),
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = if (state.mostrarTodas) Primary else Slate500
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (state.mostrarTodas) Primary else Slate200)
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                // Imagen (si existe)
-                                if (receta.imagenUrl != null) {
-                                    AsyncImage(
-                                        model = receta.imagenUrl,
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(150.dp)
-                                            .clip(RoundedCornerShape(8.dp)),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                if (state.mostrarTodas) "Ver pendientes / propias" else "Ver todas",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    when {
+                        state.isLoading && state.recetas.isEmpty() -> {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(color = Primary)
+                                    Spacer(Modifier.height(12.dp))
+                                    Text("Cargando recetas...", color = Slate500, fontSize = 14.sp)
                                 }
-
-                                Text("Código MINSA: ${receta.codigoMinsa ?: "N/A"}", fontWeight = FontWeight.Bold)
-                                Text("Farmacéutico: ${receta.farmaceuticoUsername ?: ""}")
-                                Text("Fecha: ${receta.fechaSubida?.let { formatearFecha(it) } ?: ""}")
-                                Text("Estado: ${receta.estado}", color = when (receta.estado) {
-                                    "PENDIENTE" -> Color(0xFFFFA000)
-                                    "APROBADA" -> Color(0xFF4CAF50)
-                                    "RECHAZADA" -> Color(0xFFF44336)
-                                    else -> Color.Gray
-                                })
-
-                                if (receta.ventaId != null) {
-                                    Text("Venta #${receta.ventaId}", color = Color.Blue)
-                                }
-
-                                if (puedeValidar && receta.estado == "PENDIENTE") {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.End
-                                    ) {
-                                        TextButton(onClick = {
-                                            recetaIdToAction = receta.id
-                                            aprobarAction = true
-                                            showConfirmDialog = true
-                                        }) { Text("Aprobar", color = Color(0xFF4CAF50)) }
-                                        TextButton(onClick = {
-                                            recetaIdToAction = receta.id
-                                            aprobarAction = false
-                                            showConfirmDialog = true
-                                        }) { Text("Rechazar", color = Color(0xFFF44336)) }
+                            }
+                        }
+                        state.error != null && state.recetas.isEmpty() -> {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Default.Warning, null, tint = Danger, modifier = Modifier.size(48.dp))
+                                    Spacer(Modifier.height(12.dp))
+                                    Text(state.error!!, color = Danger, fontSize = 14.sp)
+                                    Spacer(Modifier.height(8.dp))
+                                    TextButton(onClick = { viewModel.cargarRecetas(esAdmin, farmaceuticoId) }) {
+                                        Text("Reintentar")
                                     }
+                                }
+                            }
+                        }
+                        state.recetas.isEmpty() -> {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("No se encontraron recetas.", color = Slate400, fontSize = 14.sp)
+                            }
+                        }
+                        else -> {
+                            LazyVerticalGrid(
+                                columns = GridCells.Adaptive(minSize = 250.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(state.recetas, key = { it.id }) { receta ->
+                                    RecetaCard(
+                                        receta = receta,
+                                        puedeValidar = puedeValidar,
+                                        onAprobar = { viewModel.mostrarValidarDialog(receta.id, true) },
+                                        onRechazar = { viewModel.mostrarValidarDialog(receta.id, false) }
+                                    )
                                 }
                             }
                         }
@@ -197,29 +252,114 @@ fun RecetasScreen(viewModel: RecetasViewModel = viewModel()) {
             }
         }
     }
+}
 
-    // Diálogo de confirmación
-    if (showConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showConfirmDialog = false },
-            title = { Text(if (aprobarAction) "Aprobar receta" else "Rechazar receta") },
-            text = { Text(if (aprobarAction) "¿Desea aprobar esta receta?" else "¿Desea rechazar esta receta?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    recetaIdToAction?.let {
-                        viewModel.validarReceta(
-                            recetaId = it,
-                            aprobar = aprobarAction,
-                            farmaceuticoId = farmaceuticoId
-                        ) {
-                            viewModel.cargarRecetas(esAdmin, farmaceuticoId)
-                            showConfirmDialog = false
-                        }
+@Composable
+private fun RecetaCard(
+    receta: com.sanidad.movil.data.remote.dto.RecetaResponse,
+    puedeValidar: Boolean,
+    onAprobar: () -> Unit,
+    onRechazar: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Slate50),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+    ) {
+        Column {
+            Box(modifier = Modifier.fillMaxWidth().height(170.dp)) {
+                if (receta.imagenUrl != null) {
+                    AsyncImage(
+                        model = "http://172.16.66.6:8080${receta.imagenUrl}",
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize().background(Slate200),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Image, null, tint = Slate400, modifier = Modifier.size(48.dp))
                     }
-                }) { Text(if (aprobarAction) "Aprobar" else "Rechazar") }
-            },
-            dismissButton = { TextButton(onClick = { showConfirmDialog = false }) { Text("Cancelar") } }
-        )
+                }
+                val badgeColor = when (receta.estado) {
+                    "PENDIENTE" -> Warning
+                    "APROBADA" -> Success
+                    "RECHAZADA" -> Danger
+                    else -> Slate500
+                }
+                Surface(
+                    modifier = Modifier.align(Alignment.TopEnd).padding(10.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = badgeColor
+                ) {
+                    Text(
+                        receta.estado,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                        color = White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    "Farmacéutico: ${receta.farmaceuticoUsername ?: ""}",
+                    fontSize = 13.sp,
+                    color = Slate700
+                )
+                Text(
+                    "Fecha: ${receta.fechaSubida?.let { formatearFecha(it) } ?: ""}",
+                    fontSize = 12.sp,
+                    color = Slate500
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Código MINSA:", fontSize = 12.sp, color = Slate600)
+                    Spacer(Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Slate100
+                    ) {
+                        Text(
+                            receta.codigoMinsa ?: "N/A",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate700
+                        )
+                    }
+                }
+                if (receta.ventaId != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Text("🔗 Venta #${receta.ventaId}", fontSize = 12.sp, color = Primary, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            if (puedeValidar && receta.estado == "PENDIENTE") {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onAprobar,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Success),
+                        shape = RoundedCornerShape(10.dp)
+                    ) { Text("✅ Aprobar", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                    Button(
+                        onClick = onRechazar,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Danger),
+                        shape = RoundedCornerShape(10.dp)
+                    ) { Text("❌ Rechazar", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
     }
 }
 
