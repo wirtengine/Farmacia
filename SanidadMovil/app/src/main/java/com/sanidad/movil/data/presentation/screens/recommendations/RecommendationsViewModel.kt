@@ -1,138 +1,147 @@
-package com.sanidad.movil.data.presentation.screens.recommendations
+package com.sanidad.movil.presentation.screens.recommendations
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sanidad.movil.data.remote.NetworkModule
+import com.sanidad.movil.data.remote.ApiResult
 import com.sanidad.movil.data.remote.dto.RecommendationResponse
+import com.sanidad.movil.data.repository.RecommendationRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
-class RecommendationsViewModel : ViewModel() {
-    private val api = NetworkModule.apiService
+data class RecommendationsUiState(
+    val recommendations: List<RecommendationResponse> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val lastUpdated: String? = null,
+    val statusFilter: String = "PENDING" // PENDING, ACCEPTED, DISMISSED, ALL
+) {
+    // KPIs derivados del estado normalizado
+    val total: Int get() = recommendations.size
+    val pending: Int get() = recommendations.count { normalizeStatus(it.status) == "PENDING" }
+    val accepted: Int get() = recommendations.count { normalizeStatus(it.status) == "ACCEPTED" }
+    val dismissed: Int get() = recommendations.count { normalizeStatus(it.status) == "DISMISSED" }
 
-    // ====================== DATOS ======================
-    private val _recommendations = MutableStateFlow<List<RecommendationResponse>>(emptyList())
-    val recommendations: StateFlow<List<RecommendationResponse>> = _recommendations
+    // Lista filtrada según el estado seleccionado
+    val filteredRecs: List<RecommendationResponse> get() = when (statusFilter) {
+        "ALL" -> recommendations
+        else -> {
+            val filterNorm = statusFilter.uppercase().trim()
+            recommendations.filter { normalizeStatus(it.status) == filterNorm }
+        }
+    }
 
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
-
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error
-
-    private val _lastUpdated = MutableStateFlow("")
-    val lastUpdated: StateFlow<String> = _lastUpdated
-
-    // ====================== FILTRO ======================
-    private val _statusFilter = MutableStateFlow("PENDING") // PENDING, ACCEPTED, DISMISSED, ALL
-    val statusFilter: StateFlow<String> = _statusFilter
-
-    // ====================== KPIs ======================
-    val total: Int get() = _recommendations.value.size
-    val pending: Int get() = _recommendations.value.count { it.status == "PENDING" }
-    val accepted: Int get() = _recommendations.value.count { it.status == "ACCEPTED" || it.status == "RESOLVED" }
-    val dismissed: Int get() = _recommendations.value.count { it.status == "DISMISSED" }
-
-    // ====================== RECOMENDACIONES FILTRADAS ======================
-    val filteredRecs: List<RecommendationResponse>
-        get() {
-            return when (_statusFilter.value) {
-                "ALL" -> _recommendations.value
-                else -> _recommendations.value.filter { it.status == _statusFilter.value }
+    companion object {
+        /** Normaliza estado: ACCEPTED/RESOLVED -> ACCEPTED, DISCARDED -> DISMISSED */
+        fun normalizeStatus(status: String?): String {
+            if (status == null) return "UNKNOWN"
+            val s = status.uppercase().trim()
+            return when {
+                s == "ACKNOWLEDGED" || s == "RESOLVED" -> "ACCEPTED"
+                s == "DISCARDED" -> "DISMISSED"
+                else -> s
             }
         }
+    }
+}
 
-    // ====================== CARGA DE DATOS ======================
+class RecommendationsViewModel(
+    private val repository: RecommendationRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(RecommendationsUiState(isLoading = true))
+    val uiState: StateFlow<RecommendationsUiState> = _uiState
+
+    init { cargarRecomendaciones() }
+
     fun cargarRecomendaciones() {
         viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            try {
-                val response = api.obtenerRecomendaciones()
-                if (response.isSuccessful) {
-                    _recommendations.value = response.body() ?: emptyList()
-                    _lastUpdated.value = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
-                } else {
-                    _error.value = "Error al cargar recomendaciones"
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            when (val result = repository.getRecomendaciones()) {
+                is ApiResult.Success -> {
+                    val now = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+                    _uiState.value = _uiState.value.copy(
+                        recommendations = result.data,
+                        isLoading = false,
+                        error = null,
+                        lastUpdated = now
+                    )
                 }
-            } catch (e: Exception) {
-                _error.value = "Error de conexión con el motor de recomendaciones."
-            } finally {
-                _isLoading.value = false
+                is ApiResult.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message,
+                        recommendations = emptyList()
+                    )
+                }
+                is ApiResult.Loading -> {}
             }
         }
     }
 
     fun setStatusFilter(filter: String) {
-        _statusFilter.value = filter
+        _uiState.value = _uiState.value.copy(statusFilter = filter)
     }
 
-    // ====================== ACEPTAR RECOMENDACIÓN ======================
     fun aceptarRecomendacion(id: Long) {
         viewModelScope.launch {
-            try {
-                api.aceptarRecomendacion(id)
-                cargarRecomendaciones()
-            } catch (_: Exception) {
-                _error.value = "No se pudo aceptar la recomendación."
+            when (val result = repository.aceptarRecomendacion(id)) {
+                is ApiResult.Success -> cargarRecomendaciones()
+                is ApiResult.Error -> _uiState.value = _uiState.value.copy(error = "No se pudo aceptar la recomendación.")
+                else -> {}
             }
         }
     }
 
-    // ====================== DESCARTAR RECOMENDACIÓN ======================
     fun descartarRecomendacion(id: Long) {
         viewModelScope.launch {
-            try {
-                api.descartarRecomendacion(id)
-                cargarRecomendaciones()
-            } catch (_: Exception) {
-                _error.value = "No se pudo descartar la recomendación."
+            when (val result = repository.descartarRecomendacion(id)) {
+                is ApiResult.Success -> cargarRecomendaciones()
+                is ApiResult.Error -> _uiState.value = _uiState.value.copy(error = "No se pudo descartar la recomendación.")
+                else -> {}
             }
         }
     }
 
-    // ====================== GENERAR RECOMENDACIONES ======================
     fun generarRecomendaciones() {
         viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                api.generarRecomendaciones()
-                cargarRecomendaciones()
-            } catch (_: Exception) {
-                _error.value = "Error al generar nuevas recomendaciones."
-            } finally {
-                _isLoading.value = false
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            when (val result = repository.generarRecomendaciones()) {
+                is ApiResult.Success -> cargarRecomendaciones()
+                is ApiResult.Error -> _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = result.message
+                )
+                else -> {}
             }
         }
     }
 
-    // ====================== HELPERS ======================
-    fun getPriorityLabel(priority: String): String {
-        return when (priority.uppercase()) {
-            "HIGH" -> "Alta"
-            "MEDIUM" -> "Media"
-            "LOW" -> "Baja"
-            else -> priority
-        }
+    fun limpiarError() {
+        _uiState.value = _uiState.value.copy(error = null)
     }
 
-    fun getStatusDisplay(status: String): String {
-        return when (status.uppercase()) {
-            "PENDING" -> "Pendiente"
-            "ACCEPTED" -> "Aceptada"
-            "RESOLVED" -> "Resuelta"
-            "DISMISSED" -> "Descartada"
-            else -> status
-        }
+    // Helpers de presentación
+    fun getPriorityLabel(priority: String): String = when (priority.uppercase()) {
+        "HIGH" -> "Alta"
+        "MEDIUM" -> "Media"
+        "LOW" -> "Baja"
+        else -> priority
     }
 
-    fun getTypeLabel(type: String): String {
-        return when (type.uppercase()) {
-            "PURCHASE_SUGGESTION" -> "Compra"
-            "AVOID_RESTOCK" -> "Stock"
-            "PRIORITIZE_SALE" -> "Venta"
-            else -> type
-        }
+    fun getStatusDisplay(status: String): String = when (status.uppercase().trim()) {
+        "PENDING" -> "Pendiente"
+        "ACCEPTED", "RESOLVED" -> "Aceptada"
+        "DISMISSED", "DISCARDED" -> "Descartada"
+        else -> status
+    }
+
+    fun getTypeLabel(type: String): String = when (type.uppercase()) {
+        "PURCHASE_SUGGESTION" -> "Compra"
+        "AVOID_RESTOCK" -> "Stock"
+        "PRIORITIZE_SALE" -> "Venta"
+        else -> type
     }
 }
