@@ -48,7 +48,7 @@ fun DevolucionesProveedorScreen(viewModel: DevolucionesProveedorViewModel = view
     val isAdmin = UserSession.isAdmin()
     val usuarioId = UserSession.userId ?: 0L
 
-    // Diálogo de aprobar (rechazo comentado porque no existe en backend)
+    // Diálogo de aprobar
     if (uiState.showAprobarDialog) {
         AlertDialog(
             onDismissRequest = { viewModel.ocultarAprobarDialog() },
@@ -172,11 +172,11 @@ fun DevolucionesProveedorScreen(viewModel: DevolucionesProveedorViewModel = view
                     }
 
                     // Paginación
-                    if (viewModel.totalPages > 1) {
+                    if (uiState.totalPages > 1) {
                         Divider(color = Slate200)
                         PaginationBar(
                             currentPage = uiState.currentPage,
-                            totalPages = viewModel.totalPages,
+                            totalPages = uiState.totalPages,
                             onPage = { viewModel.setPage(it) }
                         )
                     }
@@ -252,7 +252,8 @@ private fun DevolucionProveedorRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(devolucion.numeroDevolucion, Modifier.weight(1.5f), fontWeight = FontWeight.Bold, color = Slate900, fontSize = 14.sp)
+            // CORRECCIÓN: numeroDevolucion ahora es String?, usamos ?: "Pendiente"
+            Text(devolucion.numeroDevolucion ?: "Pendiente", Modifier.weight(1.5f), fontWeight = FontWeight.Bold, color = Slate900, fontSize = 14.sp)
             Text(devolucion.numeroFacturaLote ?: "N/A", Modifier.weight(1.5f), color = Slate700, fontSize = 14.sp)
             Surface(shape = RoundedCornerShape(6.dp), color = Primary.copy(alpha = 0.1f)) {
                 Text(devolucion.proveedorNombre, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),

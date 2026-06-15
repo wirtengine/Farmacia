@@ -2,7 +2,7 @@ package com.sanidad.movil.data.remote.dto
 
 data class DevolucionProveedorResponse(
     val id: Long,
-    val numeroDevolucion: String,
+    val numeroDevolucion: String?,   // ← nullable
     val loteId: Long,
     val numeroFacturaLote: String?,
     val proveedorId: Long,

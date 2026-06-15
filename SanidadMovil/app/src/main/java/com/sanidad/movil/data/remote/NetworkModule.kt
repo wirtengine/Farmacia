@@ -4,6 +4,9 @@ import com.sanidad.movil.BuildConfig
 import com.sanidad.movil.data.local.TokenDataStore
 import com.sanidad.movil.data.repository.AuthRepository
 import com.sanidad.movil.data.remote.api.ApiService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import okhttp3.Authenticator
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -20,6 +23,8 @@ object NetworkModule {
     private lateinit var tokenDataStore: TokenDataStore
     private lateinit var authRepository: AuthRepository
 
+    private val scope = CoroutineScope(Dispatchers.IO)
+
     /** Debe llamarse en MyApplication.onCreate() */
     fun init(tokenDataStore: TokenDataStore, authRepository: AuthRepository) {
         this.tokenDataStore = tokenDataStore
@@ -33,15 +38,40 @@ object NetworkModule {
     fun getToken(): String? = token
 
     private val tokenAuthenticator = object : Authenticator {
+
         override fun authenticate(route: Route?, response: Response): Request? {
-            if (response.request.header("Authorization") != null) return null
-            // No hay endpoint de refresco, así que forzamos logout
-            authRepository.logout()
+
+            // Evita loops infinitos de autenticación
+            if (responseCount(response) >= 2) {
+                scope.launch {
+                    authRepository.logout()
+                }
+                return null
+            }
+
+            // Si quieres, aquí podrías intentar refresh token en el futuro
+            scope.launch {
+                authRepository.logout()
+            }
+
             return null
+        }
+
+        private fun responseCount(response: Response): Int {
+            var result = 1
+            var current = response.priorResponse
+
+            while (current != null) {
+                result++
+                current = current.priorResponse
+            }
+
+            return result
         }
     }
 
     private val okHttpClient: OkHttpClient by lazy {
+
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
@@ -50,7 +80,11 @@ object NetworkModule {
             .addInterceptor { chain ->
                 val original = chain.request()
                 val requestBuilder = original.newBuilder()
-                token?.let { requestBuilder.header("Authorization", "Bearer $it") }
+
+                token?.let {
+                    requestBuilder.header("Authorization", "Bearer $it")
+                }
+
                 chain.proceed(requestBuilder.build())
             }
             .authenticator(tokenAuthenticator)
