@@ -12,9 +12,9 @@ public interface UbicacionLoteRepository extends JpaRepository<UbicacionLote, Lo
 
     List<UbicacionLote> findByRackIdAndActivoTrue(Long rackId);
 
-    List<UbicacionLote> findByLoteDetalleIdAndActivoTrue(Long loteDetalleId);
+    List<UbicacionLote> findByRackIdAndActivoTrueAndRackActivoTrue(Long rackId);
 
-    List<UbicacionLote> findByLoteDetalleIdAndActivoTrueOrderById(Long loteDetalleId);
+    List<UbicacionLote> findByLoteDetalleIdAndActivoTrueAndRackActivoTrueOrderById(Long loteDetalleId);
 
     @Query("SELECT u FROM UbicacionLote u WHERE u.rack.id = :rackId AND u.nivel = :nivel AND u.columna = :columna AND u.profundidadIndex = :profundidadIndex AND u.activo = true")
     Optional<UbicacionLote> findByCoordenadas(

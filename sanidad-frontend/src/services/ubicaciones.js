@@ -32,3 +32,11 @@ export const asignarUbicacion = (data) => {
 export const eliminarUbicacion = (id) => {
     return axios.delete(`${API_URL}/${id}`, authHeaders());
 };
+
+// Obtener ubicaciones de un lote específico
+export const listarUbicacionesPorLoteDetalle = (loteDetalleId) => {
+    return axios.get(
+        `${API_URL}/lote-detalle/${loteDetalleId}`,
+        authHeaders()
+    );
+};

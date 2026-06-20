@@ -13,6 +13,7 @@ import {
     alertaExito,
     alertaError
 } from '../alertas';
+import { listarUbicacionesPorLoteDetalle } from "../services/ubicaciones";
 
 export default function Ventas() {
     const { user } = useAuth();
@@ -67,6 +68,11 @@ export default function Ventas() {
     const [loteRecomendado, setLoteRecomendado] = useState(null);
     const [complementarios, setComplementarios] = useState([]);
     const [contextoCliente, setContextoCliente] = useState(null);
+
+    const [modalUbicacionOpen, setModalUbicacionOpen] = useState(false);
+    const [ubicacionesVenta, setUbicacionesVenta] = useState([]);
+    const [productoUbicacion, setProductoUbicacion] = useState(null);
+    const [loadingUbicacionVenta, setLoadingUbicacionVenta] = useState(false);
 
     // --------------------------------------------------------------
     // Procesar lotes para obtener stock de venta (ubicación + general)
@@ -404,6 +410,23 @@ export default function Ventas() {
         doc.save(`Venta_${venta.numeroFactura}.pdf`);
     };
 
+    const verUbicacionProducto = async (detalle) => {
+        setProductoUbicacion(detalle);
+        setModalUbicacionOpen(true);
+        setLoadingUbicacionVenta(true);
+
+        try {
+            const res = await listarUbicacionesPorLoteDetalle(detalle.loteDetalleId);
+            setUbicacionesVenta(res.data || []);
+        } catch (error) {
+            console.error(error);
+            setUbicacionesVenta([]);
+            await alertaError("Error al cargar la ubicación del medicamento.");
+        } finally {
+            setLoadingUbicacionVenta(false);
+        }
+    };
+
     return (
         <div className="module-container">
             <header className="module-header">
@@ -705,7 +728,21 @@ export default function Ventas() {
                                                 }}
                                             />
                                             <span className="item-total-sm">{formatCurrency(d.subtotal)}</span>
-                                            <button className="btn-remove-sm" onClick={() => setDetallesVenta(detallesVenta.filter((_, idx) => idx !== i))}>×</button>
+
+                                            <button
+                                                type="button"
+                                                className="btn-location-sm"
+                                                onClick={() => verUbicacionProducto(d)}
+                                            >
+                                                📌
+                                            </button>
+
+                                            <button
+                                                className="btn-remove-sm"
+                                                onClick={() => setDetallesVenta(detallesVenta.filter((_, idx) => idx !== i))}
+                                            >
+                                                ×
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -730,6 +767,67 @@ export default function Ventas() {
                                 <button className="btn-cancel-final" onClick={() => setDrawerOpen(false)}>Cancelar</button>
                                 <button className="btn-confirm-final" onClick={finalizarVenta} disabled={detallesVenta.length === 0}>Confirmar y Pagar</button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {modalUbicacionOpen && (
+                <div className="glass-overlay" onClick={() => setModalUbicacionOpen(false)}>
+                    <div className="ubicacion-venta-modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>Ubicación del medicamento</h3>
+                            <button className="close-btn" onClick={() => setModalUbicacionOpen(false)}>
+                                ×
+                            </button>
+                        </div>
+
+                        <div className="modal-body">
+                            <strong>{productoUbicacion?.medicamentoNombre}</strong>
+
+                            {loadingUbicacionVenta ? (
+                                <p>Cargando ubicación...</p>
+                            ) : ubicacionesVenta.length === 0 ? (
+                                <div className="sin-ubicacion-card">
+                                    ⚠️ Este medicamento/lote no tiene ubicación asignada.
+                                </div>
+                            ) : (
+                                <div className="ubicaciones-list">
+                                    {ubicacionesVenta.map(u => (
+                                        <div key={u.id} className="ubicacion-card">
+                                            <div className="ubicacion-card-header">
+                                                <span className="ubicacion-icon">📍</span>
+                                                <div>
+                                                    <strong>{u.rackNombre}</strong>
+                                                    <small>Estante asignado</small>
+                                                </div>
+                                            </div>
+
+                                            <div className="ubicacion-grid">
+                                                <div>
+                                                    <span>Nivel</span>
+                                                    <strong>{u.nivel + 1}</strong>
+                                                </div>
+
+                                                <div>
+                                                    <span>Columna</span>
+                                                    <strong>{u.columna + 1}</strong>
+                                                </div>
+
+                                                <div>
+                                                    <span>Profundidad</span>
+                                                    <strong>{u.profundidadIndex + 1}</strong>
+                                                </div>
+
+                                                <div>
+                                                    <span>Cantidad</span>
+                                                    <strong>{u.cantidad}</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

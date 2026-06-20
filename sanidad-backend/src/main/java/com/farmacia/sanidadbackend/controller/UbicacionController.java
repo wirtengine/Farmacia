@@ -32,6 +32,12 @@ public class UbicacionController {
         return ResponseEntity.ok(ubicacionService.listarUbicacionesPorRack(rackId));
     }
 
+    @GetMapping("/lote-detalle/{loteDetalleId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
+    public ResponseEntity<List<UbicacionLoteResponse>> listarUbicacionesPorLoteDetalle(@PathVariable Long loteDetalleId) {
+        return ResponseEntity.ok(ubicacionService.listarUbicacionesPorLoteDetalle(loteDetalleId));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
     public ResponseEntity<UbicacionLoteResponse> obtenerUbicacion(@PathVariable Long id) {

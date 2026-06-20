@@ -50,7 +50,14 @@ public class UbicacionService {
     }
 
     public List<UbicacionLoteResponse> listarUbicacionesPorRack(Long rackId) {
-        return ubicacionRepository.findByRackIdAndActivoTrue(rackId)
+        return ubicacionRepository.findByRackIdAndActivoTrueAndRackActivoTrue(rackId)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    public List<UbicacionLoteResponse> listarUbicacionesPorLoteDetalle(Long loteDetalleId) {
+        return ubicacionRepository.findByLoteDetalleIdAndActivoTrueAndRackActivoTrueOrderById(loteDetalleId)
                 .stream()
                 .map(this::mapToResponse)
                 .toList();

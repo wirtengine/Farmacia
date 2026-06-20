@@ -1082,3 +1082,85 @@ body {
         margin-top: 8px;
     }
 }
+
+.ubicacion-venta-modal {
+    background: #fff;
+    width: 420px;
+    max-width: 90%;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.25);
+}
+
+.ubicacion-venta-modal .modal-header {
+    padding: 22px 24px;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.ubicacion-venta-modal .modal-body {
+    padding: 22px 24px;
+}
+
+.ubicaciones-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.ubicacion-card {
+    border: 1px solid #e5eaf3;
+    border-radius: 16px;
+    padding: 16px;
+    background: #f8fafc;
+}
+
+.ubicacion-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.ubicacion-card-header small {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.ubicacion-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #e0f2fe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ubicacion-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.ubicacion-grid div {
+    background: #fff;
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.ubicacion-grid span {
+    display: block;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.sin-ubicacion-card {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 14px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+}
