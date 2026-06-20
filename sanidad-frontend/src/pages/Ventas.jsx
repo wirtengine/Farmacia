@@ -14,6 +14,8 @@ import {
     alertaError
 } from '../alertas';
 import { listarUbicacionesPorLoteDetalle } from "../services/ubicaciones";
+import { listarRacks } from "../services/racks";
+import RackVisualization from "../components/RackVisualization";
 
 export default function Ventas() {
     const { user } = useAuth();
@@ -73,7 +75,7 @@ export default function Ventas() {
     const [ubicacionesVenta, setUbicacionesVenta] = useState([]);
     const [productoUbicacion, setProductoUbicacion] = useState(null);
     const [loadingUbicacionVenta, setLoadingUbicacionVenta] = useState(false);
-
+    const [racks, setRacks] = useState([]);
     // --------------------------------------------------------------
     // Procesar lotes para obtener stock de venta (ubicación + general)
     // --------------------------------------------------------------
@@ -106,15 +108,17 @@ export default function Ventas() {
         const cargarDatosIniciales = async () => {
             setLoading(true);
             try {
-                const [resV, resM, resL] = await Promise.all([
+                const [resV, resM, resL, resR] = await Promise.all([
                     listarVentas(),
                     listarMedicamentos(),
-                    listarLotes()
+                    listarLotes(),
+                    listarRacks()
                 ]);
                 const sorted = (resV.data || []).sort((a, b) => b.id - a.id);
                 setVentas(sorted);
                 setMedicamentos(resM.data || []);
                 setLotes(resL.data || []);
+                setRacks(resR.data || []);
             } catch (e) {
                 console.error("Error cargando datos iniciales", e);
             } finally {
@@ -792,40 +796,34 @@ export default function Ventas() {
                                     ⚠️ Este medicamento/lote no tiene ubicación asignada.
                                 </div>
                             ) : (
-                                <div className="ubicaciones-list">
-                                    {ubicacionesVenta.map(u => (
-                                        <div key={u.id} className="ubicacion-card">
-                                            <div className="ubicacion-card-header">
-                                                <span className="ubicacion-icon">📍</span>
-                                                <div>
-                                                    <strong>{u.rackNombre}</strong>
-                                                    <small>Estante asignado</small>
+                                <div className="ubicaciones-visual-list">
+                                    {[...new Set(ubicacionesVenta.map(u => u.rackId))].map(rackId => {
+                                        const rack = racks.find(r => r.id === rackId);
+                                        const ubicacionesDelRack = ubicacionesVenta.filter(u => u.rackId === rackId);
+
+                                        if (!rack) return null;
+
+                                        return (
+                                            <div key={rackId} className="rack-venta-card">
+                                                <div className="rack-venta-header">
+                                                    <strong>📍 {rack.nombre}</strong>
+                                                    <small>
+                                                        {ubicacionesDelRack.length} ubicación(es) encontrada(s)
+                                                    </small>
                                                 </div>
+
+                                                <RackVisualization
+                                                    rack={rack}
+                                                    ubicaciones={ubicacionesDelRack}
+                                                    onSeleccionarCelda={() => {}}
+                                                    seleccionActual={null}
+                                                    modoMovimiento={false}
+                                                    origenMovimiento={null}
+                                                    onIniciarMovimiento={() => {}}
+                                                />
                                             </div>
-
-                                            <div className="ubicacion-grid">
-                                                <div>
-                                                    <span>Nivel</span>
-                                                    <strong>{u.nivel + 1}</strong>
-                                                </div>
-
-                                                <div>
-                                                    <span>Columna</span>
-                                                    <strong>{u.columna + 1}</strong>
-                                                </div>
-
-                                                <div>
-                                                    <span>Profundidad</span>
-                                                    <strong>{u.profundidadIndex + 1}</strong>
-                                                </div>
-
-                                                <div>
-                                                    <span>Cantidad</span>
-                                                    <strong>{u.cantidad}</strong>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

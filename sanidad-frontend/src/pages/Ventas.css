@@ -1164,3 +1164,40 @@ body {
     border: 1px solid #fed7aa;
     color: #9a3412;
 }
+
+.ubicacion-venta-modal {
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.ubicacion-venta-modal .modal-body {
+    overflow-y: auto;
+    flex: 1;
+}
+
+.ubicaciones-visual-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin-top: 16px;
+}
+
+.rack-venta-card {
+    border: 1px solid #e5eaf3;
+    border-radius: 16px;
+    padding: 16px;
+    background: #f8fafc;
+}
+
+.rack-venta-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.rack-venta-header small {
+    color: #64748b;
+    font-size: 12px;
+}
