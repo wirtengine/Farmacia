@@ -1,6 +1,7 @@
 package com.sanidad.movil.presentation.screens.ventas
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.sanidad.movil.data.remote.ApiResult
 import com.sanidad.movil.data.remote.dto.VentaResponse
@@ -22,6 +23,7 @@ data class VentasUiState(
 class VentasViewModel(
     private val ventaRepository: VentaRepository
 ) : ViewModel() {
+
     private val _uiState = MutableStateFlow(VentasUiState(isLoading = true))
     val uiState: StateFlow<VentasUiState> = _uiState
 
@@ -39,7 +41,8 @@ class VentasViewModel(
                         ventas = sorted,
                         isLoading = false,
                         totalPages = calcularPaginas(sorted.size),
-                        currentPage = 1
+                        // Mantener página actual si sigue siendo válida, sino ir a la 1
+                        currentPage = minOf(_uiState.value.currentPage, calcularPaginas(sorted.size))
                     )
                 }
                 is ApiResult.Error -> {
@@ -49,9 +52,22 @@ class VentasViewModel(
                         ventas = emptyList()
                     )
                 }
-                else -> {}
+                else -> _uiState.value = _uiState.value.copy(isLoading = false)
             }
         }
+    }
+
+    /** Llamar después de crear una venta exitosa para refrescar la lista */
+    fun agregarVentaYRecargar(nuevaVenta: VentaResponse) {
+        // Optimistic insert: agrega al tope sin esperar red
+        val listaActual = listOf(nuevaVenta) + _uiState.value.ventas
+        _uiState.value = _uiState.value.copy(
+            ventas = listaActual,
+            totalPages = calcularPaginas(listaActual.size),
+            currentPage = 1
+        )
+        // Luego recarga desde servidor para asegurar consistencia
+        cargarVentas()
     }
 
     fun setSearch(query: String) {
@@ -86,13 +102,14 @@ class VentasViewModel(
 
     val paginatedVentas: List<VentaResponse>
         get() {
+            val filtradas = ventasFiltradas
             val start = (_uiState.value.currentPage - 1) * rowsPerPage
-            val end = minOf(start + rowsPerPage, ventasFiltradas.size)
-            return if (start >= end) emptyList() else ventasFiltradas.subList(start, end)
+            val end = minOf(start + rowsPerPage, filtradas.size)
+            return if (start >= end) emptyList() else filtradas.subList(start, end)
         }
 
     val empleados: List<String>
-        get() = _uiState.value.ventas.map { it.usuarioUsername }.distinct()
+        get() = _uiState.value.ventas.map { it.usuarioUsername }.distinct().sorted()
 
     fun limpiarError() {
         _uiState.value = _uiState.value.copy(error = null)
@@ -100,4 +117,13 @@ class VentasViewModel(
 
     private fun calcularPaginas(total: Int) =
         if (total == 0) 1 else (total + rowsPerPage - 1) / rowsPerPage
+
+    // ── Factory ──────────────────────────────────────────────────────────────
+    companion object {
+        fun factory(ventaRepository: VentaRepository) = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                VentasViewModel(ventaRepository) as T
+        }
+    }
 }

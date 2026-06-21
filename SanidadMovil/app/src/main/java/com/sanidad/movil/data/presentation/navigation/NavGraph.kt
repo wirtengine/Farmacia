@@ -47,6 +47,7 @@ import com.sanidad.movil.presentation.screens.ubicaciones.UbicacionesScreen
 import com.sanidad.movil.presentation.screens.usuarios.UsuariosScreen
 import com.sanidad.movil.presentation.screens.ventas.VentaCreateScreen
 import com.sanidad.movil.presentation.screens.ventas.VentasScreen
+import com.sanidad.movil.presentation.screens.ventas.VentasViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -86,6 +87,9 @@ fun NavGraph() {
     val tokenDataStore = remember { TokenDataStore(MyApplication.instance) }
     val authRepository = remember { AuthRepository(tokenDataStore = tokenDataStore) }
     var isLoggedIn by remember { mutableStateOf<Boolean?>(null) }
+
+    // Callback para la venta creada (se guarda temporalmente)
+    val onVentaCreadaCallback = remember { mutableStateOf<((com.sanidad.movil.data.remote.dto.VentaResponse) -> Unit)?>(null) }
 
     LaunchedEffect(Unit) {
         val token = tokenDataStore.tokenFlow.first()
@@ -284,7 +288,8 @@ fun NavGraph() {
                         buildNavGraph(
                             navController = navController,
                             authRepository = authRepository,
-                            coroutineScope = coroutineScope
+                            coroutineScope = coroutineScope,
+                            onVentaCreadaCallback = onVentaCreadaCallback
                         )
                     }
                 }
@@ -327,7 +332,8 @@ fun NavGraph() {
                         buildNavGraph(
                             navController = navController,
                             authRepository = authRepository,
-                            coroutineScope = coroutineScope
+                            coroutineScope = coroutineScope,
+                            onVentaCreadaCallback = onVentaCreadaCallback
                         )
                     }
                 }
@@ -341,7 +347,6 @@ fun NavGraph() {
             modifier = Modifier.fillMaxSize()
         ) {
             composable("login") {
-                // ✅ CORREGIDO: usar factoría para LoginViewModel
                 LoginScreen(
                     viewModel = viewModel(factory = AppViewModelFactory.login(authRepository)),
                     onLoginSuccess = {
@@ -360,9 +365,10 @@ fun NavGraph() {
 fun NavGraphBuilder.buildNavGraph(
     navController: NavHostController,
     authRepository: AuthRepository,
-    coroutineScope: CoroutineScope
+    coroutineScope: CoroutineScope,
+    onVentaCreadaCallback: MutableState<((com.sanidad.movil.data.remote.dto.VentaResponse) -> Unit)?>
 ) {
-    // ✅ CORREGIDO: Agregar ruta "login" para manejar el logout desde el menú
+    // Ruta login para manejar el logout desde el menú
     composable("login") {
         LoginScreen(
             viewModel = viewModel(factory = AppViewModelFactory.login(authRepository)),
@@ -400,8 +406,12 @@ fun NavGraphBuilder.buildNavGraph(
 
     composable("ventas") {
         VentasScreen(
-            viewModel = viewModel(factory = AppViewModelFactory.ventas()),
-            onNuevaVenta = { navController.navigate("venta_create") }
+            ventasViewModel = viewModel(factory = AppViewModelFactory.ventas()),
+            onNuevaVenta = { callback ->
+                // Guardamos el callback que refrescará la lista al crear una venta
+                onVentaCreadaCallback.value = callback
+                navController.navigate("venta_create")
+            }
         )
     }
 
@@ -409,8 +419,15 @@ fun NavGraphBuilder.buildNavGraph(
         VentaCreateScreen(
             viewModel = viewModel(factory = AppViewModelFactory.ventaCreate()),
             usuarioId = com.sanidad.movil.data.UserSession.userId,
-            onVentaExitosa = { navController.popBackStack() },
-            onCancelar = { navController.popBackStack() }
+            onVentaExitosa = { venta ->
+                onVentaCreadaCallback.value?.invoke(venta)
+                onVentaCreadaCallback.value = null
+                navController.popBackStack()
+            },
+            onCancelar = {
+                onVentaCreadaCallback.value = null
+                navController.popBackStack()
+            }
         )
     }
 

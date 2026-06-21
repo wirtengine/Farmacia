@@ -30,11 +30,15 @@ public class JwtUtils {
         UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
 
         String rol = userPrincipal.getAuthorities().iterator().next().getAuthority();
+        // Aseguramos el prefijo ROLE_ para que hasRole funcione
+        if (!rol.startsWith("ROLE_")) {
+            rol = "ROLE_" + rol;
+        }
 
         return Jwts.builder()
                 .setSubject(userPrincipal.getUsername())
                 .claim("id", userPrincipal.getId())
-                .claim("rol", rol)
+                .claim("rol", rol)   // ahora "ROLE_ADMIN"
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(key(), SignatureAlgorithm.HS256)

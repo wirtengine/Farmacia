@@ -40,6 +40,14 @@ private val Slate700 = Color(0xFF334155)
 private val Slate900 = Color(0xFF0F172A)
 private val White = Color.White
 
+/**
+ * Convierte una cadena de texto en Double, aceptando tanto punto como coma decimal.
+ */
+private fun String.parseDecimal(): Double {
+    val normalized = this.replace(",", ".")
+    return normalized.toDoubleOrNull() ?: 0.0
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VentaCreateScreen(
@@ -99,6 +107,35 @@ fun VentaCreateScreen(
         )
     }
 
+    // ── Banner de error ──
+    AnimatedVisibility(visible = state.error != null) {
+        state.error?.let { error ->
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFFFEE2E2),
+                border = BorderStroke(1.dp, Danger)
+            ) {
+                Row(
+                    Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Warning, null, tint = Danger)
+                    Spacer(Modifier.width(8.dp))
+                    Text(error, color = Color(0xFF991B1B), modifier = Modifier.weight(1f))
+                    IconButton(
+                        onClick = { viewModel.limpiarError() },
+                        modifier = Modifier.size(20.dp)
+                    ) {
+                        Icon(Icons.Default.Close, null, tint = Danger)
+                    }
+                }
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -148,32 +185,42 @@ fun VentaCreateScreen(
                         )
                     }
                     Spacer(Modifier.height(8.dp))
-                    // Efectivo / Saldo
+
+                    // Efectivo / Saldo (acepta coma o punto decimal)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (state.tipoVenta == "cliente") {
                             OutlinedTextField(
-                                value = state.montoUsadoSaldo.toInt().toString(),
-                                onValueChange = { viewModel.setMontoUsadoSaldo(it.toDoubleOrNull() ?: 0.0) },
+                                value = if (state.montoUsadoSaldo == 0.0) "" else state.montoUsadoSaldo.toString(),
+                                onValueChange = { input ->
+                                    viewModel.setMontoUsadoSaldo(input.parseDecimal())
+                                },
                                 label = { Text("Usar saldo") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(10.dp)
                             )
                         }
                         OutlinedTextField(
-                            value = state.montoEfectivo.toInt().toString(),
-                            onValueChange = { viewModel.setMontoEfectivo(it.toDoubleOrNull() ?: 0.0) },
+                            value = if (state.montoEfectivo == 0.0) "" else state.montoEfectivo.toString(),
+                            onValueChange = { input ->
+                                viewModel.setMontoEfectivo(input.parseDecimal())
+                            },
                             label = { Text("Efectivo") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp)
                         )
                     }
+
                     Spacer(Modifier.height(12.dp))
+
+                    // Botón de confirmación (solo se habilita con pago suficiente)
                     Button(
                         onClick = { viewModel.crearVenta(onSuccess = onVentaExitosa) },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = state.carrito.isNotEmpty() && !state.isLoading,
+                        enabled = state.carrito.isNotEmpty()
+                                && !state.isLoading
+                                && state.pagoSuficiente,
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Success)
                     ) {
