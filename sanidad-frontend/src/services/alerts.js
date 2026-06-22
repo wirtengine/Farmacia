@@ -1,6 +1,7 @@
 import axios from 'axios';
+import API_BASE_URL from '../config';
 
-const API_URL = 'http://localhost:8080/api/alerts';
+const API_URL = `${API_BASE_URL}/api/alerts`;
 
 const getToken = () => localStorage.getItem('token');
 
@@ -9,7 +10,7 @@ const authHeaders = () => ({
 });
 
 export const getAlerts = () => {
-    return axios.get(`${API_URL}`, authHeaders());
+    return axios.get(API_URL, authHeaders());
 };
 
 export const acknowledgeAlert = (id) => {

@@ -1,6 +1,7 @@
 import axios from 'axios';
+import API_BASE_URL from '../config';
 
-const API_URL = 'http://localhost:8080/api/recommendations';
+const API_URL = `${API_BASE_URL}/api/recommendations`;
 
 const getToken = () => localStorage.getItem('token');
 
@@ -9,7 +10,7 @@ const authHeaders = () => ({
 });
 
 export const getRecommendations = () => {
-    return axios.get(`${API_URL}`, authHeaders());
+    return axios.get(API_URL, authHeaders());
 };
 
 export const getPendingRecommendations = () => {
