@@ -50,8 +50,9 @@ public class WebSecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:3000",
-                "https://farmacia-zhuq-j5g74snhg-wirtbillirt.vercel.app" // ← URL de producción agregada
+                "http://localhost:3000",                                          // desarrollo local
+                "https://farmacia-zhuq-j5g74snhg-wirtbillirt.vercel.app",        // URL anterior
+                "https://farmacia-zhuq.vercel.app"                               // ← NUEVA URL de Vercel
         ));
         configuration.setAllowedMethods(Arrays.asList(
                 "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
@@ -80,7 +81,19 @@ public class WebSecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/imagenes/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/recetas/**").authenticated()
+
+                        // 🔓 Rutas públicas de solo lectura (sin token) – opcional
+                        .requestMatchers(HttpMethod.GET, "/api/medicamentos/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/dashboard/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/ventas/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/clientes/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/proveedores/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/lotes/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/alertas/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/recomendaciones/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/perdidas/**").permitAll()
+                        // Fin de rutas públicas
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(
